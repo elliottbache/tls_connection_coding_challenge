@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Sphinx
+docs/_build/
+docs/_autosummary/
+
+# PyCharm / IntelliJ
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Old files that haven't yet been formatted for publication
+src/old_files
