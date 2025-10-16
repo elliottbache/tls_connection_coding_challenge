@@ -50,10 +50,11 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
 
     """
 
-    # define string to send and encode
+    # ensure that the string ends with endline
     if not string_to_send.endswith("\n"):
         string_to_send += "\n"
-#    print("string to send = ",string_to_send)
+
+    # encode string
     bstring_to_send = string_to_send.encode('utf-8')
 
     # test received data to make sure it is UTF-8
@@ -105,8 +106,7 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
 
     """
 
-    # define data that is received
-#        string_to_receive = bstring_to_send
+    # receive data
     string_to_receive = secure_sock.recv(1024)
 
     # test received data to make sure it is UTF-8
@@ -126,15 +126,21 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
     return to_return
 
 
-if __name__ == '__main__':
+def prepare_socket(hostname: str, port: int, ca_cert_path: str,
+        server_cert_path: str, server_key_path: str) -> tuple[socket.socket, ssl.SSLContext]:
+    """Prepare a socket to be used for sending and receiving.
 
-    authdata = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq'
-    difficulty = 9
-    ca_cert_path = '../certificates/ca_cert.pem'  # File path for the CA certificate
-    server_cert_path = "../certificates/server-cert.pem"
-    server_key_path = "../certificates/server-key.pem"
-    hostname = 'localhost'
-    port = 3481
+    Args:
+        hostname (str): the hostname to connect to.
+        port (int): the port to connect to.
+        ca_cert_path (str): path to the CA certificate file.
+        server_cert_path (str): path to the server certificate file.
+        server_key_path (str): path to the server key file.
+
+    Returns:
+        socket.socket: the socket to be used for sending and receiving.
+        ssl.SSLContext: the ssl context to be used for sending and receiving.
+    """
 
     # Define the server address and port
     server_address = (hostname, port)
@@ -148,60 +154,69 @@ if __name__ == '__main__':
     # Wrap the socket with SSL
     context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
 
-
     # Load the CA certificate (for client certificate verification)
     context.load_verify_locations(cafile=ca_cert_path)
     context.verify_mode = ssl.CERT_REQUIRED
-
-    #context = ssl.create_default_context()
     context.load_cert_chain(certfile=server_cert_path, keyfile=server_key_path)
 
     print(f"Server listening on https://localhost:{port}")
+
+    return server_socket, context
+
+if __name__ == '__main__':
+
+    authdata = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq'
+    difficulty = 6
+    ca_cert_path = '../certificates/ca_cert.pem'
+    server_cert_path = "../certificates/server-cert.pem"
+    server_key_path = "../certificates/server-key.pem"
+    hostname = 'localhost'
+    port = 3481
+
+
 
     # Wait for a client to connect
     is_error = False
     while True:
         client_socket, client_address = server_socket.accept()
         with context.wrap_socket(client_socket, server_side=True) as secure_sock:
-            # write message to confirm connection
             print(f"Connection from {client_address}")
 
             # handshake
-            ###########
             if send_message("HELO", secure_sock):
-                send_message("ERROR weird stuff", secure_sock)
+                send_message("ERROR sending HELO", secure_sock)
                 print("closing connection\n")
                 secure_sock.close()
                 is_error = True
                 break
             if receive_message(secure_sock) == -1:
-                send_message("ERROR weird stuff", secure_sock)
+                send_message("ERROR receiving HELO", secure_sock)
                 print("closing connection\n")
                 secure_sock.close()
                 is_error = True
                 break
 
             if send_message("POW " + str(authdata) + " " + str(difficulty), secure_sock):
-                send_message("ERROR weird stuff", secure_sock)
+                send_message("ERROR sending POW", secure_sock)
                 print("closing connection\n")
                 secure_sock.close()
                 is_error = True
                 break
             if receive_message(secure_sock) == -1:
-                send_message("ERROR weird stuff", secure_sock)
+                send_message("ERROR receiving POW", secure_sock)
                 print("closing connection\n")
                 secure_sock.close()
                 is_error = True
                 break
 
             if send_message("MAILNUM LGTk\n", secure_sock):
-                send_message("ERROR weird stuff", secure_sock)
+                send_message("ERROR sending MAILNUM", secure_sock)
                 print("closing connection\n")
                 secure_sock.close()
                 is_error = True
                 break
             if receive_message(secure_sock) == -1:
-                send_message("ERROR weird stuff", secure_sock)
+                send_message("ERROR receiving MAILNUM", secure_sock)
                 print("closing connection\n")
                 secure_sock.close()
                 is_error = True
@@ -213,21 +228,21 @@ if __name__ == '__main__':
 
                 # This randomly sends requests to the client.  MAILNUM may not
                 # precede MAIL1 for example
-                choice = random.choice(["NAME", "MAILNUM", "MAIL1", "MAIL2", "SKYPE", "BIRTHDATE", "COUNTRY", "ADDRNUM", "ADDRLINE1", "ADDRLINE2", "ERROR weird stuff"])
+                choice = random.choice(["NAME", "MAILNUM", "MAIL1", "MAIL2", "SKYPE", "BIRTHDATE", "COUNTRY", "ADDRNUM", "ADDRLINE1", "ADDRLINE2", "ERROR internal server error"])
                 if send_message(f"{choice} LGTk", secure_sock):
-                    send_message("ERROR weird stuff", secure_sock)
+                    send_message("ERROR sending random choice", secure_sock)
                     print("closing connection\n")
                     secure_sock.close()
                     is_error = True
                     break
-                if choice == "ERROR weird stuff":
-                    send_message("ERROR weird stuff", secure_sock)
+                if choice == "ERROR internal server error":
+                    send_message("ERROR internal server error", secure_sock)
                     print("closing connection\n")
                     secure_sock.close()
                     is_error = True
                     break
                 if receive_message(secure_sock) == -1:
-                    send_message("ERROR weird stuff", secure_sock)
+                    send_message("receiving random choice", secure_sock)
                     print("closing connection\n")
                     secure_sock.close()
                     is_error = True
@@ -238,7 +253,7 @@ if __name__ == '__main__':
 
             # end message
             if send_message("END", secure_sock):
-                send_message("ERROR weird stuff", secure_sock)
+                send_message("ERROR sending END", secure_sock)
                 print("closing connection\n")
                 secure_sock.close()
                 is_error = True
@@ -246,6 +261,6 @@ if __name__ == '__main__':
             if receive_message(secure_sock) == -1:
                 print("closing connection\n")
                 secure_sock.close()
-                send_message("ERROR weird stuff", secure_sock)
+                send_message("ERROR receiving END", secure_sock)
                 is_error = True
                 break
