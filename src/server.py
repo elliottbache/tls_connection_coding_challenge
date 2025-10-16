@@ -15,6 +15,7 @@ import socket
 import random
 from typing import Union
 
+
 def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
     """Send string to the client.
 
@@ -29,25 +30,25 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
         int: 0 if no exception is raised, 1 if the string is invalid.
 
     Examples:
-        >>> ca_cert_path = '../certificates/ca_cert.pem'  # File path for the CA certificate
-        >>> server_cert_path = "../certificates/server-cert.pem"
-        >>> server_key_path = "../certificates/server-key.pem"
-        >>> hostname = 'localhost'
-        >>> port = 1234
-        >>> server_address = (hostname, port)
-        >>> server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        >>> server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        >>> server_socket.bind(server_address)
-        >>> server_socket.listen(1)
-        >>> context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        >>> context.load_verify_locations(cafile=ca_cert_path)
-        >>> context.verify_mode = ssl.CERT_REQUIRED
-        >>> context.load_cert_chain(certfile=server_cert_path, keyfile=server_key_path)
-        >>> client_socket, client_address = server_socket.accept()
-        >>> with context.wrap_socket(client_socket, server_side=True) as secure_sock:
-        >>> from src.server import send_message
-        >>> send_message("HELLO\\n", secure_sock)
+        Basic usage with an in-process socketpair (no network):
+        >>> s1, s2 = socket.socketpair()
+        >>> try:
+        ...     _ = send_message("hello\\n", s1)   # returns 0 on success
+        ...     s2.recv(1024)
+        ... finally:
+        ...     s1.close(); s2.close()
+        sending b'hello\\n'
+        b'hello\\n'
 
+        Newline is added if missing:
+        >>> a, b = socket.socketpair()
+        >>> try:
+        ...     _ = send_message("OK", a)
+        ...     b.recv(3)
+        ... finally:
+        ...     a.close(); b.close()
+        sending b'OK\\n'
+        b'OK\\n'
     """
 
     # ensure that the string ends with endline
@@ -85,29 +86,25 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
         int, str: the string if reception is successful.  Otherwise, -1.
 
     Examples:
-        >>> ca_cert_path = '../certificates/ca_cert.pem'  # File path for the CA certificate
-        >>> server_cert_path = "../certificates/server-cert.pem"
-        >>> server_key_path = "../certificates/server-key.pem"
-        >>> hostname = 'localhost'
-        >>> port = 1234
-        >>> server_address = (hostname, port)
-        >>> server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        >>> server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        >>> server_socket.bind(server_address)
-        >>> server_socket.listen(1)
-        >>> context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        >>> context.load_verify_locations(cafile=ca_cert_path)
-        >>> context.verify_mode = ssl.CERT_REQUIRED
-        >>> context.load_cert_chain(certfile=server_cert_path, keyfile=server_key_path)
-        >>> client_socket, client_address = server_socket.accept()
-        >>> with context.wrap_socket(client_socket, server_side=True) as secure_sock:
-        >>> from src.server import send_message
-        >>> receive_message("HELLOBACK\\n", secure_sock)
-
+        Basic usage with an in-process socketpair (no network):
+        >>> s1, s2 = socket.socketpair()
+        >>> try:
+        ...     _ = s1.send(b"hello\\n")
+        ...     _ = receive_message(s2)
+        ... finally:
+        ...     s1.close(); s2.close()
+        received hello
+        <BLANKLINE>
     """
 
     # receive data
     string_to_receive = secure_sock.recv(1024)
+    print(f"receiving {string_to_receive}")
+
+    # test for empty string
+    if not string_to_receive:
+        print ("empty string")
+        return -1
 
     # test received data to make sure it is UTF-8
     try:
@@ -124,6 +121,42 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
     print(f"received {string_to_receive.decode()}")
 
     return to_return
+
+
+def is_succeed_send_and_receive(to_send: str, secure_sock: socket.socket) -> bool:
+    """Send message and receive the string from the client.
+
+    Closes the socket if an error occurs.
+
+    Args:
+        to_send (str): the string to send.
+        secure_sock (socket.socket): the secure socket to receive from.
+
+    Returns:
+        bool: True if the string is correctly sent and its response is
+            correctly received, False otherwise.
+    """
+
+    is_succeed = False
+    try:
+        if send_message(to_send, secure_sock):
+            send_message("ERROR sending " + to_send, secure_sock)
+            secure_sock.close()
+
+        if  to_send.startswith("ERROR"):
+            return is_succeed
+
+        if receive_message(secure_sock) == -1:
+            send_message("ERROR receiving " + to_send, secure_sock)
+            secure_sock.close()
+
+        is_succeed = True
+    finally:
+        if not is_succeed:
+            secure_sock.close()
+            print("closing connection\n")
+
+    return is_succeed
 
 
 def prepare_socket(hostname: str, port: int, ca_cert_path: str,
@@ -172,8 +205,10 @@ if __name__ == '__main__':
     server_key_path = "../certificates/server-key.pem"
     hostname = 'localhost'
     port = 1234
+    random_string = 'LGTk'
 
-
+    server_socket, context = prepare_socket(hostname, port, ca_cert_path,
+        server_cert_path, server_key_path)
 
     # Wait for a client to connect
     is_error = False
@@ -183,84 +218,27 @@ if __name__ == '__main__':
             print(f"Connection from {client_address}")
 
             # handshake
-            if send_message("HELLO", secure_sock):
-                send_message("ERROR sending HELLO", secure_sock)
-                print("closing connection\n")
-                secure_sock.close()
-                is_error = True
+            if not is_succeed_send_and_receive("HELLO", secure_sock):
                 break
-            if receive_message(secure_sock) == -1:
-                send_message("ERROR receiving HELLO", secure_sock)
-                print("closing connection\n")
-                secure_sock.close()
-                is_error = True
-                break
-
-            if send_message("WORK " + str(token) + " " + str(difficulty), secure_sock):
-                send_message("ERROR sending WORK", secure_sock)
-                print("closing connection\n")
-                secure_sock.close()
-                is_error = True
-                break
-            if receive_message(secure_sock) == -1:
-                send_message("ERROR receiving WORK", secure_sock)
-                print("closing connection\n")
-                secure_sock.close()
-                is_error = True
-                break
-
-            if send_message("MAILNUM LGTk\n", secure_sock):
-                send_message("ERROR sending MAILNUM", secure_sock)
-                print("closing connection\n")
-                secure_sock.close()
-                is_error = True
-                break
-            if receive_message(secure_sock) == -1:
-                send_message("ERROR receiving MAILNUM", secure_sock)
-                print("closing connection\n")
-                secure_sock.close()
-                is_error = True
+            if not is_succeed_send_and_receive("WORK " + str(token) + " " + str(difficulty), secure_sock):
                 break
 
             # body
-            ######
             for i in range(20):
-
-                # This randomly sends requests to the client.  MAILNUM may not
-                # precede EMAIL1 for example
-                choice = random.choice(["FULL_NAME", "MAILNUM", "EMAIL1", "EMAIL2", "SOCIAL", "BIRTHDATE", "COUNTRY", "ADDRNUM", "ADDR_LINE1", "ADDR_LINE2", "ERROR internal server error"])
-                if send_message(f"{choice} LGTk", secure_sock):
-                    send_message("ERROR sending random choice", secure_sock)
-                    print("closing connection\n")
-                    secure_sock.close()
+                # This randomly sends requests to the client.
+                choice = random.choice(["FULL_NAME", "MAILNUM", "EMAIL1", "EMAIL2",
+                    "SOCIAL", "BIRTHDATE", "COUNTRY", "ADDRNUM", "ADDR_LINE1",
+                    "ADDR_LINE2", "ERROR internal server error"])
+                if not is_succeed_send_and_receive(f"{choice} {random_string}", secure_sock):
                     is_error = True
                     break
                 if choice == "ERROR internal server error":
-                    send_message("ERROR internal server error", secure_sock)
-                    print("closing connection\n")
                     secure_sock.close()
                     is_error = True
                     break
-                if receive_message(secure_sock) == -1:
-                    send_message("receiving random choice", secure_sock)
-                    print("closing connection\n")
-                    secure_sock.close()
-                    is_error = True
-                    break
-
             if is_error:
                 break
 
             # end message
-            if send_message("DONE", secure_sock):
-                send_message("ERROR sending DONE", secure_sock)
-                print("closing connection\n")
-                secure_sock.close()
-                is_error = True
-                break
-            if receive_message(secure_sock) == -1:
-                print("closing connection\n")
-                secure_sock.close()
-                send_message("ERROR receiving DONE", secure_sock)
-                is_error = True
+            if not is_succeed_send_and_receive("DONE", secure_sock):
                 break
