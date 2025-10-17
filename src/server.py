@@ -1,5 +1,7 @@
 """Creates a local server that will listen on a specified port for TLS
-connections, requiring a handshake and then requesting randomly
+connections.
+
+Requires a handshake and then requests randomly
 selected defined information from the client.  The WORK challenge in the
 handshake has a timeout of 2 hours.
 
