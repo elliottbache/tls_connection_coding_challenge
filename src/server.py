@@ -8,14 +8,25 @@ handshake has a timeout of 2 hours.
 Functions:
     send_message: send the supplied string to the client, validating
         the format of the string.
-    receive_message: receive the supplied string from the client, validating
-        the format of the string.
+    receive_message: receive the supplied string from the client,
+        validating the format of the string.
+    is_succeed_send_and_receive: send message and receive the string
+        from the client.
+    prepare_socket: prepare a socket to be used for sending and
+        receiving.
 """
 
 import ssl
 import socket
 import random
 from typing import Union
+
+# module-level defaults (safe to import, optional)
+DEFAULT_HOSTFULL_NAME = "localhost"
+DEFAULT_PORT = 1234
+DEFAULT_CA_CERT = "../certificates/ca_cert.pem"
+DEFAULT_SERVER_CERT = "../certificates/server-cert.pem"
+DEFAULT_SERVER_KEY = "../certificates/server-key.pem"
 
 
 def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
@@ -201,17 +212,16 @@ def prepare_socket(hostname: str, port: int, ca_cert_path: str,
     return server_socket, context
 
 
-if __name__ == '__main__':
-
+def main() -> int:
     token = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu' \
                + 'WROTeTaSmqFCAzuwkwLCRgIIq'
-    difficulty = 6
-    ca_cert_path = '../certificates/ca_cert.pem'
-    server_cert_path = "../certificates/server-cert.pem"
-    server_key_path = "../certificates/server-key.pem"
-    hostname = 'localhost'
-    port = 1234
     random_string = 'LGTk'
+    difficulty = 6
+    ca_cert_path = DEFAULT_CA_CERT
+    server_cert_path = DEFAULT_SERVER_CERT
+    server_key_path = DEFAULT_SERVER_KEY
+    hostname = DEFAULT_HOSTFULL_NAME
+    port = DEFAULT_PORT
 
     server_socket, context = prepare_socket(hostname, port, ca_cert_path,
                                             server_cert_path, server_key_path)
@@ -254,3 +264,9 @@ if __name__ == '__main__':
             # end message
             if not is_succeed_send_and_receive("DONE", secure_sock):
                 break
+
+    return 0
+
+
+if __name__ == '__main__':
+    main()
