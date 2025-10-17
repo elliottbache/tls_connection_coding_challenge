@@ -62,7 +62,7 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
     try:
         bstring_to_send.decode('utf-8')
     except Exception as e:
-        print ("string is not valid: ",e)
+        print("string is not valid: ", e)
         return 1
 
     # send message
@@ -103,19 +103,19 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
 
     # test for empty string
     if not string_to_receive:
-        print ("empty string")
+        print("empty string")
         return -1
 
     # test received data to make sure it is UTF-8
     try:
         to_return = string_to_receive.decode('utf-8')
     except Exception as e:
-        print ("string is not valid: ",e)
+        print("string is not valid: ", e)
         return -1
 
     # test received data to make sure it ends in newline
     if not string_to_receive.decode('utf-8').endswith("\n"):
-        print ("string does not end with new line")
+        print("string does not end with new line")
         return -1
 
     print(f"received {string_to_receive.decode()}")
@@ -123,7 +123,8 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
     return to_return
 
 
-def is_succeed_send_and_receive(to_send: str, secure_sock: socket.socket) -> bool:
+def is_succeed_send_and_receive(to_send: str, secure_sock: socket.socket) \
+        -> bool:
     """Send message and receive the string from the client.
 
     Closes the socket if an error occurs.
@@ -143,7 +144,7 @@ def is_succeed_send_and_receive(to_send: str, secure_sock: socket.socket) -> boo
             send_message("ERROR sending " + to_send, secure_sock)
             secure_sock.close()
 
-        if  to_send.startswith("ERROR"):
+        if to_send.startswith("ERROR"):
             return is_succeed
 
         if receive_message(secure_sock) == -1:
@@ -160,7 +161,8 @@ def is_succeed_send_and_receive(to_send: str, secure_sock: socket.socket) -> boo
 
 
 def prepare_socket(hostname: str, port: int, ca_cert_path: str,
-        server_cert_path: str, server_key_path: str) -> tuple[socket.socket, ssl.SSLContext]:
+                   server_cert_path: str, server_key_path: str) \
+            -> tuple[socket.socket, ssl.SSLContext]:
     """Prepare a socket to be used for sending and receiving.
 
     Args:
@@ -196,9 +198,11 @@ def prepare_socket(hostname: str, port: int, ca_cert_path: str,
 
     return server_socket, context
 
+
 if __name__ == '__main__':
 
-    authdata = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq'
+    authdata = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu' \
+               + 'WROTeTaSmqFCAzuwkwLCRgIIq'
     difficulty = 6
     ca_cert_path = '../certificates/ca_cert.pem'
     server_cert_path = "../certificates/server-cert.pem"
@@ -208,28 +212,34 @@ if __name__ == '__main__':
     random_string = 'LGTk'
 
     server_socket, context = prepare_socket(hostname, port, ca_cert_path,
-        server_cert_path, server_key_path)
+                                            server_cert_path, server_key_path)
 
     # Wait for a client to connect
     is_error = False
     while True:
         client_socket, client_address = server_socket.accept()
-        with context.wrap_socket(client_socket, server_side=True) as secure_sock:
+        with context.wrap_socket(client_socket, server_side=True) \
+                as secure_sock:
             print(f"Connection from {client_address}")
 
             # handshake
             if not is_succeed_send_and_receive("HELO", secure_sock):
                 break
-            if not is_succeed_send_and_receive("POW " + str(authdata) + " " + str(difficulty), secure_sock):
+            if not is_succeed_send_and_receive("POW " + str(authdata) + " "
+                                               + str(difficulty), secure_sock):
                 break
 
             # body
             for i in range(20):
                 # This randomly sends requests to the client.
-                choice = random.choice(["NAME", "MAILNUM", "MAIL1", "MAIL2",
-                    "SKYPE", "BIRTHDATE", "COUNTRY", "ADDRNUM", "ADDRLINE1",
-                    "ADDRLINE2", "ERROR internal server error"])
-                if not is_succeed_send_and_receive(f"{choice} {random_string}", secure_sock):
+                choice = random.choice([
+                                        "NAME", "MAILNUM", "MAIL1", "MAIL2",
+                                        "SKYPE", "BIRTHDATE", "COUNTRY",
+                                        "ADDRNUM", "ADDRLINE1", "ADDRLINE2",
+                                        "ERROR internal server error"
+                ])
+                if not is_succeed_send_and_receive(f"{choice} {random_string}",
+                                                   secure_sock):
                     is_error = True
                     break
                 if choice == "ERROR internal server error":
