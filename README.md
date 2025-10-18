@@ -4,6 +4,8 @@
 
 # TLS connection coding challenge
 
+[![Documentation Status](https://readthedocs.org/projects/<your-rtd-slug>/badge/?version=latest)](https://<your-rtd-slug>.readthedocs.io/en/latest/?badge=latest)
+
 This is a coding challenge that requires the client to connect to a server,
 complete a POW challenge in under 2 hours, and reply to multiple queries.
 
