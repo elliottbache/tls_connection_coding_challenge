@@ -6,14 +6,19 @@ selected defined information from the client.  The POW challenge in the
 handshake has a timeout of 2 hours.
 
 Functions:
-    send_message: send the supplied string to the client, validating
+    send_message:
+        send the supplied string to the client, validating
         the format of the string.
-    receive_message: receive the supplied string from the client,
+
+    receive_message:
+        receive the supplied string from the client,
         validating the format of the string.
-    is_succeed_send_and_receive: send message and receive the string
-        from the client.
-    prepare_socket: prepare a socket to be used for sending and
-        receiving.
+
+    is_succeed_send_and_receive:
+        send message and receive the string from the client.
+
+    prepare_socket:
+        prepare a socket to be used for sending and receiving.
 """
 
 import ssl
@@ -44,6 +49,7 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
 
     Examples:
         Basic usage with an in-process socketpair (no network):
+        >>> from src.server import send_message
         >>> s1, s2 = socket.socketpair()
         >>> try:
         ...     _ = send_message("hello\\n", s1)   # returns 0 on success
@@ -92,7 +98,6 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
     character.
 
     Args:
-        string_to_receive (str): the string to receive.
         secure_sock (socket.socket): the secure socket to receive from.
 
     Returns:
@@ -100,6 +105,7 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
 
     Examples:
         Basic usage with an in-process socketpair (no network):
+        >>> from src.server import receive_message
         >>> s1, s2 = socket.socketpair()
         >>> try:
         ...     _ = s1.send(b"hello\\n")
@@ -112,7 +118,6 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
 
     # receive data
     string_to_receive = secure_sock.recv(1024)
-    print(f"receiving {string_to_receive}")
 
     # test for empty string
     if not string_to_receive:
