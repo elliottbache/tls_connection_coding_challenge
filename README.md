@@ -4,7 +4,7 @@
 
 # TLS line protocol
 
-[![Documentation Status](https://readthedocs.org/projects/<your-rtd-slug>/badge/?version=latest)](https://<your-rtd-slug>.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/tls-line-protocol/badge/?version=latest)](https://tls-line-protocol.readthedocs.io/en/latest/?badge=latest)
 
 This is a toy protocol demo that requires the client to connect to a server,
 complete a WORK challenge in under 2 hours, and reply to multiple queries.
