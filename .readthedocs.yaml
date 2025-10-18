@@ -7,3 +7,9 @@ sphinx:
 python:
   install:
     - requirements: docs/requirements.txt
+
+# Optional: build extra formats
+formats:
+  - htmlzip
+  - pdf
+  - epub
