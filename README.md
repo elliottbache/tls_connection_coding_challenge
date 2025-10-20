@@ -62,7 +62,7 @@ This password will be used every time you launch the server and use the certific
 The C++ code "pow_benchmark.cpp" is used to find a checksum with enough leading zeroes for specified difficulty.  C++
 is used rather than Python due to its speed.
 
-In a Linux terminal, enter:
+In a Linux terminal from the src folder, enter:
 ```sh
 $ mkdir ../build
 ```
