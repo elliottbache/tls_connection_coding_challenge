@@ -20,8 +20,13 @@ stdout.
 
 ## Installation
 ## Creating client and server side certificates
-Follow these steps to create the proper certificates for local testing.  These certificates should be placed in the
-"certificates" folder.  The steps are for typing in a Linux terminal. 
+Follow these steps to create the proper certificates for local testing.  A "certificates" folder should be created and
+these certificates should be placed in the "certificates" folder.  The steps are for typing in a Linux terminal from the
+project root folder. 
+```sh
+$ mkdir certificates
+```
+
 ### Client side
 #### Create a certificate authority (CA)
 ```sh
