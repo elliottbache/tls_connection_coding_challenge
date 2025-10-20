@@ -28,7 +28,7 @@ Follow these steps to create the proper certificates for local testing.  These c
 $ openssl genrsa -out ca_key.pem 2048
 ```
 ```sh
-$ openssl req -x509 -new -nodes -key ca_key.pem -sha256 -days 3650 -out ca_cert.pem -subj "/CN=My Test CA"`
+$ openssl req -x509 -new -nodes -key ca_key.pem -sha256 -days 3650 -out ca_cert.pem -subj "/CN=My Test CA"
 ```
 This should create "ca_cert.pem" and "ca_key.pem".
 
