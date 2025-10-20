@@ -8,6 +8,8 @@
 
 This is a toy protocol demo that requires the client to connect to a server,
 complete a WORK challenge in under 2 hours, and reply to multiple queries.
+This is designed to be run in an interactive session, printing output to the
+stdout.
 
 **Table of Contents**
 
