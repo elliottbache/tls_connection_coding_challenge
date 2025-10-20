@@ -62,7 +62,7 @@ This password will be used every time you launch the server and use the certific
 The C++ code "pow_benchmark.cpp" is used to find a checksum with enough leading zeroes for specified difficulty.  C++
 is used rather than Python due to its speed.
 
-In a Linux terminal from the src folder, enter:
+In a Linux terminal from the "src" folder, enter:
 ```sh
 $ mkdir ../build
 ```
@@ -73,7 +73,7 @@ $ g++ -O3 -std=c++17 pow_benchmark.cpp -o ../build/pow_benchmark -lssl -lcrypto 
 ## Execution / Usage
 
 This program was developed with Python 3.11.14.  To run TLS connection coding challenge,
-fire up a terminal window and run the following command in the src folder:
+fire up a terminal window and run the following command in the "src" folder:
 ```sh
 $ python server.py
 ```
