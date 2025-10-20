@@ -26,6 +26,9 @@ project root folder.
 ```sh
 $ mkdir certificates
 ```
+```sh
+$ cd certificates
+```
 
 ### Client side
 #### Create a certificate authority (CA)
