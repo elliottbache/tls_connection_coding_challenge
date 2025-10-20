@@ -39,10 +39,11 @@ import sys
 import time
 import multiprocessing
 import subprocess
-from typing import List, Set, Union
+from typing import List, Set
+import errno
 
-DEFAULT_CPP_BINARY_PATH = "../build/pow_benchmark" # path to c++ executable
-DEFAULT_THREADS = "2" # number of threads used in c++ code to find hash
+DEFAULT_CPP_BINARY_PATH = "../build/pow_benchmark"  # path to c++ executable
+DEFAULT_THREADS = "2"  # number of threads used in c++ code to find hash
 DEFAULT_RESPONSES = {
     "NAME": "Elliott Bache",
     "MAILNUM": "2",
@@ -55,10 +56,10 @@ DEFAULT_RESPONSES = {
     "ADDRLINE1": "234 Evergreen Terrace",
     "ADDRLINE2": "Springfield"
 }
-DEFAULT_HOSTNAME = 'localhost' # This PC
+DEFAULT_HOSTNAME = 'localhost'  # This PC
 DEFAULT_PORTS = [3336, 8083, 8446, 49155, 3481, 65532]
-DEFAULT_PRIVATE_KEY_PATH = '../certificates/ec_private_key.pem' # File path for the EC private key
-DEFAULT_CLIENT_CERT_PATH = '../certificates/client_cert.pem' # File path for the client certificate
+DEFAULT_PRIVATE_KEY_PATH = '../certificates/ec_private_key.pem'
+DEFAULT_CLIENT_CERT_PATH = '../certificates/client_cert.pem'
 
 
 def tls_connect(client_cert_path: str, private_key_path: str, hostname: str) \
@@ -84,7 +85,8 @@ def tls_connect(client_cert_path: str, private_key_path: str, hostname: str) \
     print("Checking cert and key existence:")
     print("Client cert exists:", os.path.exists(client_cert_path))
     print("Private key exists:", os.path.exists(private_key_path))
-    context.load_cert_chain(certfile=client_cert_path, keyfile=private_key_path)
+    context.load_cert_chain(certfile=client_cert_path,
+                            keyfile=private_key_path)
 
     # Disable server certificate verification (not recommended for production)
     context.check_hostname = False
@@ -147,8 +149,8 @@ def decipher_message(message: str, valid_messages: Set[str]) \
     try:
         smessage = message.decode('utf-8').replace("\n", "")
     except Exception as e:
-        print ("string is not valid: ",e)
-        print ("string is probably not UTF-8")
+        print("string is not valid: ", e)
+        print("string is probably not UTF-8")
         return 1, ""
 
     args = smessage.split()
@@ -159,19 +161,19 @@ def decipher_message(message: str, valid_messages: Set[str]) \
 
     # check that message belongs to list of possible messages
     if args[0] not in valid_messages:
-        print("This response is not valid: ",smessage)
+        print("This response is not valid: ", smessage)
         return 2, ""
 
     # if only 1 argument is received add another empty string argument
-    # to avoid errors since server is supposed to send 2 args.  
-    if len(args) == 1: 
+    # to avoid errors since server is supposed to send 2 args.
+    if len(args) == 1:
         args.append("")
 
     return 0, args
 
 
 def handle_pow_cpp(authdata: str, difficulty: str, cpp_binary_path: str
-        = DEFAULT_CPP_BINARY_PATH, threads: str = DEFAULT_THREADS) \
+                   = DEFAULT_CPP_BINARY_PATH, threads: str = DEFAULT_THREADS) \
         -> tuple[int, bytes]:
     """Find a hash with the given number of leading zeros.
 
@@ -206,15 +208,15 @@ def handle_pow_cpp(authdata: str, difficulty: str, cpp_binary_path: str
 
     # error check authdata
     if not isinstance(authdata, str):
-        print("authdata is not a string.  Exiting since hashing function " 
-                "will not work correctly")
+        print("authdata is not a string.  Exiting since hashing function "
+              "will not work correctly")
         return 4, "\n".encode()
 
     # error check difficulty
     try:
-        idifficulty = int(float(difficulty))
+        idifficulty = int(difficulty)
         print(f"POW difficulty is {idifficulty}")
-    except:
+    except (ValueError, TypeError):
         print("POW difficulty is not an integer")
         return 4, "\n".encode()
 
@@ -251,8 +253,9 @@ def handle_pow_cpp(authdata: str, difficulty: str, cpp_binary_path: str
 
 
 def define_response(args: List[str], authdata: str, valid_messages: List[str],
-                    queue, responses=DEFAULT_RESPONSES, cpp_binary_path
-                    =DEFAULT_CPP_BINARY_PATH, threads=DEFAULT_THREADS):
+                    queue, responses=DEFAULT_RESPONSES,
+                    cpp_binary_path=DEFAULT_CPP_BINARY_PATH,
+                    threads=DEFAULT_THREADS):
     """
     Create response to message depending on received message.
 
@@ -305,7 +308,7 @@ def define_response(args: List[str], authdata: str, valid_messages: List[str],
     elif args[0] == "END":
         err, result = 1, "OK\n".encode()
     elif args[0] == "ERROR":
-        print ("Server error: " + " ".join(args[1:]))
+        print("Server error: " + " ".join(args[1:]))
         err, result = 2, "\n".encode()
     elif args[0] == "POW":
         difficulty = args[2]
@@ -321,20 +324,21 @@ def define_response(args: List[str], authdata: str, valid_messages: List[str],
         # print the difference between start
         # and end time in milli. secs
         print("The time of execution of POW challenge is :",
-          (end-start) , "s")
+              (end-start), "s")
 
         err, result = return_list[0], return_list[1]
 
     elif args[0] in valid_messages:
-        print("authdata = ",authdata)
-        err, result = 0, (hasher(authdata,args[1]) + " " + responses[args[0]] + "\n").encode()
+        print("authdata = ", authdata)
+        err, result = 0, (hasher(authdata, args[1]) + " "
+                          + responses[args[0]] + "\n").encode()
 
     else:
         err, result = 4, "\n".encode()
 
     # double check that newline has been placed on string
     if not result.decode('utf-8').endswith("\n"):
-        print ("string does not end with new line")
+        print("string does not end with new line")
         to_encode = result.decode('utf-8') + "\n"
         result = to_encode.encode()
 
@@ -370,7 +374,7 @@ def main() -> int:
     }  # valid first arguments coming from the server
     pow_timeout = 7200  # timeout for pow in seconds
     all_timeout = 6  # timeout for all function except pow in seconds
-    authdata = '' # this will be set with POW message from server
+    authdata = ''  # this will be set with POW message from server
 
     # Create and wrap socket
     secure_sock = tls_connect(client_cert_path, private_key_path, hostname)
@@ -381,12 +385,33 @@ def main() -> int:
     for port in ports:
         if not is_connected:
             try:
-                secure_sock.connect((hostname,int(port)))
+                secure_sock.connect((hostname, int(port)))
                 is_connected = True
                 print(f"Connected to {port}\n")
-            except:
-                print(f"Cannot connect to {port}")
-
+            except socket.timeout:
+                print(f"Connect timeout to {hostname}:{port}")
+            except ConnectionRefusedError:
+                print(f"Connection refused by {hostname}:{port}")
+            except socket.gaierror as e:
+                print(f"DNS/addr error for "
+                      f"{hostname}:{port}: {e}")  # bad host / not resolvable
+            except ssl.SSLCertVerificationError as e:
+                # hostname mismatch, expired, unknown CA, etc.
+                print(f"Certificate verification failed for"
+                      f" {hostname}:{port}: {e}")
+            except ssl.SSLError as e:
+                # other TLS/handshake issues (protocol mismatch, bad
+                # record, etc.)
+                print(f"TLS error during connect to {hostname}:{port}: {e}")
+            except OSError as e:
+                # catch-all for OS-level socket errors
+                if e.errno == errno.EHOSTUNREACH:
+                    print(f"Host unreachable: {hostname}:{port}")
+                elif e.errno == errno.ENETUNREACH:
+                    print(f"Network unreachable when connecting to "
+                          f"{hostname}:{port}")
+                else:
+                    print(f"OS error connecting to {hostname}:{port}: {e}")
     if not is_connected:
         print("Not able to connect to any port.  Exiting")
         sys.exit()
@@ -409,7 +434,8 @@ def main() -> int:
 
         # If no args are received, continue
         if err:
-            print(f"Problem deciphering message. Error code = {err}.  continuing.")
+            print(f"Problem deciphering message. Error code = {err}."
+                  f" continuing.")
             continue
 
         # Define timeouts
@@ -422,7 +448,11 @@ def main() -> int:
         # use multiprocessing for setting timeout.  Only 1 process is
         # launched at this stage
         queue = multiprocessing.Queue()
-        p = multiprocessing.Process(target=define_response, args=(args, authdata, valid_messages, queue, responses, cpp_binary_path, threads))
+        p = multiprocessing.Process(
+            target=define_response,
+            args=(args, authdata, valid_messages, queue, responses,
+                  cpp_binary_path, threads),
+        )
         p.start()
         p.join(timeout=this_timeout)  # Wait up to 6 or 7200 seconds
         if p.is_alive():
@@ -450,6 +480,7 @@ def main() -> int:
     secure_sock.close()
 
     return 0
+
 
 if __name__ == "__main__":
     main()
