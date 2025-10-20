@@ -10,7 +10,25 @@ resolved by a C++ code called pow_benchmark.cpp.  Multithreading is
 used when calling this C++ code.
 
 Functions:
-    tls_connect: FILL IN!!!!
+    tls_connect:
+        Create a connection to the remote server.
+
+    hasher:
+        Hash a string using SHA256.
+
+    decipher_message:
+        Read message and do error checking.
+
+    handle_pow_cpp:
+        Takes the token and difficulty and finds a suffix that will
+        reproduce a hash with the given number of leading zeros.
+
+    define_response:
+        Create response to message depending on received message.
+
+    main:
+        Main function.
+
 """
 
 import ssl
@@ -21,6 +39,7 @@ import sys
 import time
 import multiprocessing
 import subprocess
+from typing import List, Set, Union
 
 DEFAULT_CPP_BINARY_PATH = "../build/pow_benchmark" # path to c++ executable
 DEFAULT_THREADS = "2" # number of threads used in c++ code to find hash
@@ -45,11 +64,15 @@ DEFAULT_CLIENT_CERT_PATH = '../certificates/client_cert.pem' # File path for the
 def tls_connect(client_cert_path: str, private_key_path: str, hostname: str) \
         -> socket.socket:
     """
-    Create a connection to the remote server defined in the global variables.
+    Create a connection to the remote server.
 
     Args:
-    Inputs: None
-    Outputs: socket
+        client_cert_path (str): The path to the client certificate.
+        private_key_path (str): The path to the private key file.
+        hostname (str): The hostname to connect to.
+
+    Returns:
+        socket.socket: The socket object.
     """
     # Create the client socket
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -70,24 +93,56 @@ def tls_connect(client_cert_path: str, private_key_path: str, hostname: str) \
     return context.wrap_socket(client_socket, server_hostname=hostname)
 
 
-def hasher(token,input_string):
-    """
-    Hashes as string using SHA256.
-    Inputs: token = auth data from the server, input_string = an ASCII string
-    Outputs: cksum_in_hex = checksum in hex
+def hasher(token: str, input_string: str) -> str:
+    """Hash a string using SHA256.
+
+    Concatenates token and input_string and then hashes.
+
+    Args:
+        token (str): The token from the server.
+        input_string (str): An ASCII string.
+
+    Returns:
+        str: The hashed string.
+
+    Examples:
+        >>> token = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu' \
+            + 'WROTeTaSmqFCAzuwkwLCRgIIq'
+        >>> input_string = 'LGTk'
+        >>> from src.client import hasher
+        >>> hasher(token, input_string)
+        'bd8de303197ac9997d5a721a11c46d9ed0450798'
     """
     to_be_hashed = token + input_string
     cksum_in_hex = hashlib.sha256(to_be_hashed.encode()).hexdigest()
 
     return cksum_in_hex
 
-def decipher_message(message, valid_messages):
+
+def decipher_message(message: str, valid_messages: Set[str]) \
+        -> tuple[int, List[str]]:
+    """Read message and do error checking.
+
+    Args:
+        message (str): The message to read.
+        valid_messages (List[str]): A set of valid messages that can
+                                    be received from server.
+
+    Returns:
+        Union[int, List[str]]: An error code 0 if no error and 1 if
+                               decoding error, the decoded message
+                               split into list.
+
+    Examples:
+        >>> message = b'MAILNUM LGTk\\n'
+        >>> valid_messages = {'HELLO', 'DONE', 'EMAIL2', 'BIRTHDATE', \
+         'MAILNUM', 'ADDRNUM', 'EMAIL1', 'ADDR_LINE2', 'WORK', 'ERROR', \
+         'SOCIAL', 'COUNTRY', 'ADDR_LINE1', 'FULL_NAME'}
+        >>> from src.client import decipher_message
+        >>> decipher_message(message, valid_messages)
+        (0, ['MAILNUM', 'LGTk'])
     """
-    Read message and do error checking
-    Inputs: message = in UTF-8
-    Outputs: err = 0 if no error or 1 if decoding error or 2 if invalid command,
-            args = message split into list
-    """
+
     # check that we have a UTF-8 message
     try:
         smessage = message.decode('utf-8').replace("\n", "")
@@ -114,35 +169,41 @@ def decipher_message(message, valid_messages):
 
     return 0, args
 
-def has_leading_zero_bits(digest, full_bytes, remaining_bits):
-    """
-    Checks whether the digest starts with 0's in the first full_bytes and 
-    remaining_bits
-    Inputs: digest = digest from the SHA256, full_bytes = number of full bytes
-        given by the difficulty, remaining_bits = the bits that along with 
-        full_bytes is equal to the difficulty
-    """
-    # Check full zero bytes
-    for i in range(full_bytes):
-        if digest[i] != 0:
-            return False
 
-    # Check partial byte if needed
-    if remaining_bits:
-        mask = 0xFF << (8 - remaining_bits) & 0xFF
-        if digest[full_bytes] & mask:
-            return False
+def handle_pow_cpp(token: str, difficulty: str, cpp_binary_path: str
+        = DEFAULT_CPP_BINARY_PATH, threads: str = DEFAULT_THREADS) \
+        -> tuple[int, bytes]:
+    """Find a hash with the given number of leading zeros.
 
-    return True
+    Takes the token and difficulty and find a suffix that will
+    reproduce a hash with the given number of leading zeros.
 
-def handle_pow_cpp(token, difficulty, cpp_binary_path=DEFAULT_CPP_BINARY_PATH, threads=DEFAULT_THREADS):
+    Args:
+        token (str): The token from the server.
+        difficulty (str): The number of leading zeroes required.
+        cpp_binary_path (str): The path to the C++ program that solves
+            the WORK challenge.
+        threads (str): The number of threads to use for the C++ program.
+
+    Returns:
+        tuple[int, str]: An error code 0 if no error and 4 if an error,
+            the suffix that solves the WORK challenge.
+
+    Examples:
+        >>> import subprocess
+        >>> token = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu' \
+            + 'WROTeTaSmqFCAzuwkwLCRgIIq'
+        >>> difficulty = "6"
+        >>> cpp_binary_path = "build/pow_benchmark"
+        >>> threads = "2"
+        >>> from src.client import handle_pow_cpp
+        >>> handle_pow_cpp(token, difficulty, cpp_binary_path, threads) \
+            # doctest: +ELLIPSIS
+        WORK difficulty is ...
+        Valid WORK Suffix: ... ...
+        (0, b'...')
     """
-    Takes the token and difficulty and finds a suffix that will reproduce
-    a hash with the given number of leading zeros
-    Inputs: token = input from the server, difficulty = number 
-        of leading in the valid hash
-    Outputs: error code, formatted response in UTF-8
-    """
+
     # error check token
     if not isinstance(token, str):
         print("token is not a string.  Exiting since hashing function " 
@@ -175,7 +236,8 @@ def handle_pow_cpp(token, difficulty, cpp_binary_path=DEFAULT_CPP_BINARY_PATH, t
                 break
 
         if suffix:
-            print(f"Valid WORK Suffix: {suffix} {hashlib.sha256((token + suffix).encode()).hexdigest()}")
+            print(f"Valid WORK Suffix: {suffix} "
+                  f"{hashlib.sha256((token + suffix).encode()).hexdigest()}")
             return 0, (suffix + "\n").encode()
         else:
             print("No RESULT found in output.")
@@ -188,18 +250,54 @@ def handle_pow_cpp(token, difficulty, cpp_binary_path=DEFAULT_CPP_BINARY_PATH, t
     return 4, "\n".encode()
 
 
-def define_response(args, token, valid_messages, queue, responses=DEFAULT_RESPONSES, cpp_binary_path=DEFAULT_CPP_BINARY_PATH, threads=DEFAULT_THREADS):
+def define_response(args: List[str], token: str, valid_messages: List[str],
+                    queue, responses=DEFAULT_RESPONSES, cpp_binary_path
+                    =DEFAULT_CPP_BINARY_PATH, threads=DEFAULT_THREADS):
     """
-    Create response to message depending on received message
-    Inputs: args = a list of the arguments from the server's response
-    Outputs: err = 0 -> OK, 1 -> DONE, 2 -> ERROR, 3 -> timeout,
-        4 -> other invalid messages
-            response = to be sent to server in UTF-8
+    Create response to message depending on received message.
 
-    Calls response function, queuing up the results
-    Inputs: args = args to be sent for response definition, queue = 
-        previously defined job queue
-    Outputs: None
+    err and result are added to results,
+    which are then queued for output in multiprocessing.
+    err = 0 -> OK, 1 -> DONE, 2 -> ERROR, 3 -> timeout,
+    4 -> other invalid messages
+
+    Args:
+        args (list[str]): The list of arguments to pass to the client.
+        token (str): The token from the server.
+        valid_messages (list[str]): The list of valid messages that
+            the server can send.
+        responses (list[str]): The list of responses to send.
+        cpp_binary_path (str): The path to the C++ program that solves
+            the WORK challenge.
+        threads (str): The number of threads to use for the C++ program.
+
+    Returns:
+        None: results are added to "results" list where results[0]
+            = err (1 for DONE, 2 for ERROR, 4 if the message is invalid
+            or the WORK does not produce a valid output, and 0 for all
+            other valid messages), and results[1] is the message to
+            send to the server.
+
+        Examples:
+            >>> args = ["HELLO"]
+            >>> token = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu' \
+            + 'WROTeTaSmqFCAzuwkwLCRgIIq'
+            >>> valid_messages = {'HELLO', 'DONE', 'EMAIL2', 'BIRTHDATE', \
+            'MAILNUM', 'ADDRNUM', 'EMAIL1', 'ADDR_LINE2', 'WORK', 'ERROR', \
+            'SOCIAL', 'COUNTRY', 'ADDR_LINE1', 'FULL_NAME'}
+            >>> cpp_binary_path = "build/pow_benchmark"
+            >>> threads = "2"
+            >>> responses = {}
+            >>> from src.client import define_response
+            >>> # a tiny queue we can inspect
+            >>> class Q:
+            ...     def __init__(self): self.items = []
+            ...     def put(self, x): self.items.append(x)
+            >>> queue = Q()
+            >>> define_response(args, token, valid_messages,
+            ...     queue, responses, cpp_binary_path, threads)
+            >>> queue.items
+            [[0, b'HELLOBACK\\n']]
     """
 
     if args[0] == "HELLO":
@@ -214,14 +312,15 @@ def define_response(args, token, valid_messages, queue, responses=DEFAULT_RESPON
 
         # record start time
         start = time.time()
-        return_list = handle_pow_cpp(token, difficulty, cpp_binary_path, threads)
+        return_list = handle_pow_cpp(token, difficulty, cpp_binary_path,
+                                     threads)
 
         # record end time
         end = time.time()
 
         # print the difference between start
         # and end time in milli. secs
-        print("The time of execution of above program is :",
+        print("The time of execution of WORK challenge is :",
           (end-start) , "s")
 
         err, result = return_list[0], return_list[1]
@@ -244,6 +343,18 @@ def define_response(args, token, valid_messages, queue, responses=DEFAULT_RESPON
 
 
 def main() -> int:
+    """
+    Entry point for the CLI.
+
+    Args:
+        argv: sys.argv[1:] is used.
+
+    Returns:
+        Process exit code: 0 on success; nonzero on error.
+
+    Side effects:
+        Opens network connections, prints to stdout/stderr.
+    """
 
     cpp_binary_path = DEFAULT_CPP_BINARY_PATH
     threads = DEFAULT_THREADS
@@ -294,6 +405,7 @@ def main() -> int:
 
         # Error check message and create list from message
         err, args = decipher_message(message, valid_messages)
+        print(decipher_message(message, valid_messages))
 
         # If no args are received, continue
         if err:
