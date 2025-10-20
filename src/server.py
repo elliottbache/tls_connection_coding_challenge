@@ -25,6 +25,7 @@ import ssl
 import socket
 import random
 from typing import Union
+import hashlib
 
 # module-level defaults (safe to import, optional)
 DEFAULT_HOSTNAME = "localhost"
@@ -32,6 +33,12 @@ DEFAULT_PORT = 3481
 DEFAULT_CA_CERT = "../certificates/ca_cert.pem"
 DEFAULT_SERVER_CERT = "../certificates/server-cert.pem"
 DEFAULT_SERVER_KEY = "../certificates/server-key.pem"
+DEFAULT_VALID_MESSAGES = [
+                          "NAME", "MAILNUM", "MAIL1", "MAIL2",
+                          "SKYPE", "BIRTHDATE", "COUNTRY",
+                          "ADDRNUM", "ADDRLINE1", "ADDRLINE2",
+                          "ERROR internal server error"
+                ]
 
 
 def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
@@ -85,7 +92,7 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
         return 1
 
     # send message
-    print(f"sending {bstring_to_send}")
+    print(f"\nsending {bstring_to_send}")
     secure_sock.send(bstring_to_send)
 
     return 0
@@ -136,18 +143,21 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
         print("string does not end with new line")
         return -1
 
-    print(f"received {string_to_receive.decode()}")
+    string_received = string_to_receive.decode().replace("\n", "")
+    print(f"received {string_received}")
 
     return to_return
 
 
-def is_succeed_send_and_receive(to_send: str, secure_sock: socket.socket) \
+def is_succeed_send_and_receive(authdata: str, to_send: str,
+                                secure_sock: socket.socket) \
         -> bool:
     """Send message and receive the string from the client.
 
     Closes the socket if an error occurs.
 
     Args:
+        authdata (str): the authorization data.
         to_send (str): the string to send.
         secure_sock (socket.socket): the secure socket to receive from.
 
@@ -165,11 +175,30 @@ def is_succeed_send_and_receive(to_send: str, secure_sock: socket.socket) \
         if to_send.startswith("ERROR"):
             return is_succeed
 
-        if receive_message(secure_sock) == -1:
+        received_message = receive_message(secure_sock)
+        if received_message == -1:
             send_message("ERROR receiving " + to_send, secure_sock)
             secure_sock.close()
 
         is_succeed = True
+
+        if to_send.startswith("POW"):
+            suffix = received_message.replace("\n", "")
+            print(f"Valid POW Suffix: {suffix}\n"
+                  f"Authdata: {authdata}\n"
+                  f"Hash: {hashlib.sha1((authdata + suffix).encode()).hexdigest()}")
+        elif not (to_send.startswith("HELO") or to_send.startswith("ERROR")):
+            cksum = received_message.split(" ")[0]
+            random_string = to_send.split(" ")[1]
+            cksum_calc = hashlib.sha1((authdata + random_string).encode()).hexdigest()
+            print(f"Checksum received: {cksum}\n"
+                  f"Checksum calculated: {cksum_calc}")
+            if cksum == cksum_calc:
+                print(f"Valid checksum received.")
+            else:
+                print(f"Invalid checksum received.")
+                is_succeed = False
+
     finally:
         if not is_succeed:
             secure_sock.close()
@@ -227,6 +256,7 @@ def main() -> int:
     server_key_path = DEFAULT_SERVER_KEY
     hostname = DEFAULT_HOSTNAME
     port = DEFAULT_PORT
+    valid_messages = DEFAULT_VALID_MESSAGES
 
     server_socket, context = prepare_socket(hostname, port, ca_cert_path,
                                             server_cert_path, server_key_path)
@@ -240,9 +270,10 @@ def main() -> int:
             print(f"Connection from {client_address}")
 
             # handshake
-            if not is_succeed_send_and_receive("HELO", secure_sock):
+            if not is_succeed_send_and_receive(authdata, "HELO", secure_sock):
                 break
-            if not is_succeed_send_and_receive("POW " + str(authdata) + " "
+            print(f"authdata: {authdata}, difficulty: {difficulty}")
+            if not is_succeed_send_and_receive(authdata, "POW " + str(authdata) + " "
                                                + str(difficulty), secure_sock):
                 break
 
@@ -255,7 +286,7 @@ def main() -> int:
                                         "ADDRNUM", "ADDRLINE1", "ADDRLINE2",
                                         "ERROR internal server error"
                 ])
-                if not is_succeed_send_and_receive(f"{choice} {random_string}",
+                if not is_succeed_send_and_receive(authdata, f"{choice} {random_string}",
                                                    secure_sock):
                     is_error = True
                     break
@@ -267,7 +298,7 @@ def main() -> int:
                 break
 
             # end message
-            if not is_succeed_send_and_receive("END", secure_sock):
+            if not is_succeed_send_and_receive(authdata, "END", secure_sock):
                 break
 
     return 0
