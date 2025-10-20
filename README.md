@@ -1,7 +1,3 @@
-# To do
-- Explain that cpp code needs to be compiled and give instructions.
-- Explain how to run server side locally, and what needs to be selected for these tests.
-
 # TLS line protocol
 
 [![Documentation Status](https://readthedocs.org/projects/tls-line-protocol/badge/?version=latest)](https://tls-line-protocol.readthedocs.io/en/latest/?badge=latest)
@@ -16,7 +12,6 @@ stdout.
 - [Installation](#installation)
 - [Execution / Usage](#execution--usage)
 - [Technologies](#technologies)
-- [Features](#features)
 - [Contributing](#contributing)
 - [Contributors](#contributors)
 - [Author](#author)
@@ -78,7 +73,7 @@ $ g++ -O3 -std=c++17 pow_benchmark.cpp -o ../build/pow_benchmark -lssl -lcrypto 
 ## Execution / Usage
 
 This program was developed with Python 3.11.14.  To run TLS line protocol,
-fire up a terminal window and run the following command:
+fire up a terminal window and run the following command in the src folder:
 ```sh
 $ python server.py
 ```
@@ -86,25 +81,23 @@ $ python server.py
 Depending on the creation of certificates process, this step may require a password that was defined when creating
 the certificates.
 
+Once the server is running, the client can be launched.  This is done by entering the following command:
+```sh
+$ python client.py
+```
 
+The client will connect to the server and answer the various commands sent by the server.  The server will first send a
+a handshake set of commands (HELLO and WORK).  Once the WORK challenge is solved by the client under 2 hours, the correct
+suffix will be sent to the server and a further 20 random commands will be sent.  If ERROR is randomly selected, the
+connection will close.  Otherwise, the final command will be DONE.
 
-
-
-For more examples, please refer to the project's [Wiki](wiki) or [documentation page](docs).
+An in-depth description of the modules and functions of this program can be found in the [Read the Docs](https://tls-line-protocol.readthedocs.io/en/latest/index.html) and the [GitHub](https://github.com/elliottbache/tls_line_protocol) page.
 
 ## Technologies
 
 TLS line protocol uses the following technologies and tools:
 
 - [Python](https://www.python.org/): ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
-- ...
-
-## Features
-
-TLS line protocol currently has the following set of features:
-
-- Support for...
-- ...
 
 ## Contributing
 
@@ -137,5 +130,5 @@ these fellows have put into the project's growth and improvement.
 
 ## License
 
-TLS line protocol is distributed under the MIT license. See [`LICENSE`](LICENSE.md) for more details.
+TLS line protocol is distributed under the MIT license. 
 
