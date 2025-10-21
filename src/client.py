@@ -82,7 +82,6 @@ def tls_connect(client_cert_path: str, private_key_path: str, hostname: str) \
     context = ssl.create_default_context()
 
     # Load the client's private key and certificate
-    print("Checking cert and key existence:")
     print("Client cert exists:", os.path.exists(client_cert_path))
     print("Private key exists:", os.path.exists(private_key_path))
     context.load_cert_chain(certfile=client_cert_path,
@@ -148,6 +147,7 @@ def decipher_message(message: str, valid_messages: Set[str]) \
     # check that we have a UTF-8 message
     try:
         smessage = message.decode('utf-8').replace("\n", "")
+        print(f"Received = {smessage}")
     except Exception as e:
         print("string is not valid: ", e)
         print("string is probably not UTF-8")
@@ -215,7 +215,7 @@ def handle_pow_cpp(token: str, difficulty: str, cpp_binary_path: str
     # error check difficulty
     try:
         idifficulty = int(difficulty)
-        print(f"WORK difficulty is {idifficulty}")
+        print(f"WORK difficulty: {idifficulty}")
     except (ValueError, TypeError):
         print("WORK difficulty is not an integer")
         return 4, "\n".encode()
@@ -238,8 +238,10 @@ def handle_pow_cpp(token: str, difficulty: str, cpp_binary_path: str
                 break
 
         if suffix:
-            print(f"Valid WORK Suffix: {suffix} "
-                  f"{hashlib.sha256((token + suffix).encode()).hexdigest()}")
+            hash = hashlib.sha256((token + suffix).encode()).hexdigest()
+            print(f"Authdata: {token}\n"
+                  f"Valid WORK Suffix: {suffix}\n"
+                  f"Hash: {hash}")
             return 0, (suffix + "\n").encode()
         else:
             print("No RESULT found in output.")
@@ -329,7 +331,8 @@ def define_response(args: List[str], token: str, valid_messages: List[str],
         err, result = return_list[0], return_list[1]
 
     elif args[0] in valid_messages:
-        print("token = ", token)
+        print("Extra arguments = ", args[1])
+        print("Authentification data = ", token)
         err, result = 0, (hasher(token, args[1]) + " "
                           + responses[args[0]] + "\n").encode()
 
@@ -421,7 +424,6 @@ def main() -> int:
 
         # Receive the message from the server
         message = secure_sock.recv(1024)
-        print(f"received = {message}")
 
         # If nothing is received wait 6 seconds and continue
         if message == b"":
@@ -430,7 +432,7 @@ def main() -> int:
 
         # Error check message and create list from message
         err, args = decipher_message(message, valid_messages)
-        print(decipher_message(message, valid_messages))
+        print(f"Command: {args[0]}")
 
         # If no args are received, continue
         if err:
@@ -468,7 +470,7 @@ def main() -> int:
         # correctly handled)
         if err == 0 or err == 1:
             # Send the response
-            print(f"sending to server = {response}\n")
+            print(f"Sending to server = {response.decode()}")
             secure_sock.send(response)
 
         # If DONE or ERROR received from server, break
