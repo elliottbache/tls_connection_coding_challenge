@@ -82,9 +82,12 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
 
     # send message
     print("\nSending " + string_to_send.rstrip('\n'))
-    secure_sock.send(bstring_to_send)
-
-    return 0
+    try:
+        secure_sock.send(bstring_to_send)
+        return 0
+    except (socket.timeout, ssl.SSLError, OSError) as e:
+        print(f"Send failed: {e}")
+        return -1
 
 
 def receive_message(secure_sock: socket.socket) -> Union[int, str]:
@@ -119,19 +122,25 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
         print("empty string")
         return -1
 
+    # ensure it's a bytes-like object
+    if not isinstance(string_to_receive, bytes):
+        print(f"unexpected type: {type(string_to_receive)!r}")
+        return -1
+
     # test received data to make sure it is UTF-8
     try:
-        to_return = string_to_receive.decode('utf-8')
-    except Exception as e:
+        decoded_string = string_to_receive.decode('utf-8')
+        to_return = decoded_string
+    except UnicodeDecodeError as e:
         print("string is not valid: ", e)
         return -1
 
     # test received data to make sure it ends in newline
-    if not string_to_receive.decode('utf-8').endswith("\n"):
+    if not decoded_string.endswith("\n"):
         print("string does not end with new line")
         return -1
 
-    string_received = string_to_receive.decode().replace("\n", "")
+    string_received = decoded_string.replace("\n", "")
     print(f"Received {string_received}")
 
     return to_return
