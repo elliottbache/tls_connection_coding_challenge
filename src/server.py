@@ -33,12 +33,6 @@ DEFAULT_PORT = 3481
 DEFAULT_CA_CERT = "../certificates/ca_cert.pem"
 DEFAULT_SERVER_CERT = "../certificates/server-cert.pem"
 DEFAULT_SERVER_KEY = "../certificates/server-key.pem"
-DEFAULT_VALID_MESSAGES = [
-                          "NAME", "MAILNUM", "MAIL1", "MAIL2",
-                          "SKYPE", "BIRTHDATE", "COUNTRY",
-                          "ADDRNUM", "ADDRLINE1", "ADDRLINE2",
-                          "ERROR internal server error"
-                ]
 
 
 def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
@@ -184,19 +178,22 @@ def is_succeed_send_and_receive(authdata: str, to_send: str,
 
         if to_send.startswith("POW"):
             suffix = received_message.replace("\n", "")
+            hash = hashlib.sha1((authdata + suffix).encode()).hexdigest()
             print(f"Valid POW Suffix: {suffix}\n"
                   f"Authentification data: {authdata}\n"
-                  f"Hash: {hashlib.sha1((authdata + suffix).encode()).hexdigest()}")
-        elif not (to_send.startswith("HELO") or to_send.startswith("ERROR") or to_send.startswith("END")):
+                  f"Hash: {hash}")
+        elif not (to_send.startswith("HELO") or to_send.startswith("ERROR")
+                  or to_send.startswith("END")):
             cksum = received_message.split(" ")[0]
             random_string = to_send.split(" ")[1]
-            cksum_calc = hashlib.sha1((authdata + random_string).encode()).hexdigest()
+            cksum_calc = hashlib.sha1((authdata
+                                       + random_string).encode()).hexdigest()
             print(f"Checksum received: {cksum}\n"
                   f"Checksum calculated: {cksum_calc}")
             if cksum == cksum_calc:
-                print(f"Valid checksum received.")
+                print("Valid checksum received.")
             else:
-                print(f"Invalid checksum received.")
+                print("Invalid checksum received.")
                 is_succeed = False
 
     finally:
@@ -256,7 +253,6 @@ def main() -> int:
     server_key_path = DEFAULT_SERVER_KEY
     hostname = DEFAULT_HOSTNAME
     port = DEFAULT_PORT
-    valid_messages = DEFAULT_VALID_MESSAGES
 
     server_socket, context = prepare_socket(hostname, port, ca_cert_path,
                                             server_cert_path, server_key_path)
@@ -272,8 +268,10 @@ def main() -> int:
             # handshake
             if not is_succeed_send_and_receive(authdata, "HELO", secure_sock):
                 break
-            print(f"Authentification data: {authdata}\nDifficulty: {difficulty}")
-            if not is_succeed_send_and_receive(authdata, "POW " + str(authdata) + " "
+            print(f"Authentification data: {authdata}\nDifficulty: "
+                  f"{difficulty}")
+            if not is_succeed_send_and_receive(authdata, "POW "
+                                               + str(authdata) + " "
                                                + str(difficulty), secure_sock):
                 break
 
@@ -286,7 +284,8 @@ def main() -> int:
                                         "ADDRNUM", "ADDRLINE1", "ADDRLINE2",
                                         "ERROR internal server error"
                 ])
-                if not is_succeed_send_and_receive(authdata, f"{choice} {random_string}",
+                if not is_succeed_send_and_receive(authdata, f"{choice} "
+                                                   f"{random_string}",
                                                    secure_sock):
                     is_error = True
                     break
