@@ -63,8 +63,8 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
         ...     s2.recv(1024)
         ... finally:
         ...     s1.close(); s2.close()
-        sending b'hello\\n'
-        b'hello\\n'
+        Sending 'hello\\n'
+        'hello\\n'
 
         Newline is added if missing:
         >>> a, b = socket.socketpair()
@@ -73,8 +73,8 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
         ...     b.recv(3)
         ... finally:
         ...     a.close(); b.close()
-        sending b'OK\\n'
-        b'OK\\n'
+        sending 'OK\\n'
+        'OK\\n'
     """
 
     # ensure that the string ends with endline
@@ -92,7 +92,7 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
         return 1
 
     # send message
-    print(f"\nsending {bstring_to_send}")
+    print("\nSending " + string_to_send.rstrip('\n'))
     secure_sock.send(bstring_to_send)
 
     return 0
@@ -119,7 +119,7 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
         ...     _ = receive_message(s2)
         ... finally:
         ...     s1.close(); s2.close()
-        received hello
+        Received hello
         <BLANKLINE>
     """
 
@@ -144,7 +144,7 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
         return -1
 
     string_received = string_to_receive.decode().replace("\n", "")
-    print(f"received {string_received}")
+    print(f"Received {string_received}")
 
     return to_return
 
@@ -185,9 +185,9 @@ def is_succeed_send_and_receive(authdata: str, to_send: str,
         if to_send.startswith("POW"):
             suffix = received_message.replace("\n", "")
             print(f"Valid POW Suffix: {suffix}\n"
-                  f"Authdata: {authdata}\n"
+                  f"Authentification data: {authdata}\n"
                   f"Hash: {hashlib.sha1((authdata + suffix).encode()).hexdigest()}")
-        elif not (to_send.startswith("HELO") or to_send.startswith("ERROR")):
+        elif not (to_send.startswith("HELO") or to_send.startswith("ERROR") or to_send.startswith("END")):
             cksum = received_message.split(" ")[0]
             random_string = to_send.split(" ")[1]
             cksum_calc = hashlib.sha1((authdata + random_string).encode()).hexdigest()
@@ -272,7 +272,7 @@ def main() -> int:
             # handshake
             if not is_succeed_send_and_receive(authdata, "HELO", secure_sock):
                 break
-            print(f"authdata: {authdata}, difficulty: {difficulty}")
+            print(f"Authentification data: {authdata}\nDifficulty: {difficulty}")
             if not is_succeed_send_and_receive(authdata, "POW " + str(authdata) + " "
                                                + str(difficulty), secure_sock):
                 break
