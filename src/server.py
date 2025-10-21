@@ -57,8 +57,9 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
         ...     s2.recv(1024)
         ... finally:
         ...     s1.close(); s2.close()
-        Sending 'hello\\n'
-        'hello\\n'
+        <BLANKLINE>
+        Sending hello
+        b'hello\\n'
 
         Newline is added if missing:
         >>> a, b = socket.socketpair()
@@ -67,8 +68,9 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
         ...     b.recv(3)
         ... finally:
         ...     a.close(); b.close()
-        sending 'OK\\n'
-        'OK\\n'
+        <BLANKLINE>
+        Sending OK
+        b'OK\\n'
     """
 
     # ensure that the string ends with endline
@@ -114,7 +116,6 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
         ... finally:
         ...     s1.close(); s2.close()
         Received hello
-        <BLANKLINE>
     """
 
     # receive data
