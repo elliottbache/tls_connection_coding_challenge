@@ -80,13 +80,6 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
     # encode string
     bstring_to_send = string_to_send.encode('utf-8')
 
-    # test received data to make sure it is UTF-8
-    try:
-        bstring_to_send.decode('utf-8')
-    except Exception as e:
-        print("string is not valid: ", e)
-        return 1
-
     # send message
     print("\nSending " + string_to_send.rstrip('\n'))
     secure_sock.send(bstring_to_send)
