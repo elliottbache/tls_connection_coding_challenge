@@ -141,13 +141,14 @@ def decipher_message(message: str, valid_messages: Set[str]) \
          'SKYPE', 'COUNTRY', 'ADDRLINE1', 'NAME'}
         >>> from src.client import decipher_message
         >>> decipher_message(message, valid_messages)
+        Received MAILNUM LGTk
         (0, ['MAILNUM', 'LGTk'])
     """
 
     # check that we have a UTF-8 message
     try:
         smessage = message.decode('utf-8').replace("\n", "")
-        print(f"Received = {smessage}")
+        print(f"Received {smessage}")
     except Exception as e:
         print("string is not valid: ", e)
         print("string is probably not UTF-8")
@@ -201,8 +202,10 @@ def handle_pow_cpp(authdata: str, difficulty: str, cpp_binary_path: str
         >>> from src.client import handle_pow_cpp
         >>> handle_pow_cpp(authdata, difficulty, cpp_binary_path, threads) \
             # doctest: +ELLIPSIS
-        POW difficulty is ...
-        Valid POW Suffix: ... ...
+        POW difficulty: ...
+        Authdata: ...
+        Valid POW Suffix: ...
+        Hash: ...
         (0, b'...')
     """
 
