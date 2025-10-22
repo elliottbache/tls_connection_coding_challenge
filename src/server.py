@@ -115,7 +115,11 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
     """
 
     # receive data
-    string_to_receive = secure_sock.recv(1024)
+    try:
+        string_to_receive = secure_sock.recv(1024)
+    except (socket.timeout, ssl.SSLError, OSError) as e:
+        print(f"Receive failed: {e}")
+        return -1
 
     # test for empty string
     if not string_to_receive:
@@ -166,16 +170,22 @@ def is_succeed_send_and_receive(token: str, to_send: str,
     is_succeed = False
     try:
         if send_message(to_send, secure_sock):
-            send_message("ERROR sending " + to_send, secure_sock)
-            secure_sock.close()
+            try:
+                send_message("ERROR sending " + to_send, secure_sock)
+            finally:
+                secure_sock.close()
+                return is_succeed
 
         if to_send.startswith("ERROR"):
             return is_succeed
 
         received_message = receive_message(secure_sock)
         if received_message == -1:
-            send_message("ERROR receiving " + to_send, secure_sock)
-            secure_sock.close()
+            try:
+                send_message("ERROR receiving " + to_send, secure_sock)
+            finally:
+                secure_sock.close()
+                return is_succeed
 
         is_succeed = True
 
@@ -247,6 +257,7 @@ def prepare_socket(hostname: str, port: int, ca_cert_path: str,
 
 
 def main() -> int:
+
     token = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu' \
                + 'WROTeTaSmqFCAzuwkwLCRgIIq'
     random_string = 'LGTk'
