@@ -155,7 +155,8 @@ def is_succeed_send_and_receive(authdata: str, to_send: str,
         -> bool:
     """Send message and receive the string from the client.
 
-    Closes the socket if an error occurs.
+    The messages are checked for validity.  Closes the socket if an error
+    occurs.
 
     Args:
         authdata (str): the authorization data.
@@ -167,34 +168,32 @@ def is_succeed_send_and_receive(authdata: str, to_send: str,
             correctly received, False otherwise.
     """
 
-    is_succeed = False
     try:
         if send_message(to_send, secure_sock):
-            try:
-                send_message("ERROR sending " + to_send, secure_sock)
-            finally:
-                secure_sock.close()
-                return is_succeed
+            return send_error("ERROR sending " + to_send, secure_sock)
 
         if to_send.startswith("ERROR"):
-            return is_succeed
+            return False
 
         received_message = receive_message(secure_sock)
         if received_message == -1:
-            try:
-                send_message("ERROR receiving " + to_send, secure_sock)
-            finally:
-                secure_sock.close()
-                return is_succeed
-
-        is_succeed = True
+            return send_error("ERROR receiving " + to_send, secure_sock)
 
         if to_send.startswith("POW"):
+            difficulty = to_send.split(" ")[2]
+            first_zeros = '0' * int(difficulty)
             suffix = received_message.replace("\n", "")
             hash = hashlib.sha1((authdata + suffix).encode()).hexdigest()
-            print(f"Valid POW Suffix: {suffix}\n"
+            print(f"POW suffix from client: {suffix}\n"
                   f"Authentification data: {authdata}\n"
                   f"Hash: {hash}")
+            if not hash.startswith(first_zeros):
+                print(f"Invalid suffix returned from client.")
+                return send_error("ERROR from invalid POW challenge hash.", secure_sock)
+            else:
+                print(f"Valid suffix returned from client.")
+                return True
+
         elif not (to_send.startswith("HELO") or to_send.startswith("ERROR")
                   or to_send.startswith("END")):
             cksum = received_message.split(" ")[0]
@@ -205,16 +204,37 @@ def is_succeed_send_and_receive(authdata: str, to_send: str,
                   f"Checksum calculated: {cksum_calc}")
             if cksum == cksum_calc:
                 print("Valid checksum received.")
+                return True
             else:
                 print("Invalid checksum received.")
-                is_succeed = False
+                return send_error("ERROR from invalid checksum.", secure_sock)
+
+        else:
+            return True
 
     finally:
-        if not is_succeed:
-            secure_sock.close()
-            print("closing connection\n")
+        pass
 
-    return is_succeed
+
+def send_error(to_send: str, secure_sock: socket.socket) -> bool:
+    """Send an error message to the client.
+
+    Args:
+        to_send (str): the string to send.
+        secure_sock (socket.socket): the secure socket to receive from.
+        is_succeed (bool): True if the string is correctly send.
+
+    Returns:
+        bool: False send we will be returning in parent function for an
+              error message.
+    """
+
+    try:
+        send_message(to_send, secure_sock)
+    finally:
+        secure_sock.close()
+        print("closing connection")
+        return False
 
 
 def prepare_socket(hostname: str, port: int, ca_cert_path: str,
