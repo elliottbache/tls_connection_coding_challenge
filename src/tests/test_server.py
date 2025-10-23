@@ -79,6 +79,7 @@ def peer(sock, q, to_send):
 def norm(s: str) -> str:
     return s.replace("\r\n", "\n").rstrip("\n")
 
+## unit tests
 # send_message
 
 def test_send_message(socket_pair, capsys):
@@ -361,3 +362,44 @@ def test_prepare_socket_with_mocked_ssl(monkeypatch, capsys):
 
     captured = capsys.readouterr()
     assert norm(captured.out).startswith("Server listening on https://localhost:")
+
+## integration tests
+
+def test_tls_handshake_connect(capsys):
+    import ssl, trustme
+    import threading
+
+    # generate throwaway certificates
+    ca = trustme.CA()
+    server_cert = ca.issue_cert("localhost")
+
+    # build server context
+    server_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    server_cert.configure_cert(server_ctx)
+
+    # start a TLS server
+    lsock = socket.socket()
+    lsock.bind(("localhost", 0))
+    lsock.listen(1)
+    host, port = lsock.getsockname()
+
+    def srv():
+        csock, _ = lsock.accept()
+        with server_ctx.wrap_socket(csock, server_side=True) as ssock:
+            ssock.sendall(b"hello\n")
+
+    t = threading.Thread(target=srv, daemon=True)
+    t.start()
+
+    # 4) Build client context that trusts the CA
+    client_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ca.configure_trust(client_ctx)
+    client_ctx.check_hostname = False  # we're connecting by IP
+
+    # 5) Connect and read
+    with socket.create_connection((host, port), timeout=3) as s:
+        with client_ctx.wrap_socket(s, server_hostname=None) as c:
+            assert c.recv(1024) == b"hello\n"
+
+    lsock.close()
+    t.join(timeout=1)
