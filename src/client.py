@@ -352,6 +352,48 @@ def define_response(args: List[str], authdata: str, valid_messages: List[str],
     queue.put(results)
 
 
+def connect_to_server(sock: socket.socket, hostname: str, port: int) -> bool:
+    """Connect to server and return True if connection was successful.
+
+    Args:
+        sock (socket.socket): The socket to connect to.
+        hostname (str): The hostname to connect to.
+        port (int): The port to connect to.
+
+    Returns:
+        bool: True if connection was successful, False otherwise.
+    """
+    try:
+        secure_sock.connect((hostname, int(port)))
+        print(f"Connected to {port}\n")
+        return True
+    except socket.timeout:
+        print(f"Connect timeout to {hostname}:{port}")
+    except ConnectionRefusedError:
+        print(f"Connection refused by {hostname}:{port}")
+    except socket.gaierror as e:
+        print(f"DNS/addr error for "
+              f"{hostname}:{port}: {e}")  # bad host / not resolvable
+    except ssl.SSLCertVerificationError as e:
+        # hostname mismatch, expired, unknown CA, etc.
+        print(f"Certificate verification failed for"
+              f" {hostname}:{port}: {e}")
+    except ssl.SSLError as e:
+        # other TLS/handshake issues (protocol mismatch, bad
+        # record, etc.)
+        print(f"TLS error during connect to {hostname}:{port}: {e}")
+    except OSError as e:
+        # catch-all for OS-level socket errors
+        if e.errno == errno.EHOSTUNREACH:
+            print(f"Host unreachable: {hostname}:{port}")
+        elif e.errno == errno.ENETUNREACH:
+            print(f"Network unreachable when connecting to "
+                  f"{hostname}:{port}")
+        else:
+            print(f"OS error connecting to {hostname}:{port}: {e}")
+
+    return False
+
 def main() -> int:
     """
     Entry point for the CLI.
@@ -438,13 +480,13 @@ def main() -> int:
         print(f"Command: {args[0]}")
 
         # If no args are received, continue
-        if err:
+        if err or not args or not args[0]:
             print(f"Problem deciphering message. Error code = {err}."
                   f" continuing.")
             continue
 
         # Define timeouts
-        if args and args[0] == "POW":
+        if args and args[0] and args[0] == "POW":
             this_timeout = pow_timeout
             authdata = args[1]
         else:
