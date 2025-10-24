@@ -169,11 +169,11 @@ def is_succeed_send_and_receive(token: str, to_send: str,
     """
 
     try:
+        if to_send.startswith("ERROR"):
+            return send_error(to_send, secure_sock)
+
         if send_message(to_send, secure_sock):
             return send_error("ERROR sending " + to_send, secure_sock)
-
-        if to_send.startswith("ERROR"):
-            return False
 
         received_message = receive_message(secure_sock)
         if received_message == -1:
@@ -230,8 +230,10 @@ def send_error(to_send: str, secure_sock: socket.socket) -> bool:
     """
 
     try:
+        print("going to send message")
         send_message(to_send, secure_sock)
     finally:
+        print("going to close connection")
         secure_sock.close()
         print("closing connection")
         return False
