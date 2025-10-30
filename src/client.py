@@ -130,8 +130,9 @@ def decipher_message(message: str, valid_messages: Set[str]) \
                                     be received from server.
 
     Returns:
-        Union[int, List[str]]: An error code 0 if no error and 1 if
-                               decoding error, the decoded message
+        Union[int, List[str]]: An error code 0 if no error, 1 if
+                               decoding error, and 2 if message is not
+                               valid the decoded message
                                split into list.
 
     Examples:
@@ -152,18 +153,18 @@ def decipher_message(message: str, valid_messages: Set[str]) \
     except Exception as e:
         print("string is not valid: ", e)
         print("string is probably not UTF-8")
-        return 1, ""
+        return 1, [""]
 
     args = smessage.split()
 
     if not args:
         print("No args in the response")
-        return 2, ""
+        return 2, [""]
 
     # check that message belongs to list of possible messages
     if args[0] not in valid_messages:
         print("This response is not valid: ", smessage)
-        return 2, ""
+        return 2, [""]
 
     # if only 1 argument is received add another empty string argument
     # to avoid errors since server is supposed to send 2 args.
@@ -250,6 +251,9 @@ def handle_pow_cpp(authdata: str, difficulty: str, cpp_binary_path: str
             print("No RESULT found in output.")
             return 4, "\n".encode()
 
+    except FileNotFoundError:
+        print("POW benchmark executable not found.")
+
     except subprocess.CalledProcessError as e:
         print("Error running executable:")
         print(e.stderr)
@@ -334,8 +338,8 @@ def define_response(args: List[str], authdata: str, valid_messages: List[str],
         err, result = return_list[0], return_list[1]
 
     elif args[0] in valid_messages:
-        print("Extra arguments = ", args[1])
-        print("Authentification data = ", authdata)
+        print("Extra arguments = " + args[1])
+        print("Authentification data = " + authdata)
         err, result = 0, (hasher(authdata, args[1]) + " "
                           + responses[args[0]] + "\n").encode()
 
@@ -364,7 +368,7 @@ def connect_to_server(sock: socket.socket, hostname: str, port: int) -> bool:
         bool: True if connection was successful, False otherwise.
     """
     try:
-        secure_sock.connect((hostname, int(port)))
+        sock.connect((hostname, int(port)))
         print(f"Connected to {port}\n")
         return True
     except socket.timeout:
@@ -432,34 +436,8 @@ def main() -> int:
     is_connected = False
     for port in ports:
         if not is_connected:
-            try:
-                secure_sock.connect((hostname, int(port)))
-                is_connected = True
-                print(f"Connected to {port}\n")
-            except socket.timeout:
-                print(f"Connect timeout to {hostname}:{port}")
-            except ConnectionRefusedError:
-                print(f"Connection refused by {hostname}:{port}")
-            except socket.gaierror as e:
-                print(f"DNS/addr error for "
-                      f"{hostname}:{port}: {e}")  # bad host / not resolvable
-            except ssl.SSLCertVerificationError as e:
-                # hostname mismatch, expired, unknown CA, etc.
-                print(f"Certificate verification failed for"
-                      f" {hostname}:{port}: {e}")
-            except ssl.SSLError as e:
-                # other TLS/handshake issues (protocol mismatch, bad
-                # record, etc.)
-                print(f"TLS error during connect to {hostname}:{port}: {e}")
-            except OSError as e:
-                # catch-all for OS-level socket errors
-                if e.errno == errno.EHOSTUNREACH:
-                    print(f"Host unreachable: {hostname}:{port}")
-                elif e.errno == errno.ENETUNREACH:
-                    print(f"Network unreachable when connecting to "
-                          f"{hostname}:{port}")
-                else:
-                    print(f"OS error connecting to {hostname}:{port}: {e}")
+            is_connected = connect_to_server(secure_sock, hostname, port)
+
     if not is_connected:
         print("Not able to connect to any port.  Exiting")
         sys.exit()
@@ -518,8 +496,8 @@ def main() -> int:
             print(f"Sending to server = {response.decode()}")
             secure_sock.send(response)
 
-        # If END or ERROR received from server, break
-        if err == 1 or err == 2:
+        # If END, ERROR, or invalid message received from server, break
+        if err == 1 or err == 2 or err == 4:
             break
 
     # Close the connection
