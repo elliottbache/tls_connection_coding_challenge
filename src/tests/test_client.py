@@ -1,7 +1,12 @@
 import pytest
-import ssl, socket, errno
-import hashlib, subprocess, queue
+import ssl
+import socket
+import errno
+import hashlib
+import subprocess
+import queue
 from src import client
+
 
 # helpers
 class FakeCompleted:
@@ -10,8 +15,10 @@ class FakeCompleted:
         self.stderr = stderr
         self.returncode = returncode
 
+
 class FakeWrappedSock:
     pass
+
 
 class FakeContext:
     def __init__(self):
@@ -31,8 +38,8 @@ class FakeContext:
         })
         return FakeWrappedSock()
 
-## unit tests
-# tls_connect
+
+# unit tests
 class TestTlsConnect:
 
     def test_tls_connect(self, readout, monkeypatch):
@@ -41,7 +48,8 @@ class TestTlsConnect:
         def fake_create_default_context():
             return fake_context
 
-        monkeypatch.setattr(client.ssl, "create_default_context", fake_create_default_context)
+        monkeypatch.setattr(client.ssl, "create_default_context",
+                            fake_create_default_context)
 
         # make os.path.exists deterministic for prints
         monkeypatch.setattr(client.os.path, "exists", lambda p: True)
@@ -68,10 +76,12 @@ class TestTlsConnect:
         assert "Client cert exists: True" in out
         assert "Private key exists: True" in out
 
+
 class TestHasher:
     def test_hasher(self, authdata, random_string):
         assert (hashlib.sha1((authdata + random_string).encode()).hexdigest()
                 == client.hasher(authdata, random_string))
+
 
 class TestDecipherMessage:
     @pytest.mark.parametrize("message, err, expected", [
@@ -81,8 +91,8 @@ class TestDecipherMessage:
         (b"INCORRECT LGTk\n", 2, "This response is not valid:"),
         (b"MAILNUM\n", 0, "Received MAILNUM")
     ])
-
-    def test_decipher_message_cases(self, valid_messages, message, err, expected, readout):
+    def test_decipher_message_cases(self, valid_messages, message, err,
+                                    expected, readout):
         e, args = client.decipher_message(message, valid_messages)
         assert e == err
         out = readout()
@@ -93,113 +103,157 @@ class TestDecipherMessage:
 def pow_hash():
     return '000000dbb98b6c3a3bdc5a9ab0346633247d0ab9'
 
+
 class TestHandlePowCpp:
-    def test_handle_pow_cpp_success(self, authdata, difficulty, threads, suffix, pow_hash, path_to_pow_benchmark, monkeypatch, readout):
+    def test_handle_pow_cpp_success(self, authdata, difficulty, threads,
+                                    suffix, pow_hash, path_to_pow_benchmark,
+                                    monkeypatch, readout):
         def fake_subprocess_run(*a, **k):
-            return FakeCompleted(stdout="RESULT:" + suffix + "\n", stderr="", returncode=0)
+            return FakeCompleted(stdout="RESULT:" + suffix + "\n", stderr="",
+                                 returncode=0)
 
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
 
-        assert client.handle_pow_cpp(authdata, difficulty, path_to_pow_benchmark, threads) == (0, (suffix + '\n').encode())
+        assert (client.handle_pow_cpp(authdata, difficulty,
+                                      path_to_pow_benchmark, threads)
+                == (0, (suffix + '\n').encode()))
 
         out = readout()
         assert f"Authdata: {authdata}\nValid POW Suffix: {suffix}\n" \
                f"Hash: {pow_hash}" in out
 
-    def test_handle_pow_cpp_non_str_authdata(self, authdata, difficulty, threads, path_to_pow_benchmark, readout):
+    def test_handle_pow_cpp_non_str_authdata(self, authdata, difficulty,
+                                             threads, path_to_pow_benchmark,
+                                             readout):
         wrong_authdata = 5.3
 
-        assert client.handle_pow_cpp(wrong_authdata, difficulty, path_to_pow_benchmark, threads) == (4, '\n'.encode())
+        assert (client.handle_pow_cpp(wrong_authdata, difficulty,
+                                      path_to_pow_benchmark, threads)
+                == (4, '\n'.encode()))
 
         out = readout()
         assert "authdata is not a string.  Exiting since hashing function " \
-                  "will not work correctly" in out
+               "will not work correctly" in out
 
-    def test_handle_pow_cpp_non_int_difficulty(self, authdata, difficulty, threads, path_to_pow_benchmark, readout):
+    def test_handle_pow_cpp_non_int_difficulty(self, authdata, difficulty,
+                                               threads, path_to_pow_benchmark,
+                                               readout):
         wrong_difficulty = 'five'
 
-        assert client.handle_pow_cpp(authdata, wrong_difficulty, path_to_pow_benchmark, threads) == (4, '\n'.encode())
+        assert (client.handle_pow_cpp(authdata, wrong_difficulty,
+                                      path_to_pow_benchmark, threads)
+                == (4, '\n'.encode()))
 
         out = readout()
         assert "POW difficulty is not an integer" in out
 
-    def test_handle_pow_cpp_no_executable(self, authdata, difficulty, threads, path_to_pow_benchmark, readout):
+    def test_handle_pow_cpp_no_executable(self, authdata, difficulty, threads,
+                                          path_to_pow_benchmark, readout):
 
-        assert client.handle_pow_cpp(authdata, difficulty, path_to_pow_benchmark, threads) == (4, '\n'.encode())
+        assert (client.handle_pow_cpp(authdata, difficulty,
+                                      path_to_pow_benchmark, threads)
+                == (4, '\n'.encode()))
 
         out = readout()
         assert "POW benchmark executable not found." in out
 
-    def test_handle_pow_cpp_error(self, authdata, difficulty, threads, suffix, pow_hash, path_to_pow_benchmark, monkeypatch, readout):
+    def test_handle_pow_cpp_error(self, authdata, difficulty, threads, suffix,
+                                  pow_hash, path_to_pow_benchmark, monkeypatch,
+                                  readout):
         def fake_subprocess_run(*a, **k):
-            raise subprocess.CalledProcessError(returncode=1, cmd=a[0], output="RESULT:" + suffix + "\n", stderr="")
+            raise subprocess.CalledProcessError(returncode=1, cmd=a[0],
+                                                output="RESULT:" + suffix
+                                                       + "\n", stderr="")
 
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
 
-        assert client.handle_pow_cpp(authdata, difficulty, path_to_pow_benchmark, threads) == (4, '\n'.encode())
+        assert (client.handle_pow_cpp(authdata, difficulty,
+                                      path_to_pow_benchmark, threads)
+                == (4, '\n'.encode()))
 
         out = readout()
         assert "Error running executable:" in out
 
-    def test_handle_pow_cpp_no_result(self, authdata, difficulty, threads, suffix, pow_hash, path_to_pow_benchmark, monkeypatch, readout):
+    def test_handle_pow_cpp_no_result(self, authdata, difficulty, threads,
+                                      suffix, pow_hash, path_to_pow_benchmark,
+                                      monkeypatch, readout):
         def fake_subprocess_run(*a, **k):
             return FakeCompleted(stdout="RESULT:\n", stderr="", returncode=0)
 
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
 
-        assert client.handle_pow_cpp(authdata, difficulty, path_to_pow_benchmark, threads) == (4, '\n'.encode())
+        assert (client.handle_pow_cpp(authdata, difficulty,
+                                      path_to_pow_benchmark, threads)
+                == (4, '\n'.encode()))
 
         out = readout()
         assert "No RESULT found in output." in out
 
+
 class TestDefineResponse:
-    def test_define_response_success_helo(self, authdata, valid_messages, path_to_pow_benchmark, threads, readout):
-
-
+    def test_define_response_success_helo(self, authdata, valid_messages,
+                                          path_to_pow_benchmark, threads,
+                                          readout):
         q = queue.Queue()
         responses = {}
-        client.define_response(["HELO"], authdata, valid_messages, q, responses, path_to_pow_benchmark, threads)
+        client.define_response(["HELO"], authdata, valid_messages, q,
+                               responses, path_to_pow_benchmark, threads)
         assert q.get() == [0, "EHLO\n".encode()]
 
         out = readout()
         assert out == ""
 
-    def test_define_response_success_end(self, authdata, valid_messages, path_to_pow_benchmark, threads, readout):
+    def test_define_response_success_end(self, authdata, valid_messages,
+                                         path_to_pow_benchmark, threads,
+                                         readout):
         import queue
 
         q = queue.Queue()
         responses = {}
-        client.define_response(["END"], authdata, valid_messages, q, responses, path_to_pow_benchmark, threads)
+        client.define_response(["END"], authdata, valid_messages, q, responses,
+                               path_to_pow_benchmark, threads)
         assert q.get() == [1, "OK\n".encode()]
 
         out = readout()
         assert out == ""
 
-    def test_define_response_success_error(self, authdata, valid_messages, path_to_pow_benchmark, threads, readout):
+    def test_define_response_success_error(self, authdata, valid_messages,
+                                           path_to_pow_benchmark, threads,
+                                           readout):
         import queue
 
         q = queue.Queue()
         responses = {}
-        client.define_response(["ERROR", "test", "args"], authdata, valid_messages, q, responses, path_to_pow_benchmark, threads)
+        client.define_response(["ERROR", "test", "args"], authdata,
+                               valid_messages, q, responses,
+                               path_to_pow_benchmark, threads)
         assert q.get() == [2, "\n".encode()]
 
         out = readout()
         assert out == "Server error: test args"
 
-    def test_define_response_success(self, authdata, random_string, valid_messages, path_to_pow_benchmark, threads, readout):
+    def test_define_response_success(self, authdata, random_string,
+                                     valid_messages, path_to_pow_benchmark,
+                                     threads, readout):
         import queue
         q = queue.Queue()
         responses = {"MAILNUM": "2"}
         args = ["MAILNUM", random_string]
 
-        client.define_response(args, authdata, valid_messages, q, responses, path_to_pow_benchmark, threads)
-        out_string = hashlib.sha1((authdata + args[1]).encode()).hexdigest() + " " + responses[args[0]] + "\n"
+        client.define_response(args, authdata, valid_messages, q, responses,
+                               path_to_pow_benchmark, threads)
+        out_string = (hashlib.sha1((authdata + args[1]).encode()).hexdigest()
+                      + " " + responses[args[0]] + "\n")
         assert q.get() == [0, out_string.encode()]
 
         out = readout()
-        assert "Extra arguments = " + args[1] + "\nAuthentification data = " +  authdata in out
+        assert ("Extra arguments = " + args[1] + "\nAuthentification data = "
+                + authdata in out)
 
-    def test_define_response_success_pow(self, authdata, difficulty, random_string, suffix, valid_messages, path_to_pow_benchmark, threads, readout, monkeypatch):
+    def test_define_response_success_pow(self, authdata, difficulty,
+                                         random_string, suffix, valid_messages,
+                                         path_to_pow_benchmark, threads,
+                                         readout, monkeypatch):
         import queue
         q = queue.Queue()
         responses = {"MAILNUM": "2"}
@@ -210,21 +264,28 @@ class TestDefineResponse:
 
         monkeypatch.setattr(client, "handle_pow_cpp", fake_handle_pow_cpp)
 
-        client.define_response(args, authdata, valid_messages, q, responses, path_to_pow_benchmark, threads)
+        client.define_response(args, authdata, valid_messages, q, responses,
+                               path_to_pow_benchmark, threads)
         assert q.get() == [0, (suffix + "\n").encode()]
 
         out = readout()
         assert "The time of execution of POW challenge is :" in out
 
-    def test_define_response_success_invalid(self, authdata, valid_messages, path_to_pow_benchmark, threads):
+    def test_define_response_success_invalid(self, authdata, valid_messages,
+                                             path_to_pow_benchmark, threads):
         import queue
 
         q = queue.Queue()
         responses = {}
-        client.define_response(["HELOP"], authdata, valid_messages, q, responses, path_to_pow_benchmark, threads)
+        client.define_response(["HELOP"], authdata, valid_messages, q,
+                               responses, path_to_pow_benchmark, threads)
         assert q.get() == [4, "\n".encode()]
 
-    def test_define_response_result_no_newline(self, authdata, difficulty, random_string, suffix, valid_messages, path_to_pow_benchmark, threads, readout, monkeypatch):
+    def test_define_response_result_no_newline(self, authdata, difficulty,
+                                               random_string, suffix,
+                                               valid_messages,
+                                               path_to_pow_benchmark, threads,
+                                               readout, monkeypatch):
         import queue
         q = queue.Queue()
         responses = {"MAILNUM": "2"}
@@ -235,15 +296,18 @@ class TestDefineResponse:
 
         monkeypatch.setattr(client, "handle_pow_cpp", fake_handle_pow_cpp)
 
-        client.define_response(args, authdata, valid_messages, q, responses, path_to_pow_benchmark, threads)
+        client.define_response(args, authdata, valid_messages, q, responses,
+                               path_to_pow_benchmark, threads)
         assert q.get() == [0, (suffix + "\n").encode()]
 
         out = readout()
         assert "string does not end with new line" in out
 
+
 class TestConnectToServer:
     def test_connect_to_server_success(self, readout):
         calls = {}
+
         # create socket-like object
         class FakeSocket():
             def connect(self, addr):
@@ -260,7 +324,8 @@ class TestConnectToServer:
 
     @pytest.mark.parametrize("exc, expected", [
         (lambda: socket.timeout(), "Connect timeout to localhost:3481"),
-        (lambda: ConnectionRefusedError(), "Connection refused by localhost:3481"),
+        (lambda: ConnectionRefusedError(),
+         "Connection refused by localhost:3481"),
         (lambda: socket.gaierror(8, "hostname not found"),
          "DNS/addr error for localhost:3481"),
         (lambda: ssl.SSLCertVerificationError("bad cert"),
@@ -274,8 +339,8 @@ class TestConnectToServer:
         (lambda: OSError(123, "weird"),
          "OS error connecting to localhost:3481:")
     ])
-
-    def test_connect_to_server_exception(self, readout, monkeypatch, exc, expected):
+    def test_connect_to_server_exception(self, readout, monkeypatch, exc,
+                                         expected):
         # create socket-like object
         class FakeSocket():
             def connect(self, addr):
