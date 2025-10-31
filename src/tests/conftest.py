@@ -1,4 +1,5 @@
 import pytest
+import socket
 
 @pytest.fixture
 def readout(capsys) -> str:
@@ -34,3 +35,17 @@ def difficulty():
 @pytest.fixture
 def threads():
     return '2'
+
+@pytest.fixture
+def socket_pair():
+    s1, s2 = socket.socketpair()
+    s1.settimeout(1.0)
+    s2.settimeout(1.0)
+    try:
+        yield s1, s2
+    finally:
+        for s in (s1, s2):
+            try:
+                s.close()
+            except OSError:
+                pass
