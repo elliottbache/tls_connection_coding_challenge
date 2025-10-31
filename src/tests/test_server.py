@@ -3,46 +3,7 @@ import pytest
 
 from src import server
 
-
 # fixtures
-
-@pytest.fixture
-def random_string():
-    return 'LGTk'
-
-@pytest.fixture
-def token():
-    return 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq'
-
-@pytest.fixture
-def cksum():
-    return 'bd8de303197ac9997d5a721a11c46d9ed0450798'
-
-@pytest.fixture
-def suffix():
-    return '2biu'
-
-@pytest.fixture
-def pow_hash():
-    return '000000dbb98b6c3a3bdc5a9ab0346633247d0ab9'
-
-@pytest.fixture
-def difficulty():
-    return '6'
-
-@pytest.fixture
-def socket_pair():
-    s1, s2 = socket.socketpair()
-    s1.settimeout(1.0)
-    s2.settimeout(1.0)
-    try:
-        yield s1, s2
-    finally:
-        for s in (s1, s2):
-            try:
-                s.close()
-            except OSError:
-                pass
 
 class FakeSock:
     def recv(self, n):
@@ -76,296 +37,298 @@ def peer(sock, q, to_send):
 
     return True
 
-def norm(s: str) -> str:
-    return s.replace("\r\n", "\n").rstrip("\n")
-
 ## unit tests
 # send_message
+class TestSendMessage:
+    def test_send_message(self, socket_pair, readout):
+        s1, s2 = socket_pair
+        message_to_send = "HELLO\n"
 
-def test_send_message(socket_pair, capsys):
-    s1, s2 = socket_pair
-    message_to_send = "HELLO\n"
+        err = server.send_message(message_to_send, s1)
+        out = s2.recv(1024)
 
-    err = server.send_message(message_to_send, s1)
-    out = s2.recv(1024)
+        assert err == 0
+        assert out.decode().endswith("\n")
+        assert out == (message_to_send).encode()
 
-    assert err == 0
-    assert out.decode().endswith("\n")
-    assert out == (message_to_send).encode()
+        out = readout()
+        assert out == "\nSending " + message_to_send.rstrip("\n")
 
-    captured = capsys.readouterr()
-    assert norm(captured.out) == "\nSending " + message_to_send.rstrip("\n")
+    def test_send_message_no_newline(self, socket_pair, readout):
+        s1, s2 = socket_pair
+        message_to_send = "HELLO"
 
-def test_send_message_no_newline(socket_pair, capsys):
-    s1, s2 = socket_pair
-    message_to_send = "HELLO"
+        err = server.send_message(message_to_send, s1)
+        out = s2.recv(1024)
 
-    err = server.send_message(message_to_send, s1)
-    out = s2.recv(1024)
+        assert err == 0
+        assert out.decode().endswith("\n")
+        assert out == (message_to_send + "\n").encode()
 
-    assert err == 0
-    assert out.decode().endswith("\n")
-    assert out == (message_to_send + "\n").encode()
-
-    captured = capsys.readouterr()
-    assert norm(captured.out) == "\nSending " + message_to_send
+        out = readout()
+        assert out == "\nSending " + message_to_send
 
 # receive_message
+class TestReceiveMessage:
+    def test_receive_message(self, socket_pair, readout):
+        s1, s2 = socket_pair
+        message_to_receive = b"HELLOBACK\n"
 
-def test_receive_message(socket_pair, capsys):
-    s1, s2 = socket_pair
-    message_to_receive = b"HELLOBACK\n"
+        _ = s1.send(message_to_receive)
+        received_message = server.receive_message(s2)
 
-    _ = s1.send(message_to_receive)
-    received_message = server.receive_message(s2)
+        assert received_message == "HELLOBACK\n"
 
-    assert received_message == "HELLOBACK\n"
+        out = readout()
+        assert out == "Received " + message_to_receive.decode().rstrip("\n")
 
-    captured = capsys.readouterr()
-    assert (norm(captured.out) == "Received "
-            + message_to_receive.decode().rstrip("\n"))
+    def test_receive_message_non_utf(self, socket_pair, readout):
+        s1, s2 = socket_pair
+        message_to_receive = u'æ'.encode('cp1252')
 
-def test_receive_message_non_utf(socket_pair, capsys):
-    s1, s2 = socket_pair
-    message_to_receive = u'æ'.encode('cp1252')
+        _ = s1.send(message_to_receive)
+        err = server.receive_message(s2)
+        assert err == -1
 
-    _ = s1.send(message_to_receive)
-    err = server.receive_message(s2)
-    assert err == -1
+        out = readout()
+        assert out.startswith("string is not valid: ")
 
-    captured = capsys.readouterr()
-    assert captured.out.startswith("string is not valid: ")
+    def test_receive_message_no_newline(self, socket_pair, readout):
+        s1, s2 = socket_pair
+        message_to_receive = b"HELLOBACK"
 
-def test_receive_message_no_newline(socket_pair, capsys):
-    s1, s2 = socket_pair
-    message_to_receive = b"HELLOBACK"
+        _ = s1.send(message_to_receive)
+        err = server.receive_message(s2)
+        assert err == -1
 
-    _ = s1.send(message_to_receive)
-    err = server.receive_message(s2)
-    assert err == -1
+        out = readout()
+        assert out == "string does not end with new line"
 
-    captured = capsys.readouterr()
-    assert norm(captured.out) == "string does not end with new line"
+    def test_receive_empty_message(self, socket_pair, readout):
+        s1, s2 = socket_pair
+        s1.close()
+
+        err = server.receive_message(s2)
+        assert err == -1
+
+        out = readout()
+        assert out == "empty string"
+
+    def test_receive_non_bytes(self, socket_pair, readout):
+        sock = FakeSock()
+        err = server.receive_message(sock)
+        assert err == -1
+
+        out = readout()
+        assert out.startswith("unexpected type: ")
 
-def test_receive_empty_message(socket_pair, capsys):
-    s1, s2 = socket_pair
-    s1.close()
+@pytest.fixture(autouse=True, scope="class")
+def cksum():
+    return 'bd8de303197ac9997d5a721a11c46d9ed0450798'
 
-    err = server.receive_message(s2)
-    assert err == -1
+@pytest.fixture(autouse=True, scope="class")
+def pow_hash():
+    return '000000dbb98b6c3a3bdc5a9ab0346633247d0ab9'
 
-    captured = capsys.readouterr()
-    assert norm(captured.out) == "empty string"
+class TestIsSucceedSendAndReceive:
+    def test_is_succeed_send_and_receive_error_sending(self, socket_pair, token,
+                                                       random_string, readout):
+        s1, s2 = socket_pair
+        s1.close()
+        s2.close()
 
-def test_receive_non_bytes(socket_pair, capsys):
-    sock = FakeSock()
-    err = server.receive_message(sock)
-    assert err == -1
+        err = server.is_succeed_send_and_receive(token, random_string, s1)
+        assert not err
+
+        out = readout()
+        assert out.startswith("\nSending " + random_string
+                                       + "\nSend failed:")
+
+    def test_is_succeed_send_and_receive_error_receiving(self, socket_pair, token,
+                                                         random_string, readout):
+        s1, s2 = socket_pair
+        s2.close()
+
+        err = server.is_succeed_send_and_receive(token, random_string, s1)
+        assert not err
+
+        out = readout()
+        assert out.startswith("\nSending " + random_string
+                                       + "\nReceive failed:")
 
-    captured = capsys.readouterr()
-    assert captured.out.startswith("unexpected type: ")
+    def test_is_succeed_send_and_receive_helo(self, socket_pair, token, readout):
+        s1, s2 = socket_pair
 
-# is_succeed_send_and_receive
+        _ = s2.send(b'HELLOBACK\n')
+        err = server.is_succeed_send_and_receive(token, 'HELLO',s1)
+        assert err
 
-def test_is_succeed_send_and_receive_error_sending(socket_pair, token,
-                                                   random_string, capsys):
-    s1, s2 = socket_pair
-    s1.close()
-    s2.close()
+        out = readout()
+        assert out.startswith("\nSending HELLO\nReceived HELLOBACK")
 
-    err = server.is_succeed_send_and_receive(token, random_string, s1)
-    assert not err
+    def test_is_succeed_send_and_receive_end(self, socket_pair, token, readout):
+        s1, s2 = socket_pair
 
-    captured = capsys.readouterr()
-    assert norm(captured.out).startswith("\nSending " + random_string
-                                   + "\nSend failed:")
-
-def test_is_succeed_send_and_receive_error_receiving(socket_pair, token,
-                                                     random_string, capsys):
-    s1, s2 = socket_pair
-    s2.close()
-
-    err = server.is_succeed_send_and_receive(token, random_string, s1)
-    assert not err
-
-    captured = capsys.readouterr()
-    assert norm(captured.out).startswith("\nSending " + random_string
-                                   + "\nReceive failed:")
-
-def test_is_succeed_send_and_receive_helo(socket_pair, token, capsys):
-    s1, s2 = socket_pair
-
-    _ = s2.send(b'HELLOBACK\n')
-    err = server.is_succeed_send_and_receive(token, 'HELLO',s1)
-    assert err
-
-    captured = capsys.readouterr()
-    assert norm(captured.out).startswith("\nSending HELLO\nReceived HELLOBACK")
-
-def test_is_succeed_send_and_receive_end(socket_pair, token, capsys):
-    s1, s2 = socket_pair
-
-    _ = s2.send(b'OK\n')
-    err = server.is_succeed_send_and_receive(token, 'DONE',s1)
-    assert err
-
-    captured = capsys.readouterr()
-    assert norm(captured.out).startswith("\nSending DONE\nReceived OK")
-
-def test_is_succeed_send_and_receive_mailnum(socket_pair, token,
-                                             random_string, cksum, capsys):
-    s1, s2 = socket_pair
-
-    _ = s2.send((cksum + ' 2\n').encode("utf-8"))
-    err = server.is_succeed_send_and_receive(token,
-                                             'MAILNUM ' + random_string, s1)
-    assert err
-
-    captured = capsys.readouterr()
-    assert norm(captured.out).startswith("\nSending MAILNUM " + random_string
-                                   + "\nReceived " + cksum
-                                   + " 2\nChecksum received: "
-                                   + cksum
-                                   + "\nChecksum calculated: "
-                                   + cksum
-                                   + "\nValid checksum received.")
-
-def test_is_succeed_send_and_receive_pow(socket_pair, token, suffix, pow_hash,
-                                         difficulty, capsys):
-    s1, s2 = socket_pair
-
-    _ = s2.send((suffix + '\n').encode("utf-8"))
-    err = server.is_succeed_send_and_receive(token,
-                                             'WORK ' + token + ' ' + difficulty, s1)
-    assert err
-
-    captured = capsys.readouterr()
-    assert norm(captured.out).startswith("\nSending WORK " + token + " " + difficulty
-            + "\nReceived " + suffix + "\n"
-            + "WORK suffix from client: "
-            + suffix + "\nAuthentification data: "
-            + token + "\n"
-            + "Hash: " + pow_hash + "\n"
-            + "Valid suffix returned from client.")
-
-def test_is_succeed_send_and_receive_invalid_suffix(socket_pair, token,
-                                                    suffix, pow_hash, difficulty, capsys):
-    import threading
-    import queue
-
-    s1, s2 = socket_pair
-
-    q = queue.Queue()
-
-    # create thread for client actions
-    t = threading.Thread(target=peer, args=(s2, q, (suffix + 'p\n').encode("utf-8"),), daemon=True)
-    t.start()
-
-    err = server.is_succeed_send_and_receive(token,
-                                             'WORK ' + token + ' ' + difficulty, s1)
-    assert not err
-
-    t.join(timeout=2)
-    assert not t.is_alive(), "peer did not finish"
-
-    # check first messasge sent from server requesting WORK challenge
-    received_message = q.get(timeout=1)
-    assert received_message == ("WORK " + token + " " + difficulty + "\n").encode("utf-8")
-
-    # check second message sent from server declaring an error has occurred in
-    # the WORK challenge
-    received_message = q.get(timeout=1)
-    assert received_message.decode().startswith("ERROR from invalid WORK challenge hash.")
-
-    # check that stdout error is correctly printed
-    captured = capsys.readouterr()
-    assert "Invalid suffix returned from client." in captured.out
-
-def test_is_succeed_send_and_receive_invalid_cksum(socket_pair, token,
-            random_string, cksum, capsys):
-    import threading
-    import queue
-
-    s1, s2 = socket_pair
-
-    q = queue.Queue()
-
-    # create thread for client actions
-    t = threading.Thread(target=peer, args=(s2, q, (cksum[:-1] + 'p 2\n').encode("utf-8"),), daemon=True)
-    t.start()
-
-    err = server.is_succeed_send_and_receive(token,
-                                             'MAILNUM ' + random_string, s1)
-    assert not err
-
-    t.join(timeout=2)
-
-    # check first messasge sent from server requesting MAILNUM
-    received_message = q.get(timeout=1)
-    assert received_message == ("MAILNUM " + random_string + "\n").encode("utf-8")
-
-    # check second message sent from server declaring an error has occurred in
-    # the checksum
-    received_message = q.get(timeout=1)
-    assert received_message.decode().startswith("ERROR from invalid checksum.")
-
-    # check that stdout error is correctly printed
-    captured = capsys.readouterr()
-    assert norm(captured.out).startswith("\nSending MAILNUM " + random_string
-                                   + "\nReceived " + cksum[:-1] + 'p'
-                                   + " 2\nChecksum received: "
-                                   + cksum[:-1] + 'p'
-                                   + "\nChecksum calculated: "
-                                   + cksum
-                                   + "\nInvalid checksum received.")
-
-# send_error
-
-def test_send_error(socket_pair, capsys):
-    s1, s2 = socket_pair
-    message_to_send = "ERROR test message"
-
-    err = server.send_error(message_to_send, s1)
-    out = s2.recv(1024)
-
-    assert not err
-
-    captured = capsys.readouterr()
-    assert norm(captured.out) == "\nSending ERROR test message\nclosing connection"
-
-# prepare_socket
-
-def test_prepare_socket_with_mocked_ssl(monkeypatch, capsys):
-    fake_context = FakeContext()
-
-    def fake_create_default_context(purpose):
-        fake_context.purpose = purpose
-        return fake_context
-
-    monkeypatch.setattr(server.ssl, "create_default_context", fake_create_default_context)
-
-    server_sock, context = server.prepare_socket("localhost", 0,
-                                          ca_cert_path="ca.pem",
-                                          server_cert_path="srv.pem",
-                                          server_key_path="key.pem")
-
-    # server_sock and context were created and are valid types
-    assert isinstance(server_sock, socket.socket)
-    assert context is fake_context
-
-    # socket bound to a valid port (positive integer)
-    assert server_sock.getsockname()[1] > 0
-
-    # CA, server certificate and server key are succesfully loaded
-    assert ("chain", "srv.pem", "key.pem") in fake_context._loaded
-    assert ("ca", "ca.pem") in fake_context._loaded
-
-    captured = capsys.readouterr()
-    assert norm(captured.out).startswith("Server listening on https://localhost:")
+        _ = s2.send(b'OK\n')
+        err = server.is_succeed_send_and_receive(token, 'DONE',s1)
+        assert err
+
+        out = readout()
+        assert out.startswith("\nSending DONE\nReceived OK")
+
+    def test_is_succeed_send_and_receive_mailnum(self, socket_pair, token,
+                                                 random_string, cksum, readout):
+        s1, s2 = socket_pair
+
+        _ = s2.send((cksum + ' 2\n').encode("utf-8"))
+        err = server.is_succeed_send_and_receive(token,
+                                                 'MAILNUM ' + random_string, s1)
+        assert err
+
+        out = readout()
+        assert out.startswith("\nSending MAILNUM " + random_string
+                                       + "\nReceived " + cksum
+                                       + " 2\nChecksum received: "
+                                       + cksum
+                                       + "\nChecksum calculated: "
+                                       + cksum
+                                       + "\nValid checksum received.")
+
+    def test_is_succeed_send_and_receive_pow(self, socket_pair, token, suffix, pow_hash,
+                                             difficulty, readout):
+        s1, s2 = socket_pair
+
+        _ = s2.send((suffix + '\n').encode("utf-8"))
+        err = server.is_succeed_send_and_receive(token,
+                                                 'WORK ' + token + ' ' + difficulty, s1)
+        assert err
+
+        out = readout()
+        assert out.startswith("\nSending WORK " + token + " " + difficulty
+                + "\nReceived " + suffix + "\n"
+                + "WORK suffix from client: "
+                + suffix + "\nAuthentification data: "
+                + token + "\n"
+                + "Hash: " + pow_hash + "\n"
+                + "Valid suffix returned from client.")
+
+    def test_is_succeed_send_and_receive_invalid_suffix(self, socket_pair, token,
+                                                        suffix, pow_hash, difficulty, readout):
+        import threading
+        import queue
+
+        s1, s2 = socket_pair
+
+        q = queue.Queue()
+
+        # create thread for client actions
+        t = threading.Thread(target=peer, args=(s2, q, (suffix + 'p\n').encode("utf-8"),), daemon=True)
+        t.start()
+
+        err = server.is_succeed_send_and_receive(token,
+                                                 'WORK ' + token + ' ' + difficulty, s1)
+        assert not err
+
+        t.join(timeout=2)
+        assert not t.is_alive(), "peer did not finish"
+
+        # check first messasge sent from server requesting WORK challenge
+        received_message = q.get(timeout=1)
+        assert received_message == ("WORK " + token + " " + difficulty + "\n").encode("utf-8")
+
+        # check second message sent from server declaring an error has occurred in
+        # the WORK challenge
+        received_message = q.get(timeout=1)
+        assert received_message.decode().startswith("ERROR from invalid WORK challenge hash.")
+
+        # check that stdout error is correctly printed
+        out = readout()
+        assert "Invalid suffix returned from client." in out
+
+    def test_is_succeed_send_and_receive_invalid_cksum(self, socket_pair, token,
+                random_string, cksum, readout):
+        import threading
+        import queue
+
+        s1, s2 = socket_pair
+
+        q = queue.Queue()
+
+        # create thread for client actions
+        t = threading.Thread(target=peer, args=(s2, q, (cksum[:-1] + 'p 2\n').encode("utf-8"),), daemon=True)
+        t.start()
+
+        err = server.is_succeed_send_and_receive(token,
+                                                 'MAILNUM ' + random_string, s1)
+        assert not err
+
+        t.join(timeout=2)
+
+        # check first messasge sent from server requesting MAILNUM
+        received_message = q.get(timeout=1)
+        assert received_message == ("MAILNUM " + random_string + "\n").encode("utf-8")
+
+        # check second message sent from server declaring an error has occurred in
+        # the checksum
+        received_message = q.get(timeout=1)
+        assert received_message.decode().startswith("ERROR from invalid checksum.")
+
+        # check that stdout error is correctly printed
+        out = readout()
+        assert out.startswith("\nSending MAILNUM " + random_string
+                                       + "\nReceived " + cksum[:-1] + 'p'
+                                       + " 2\nChecksum received: "
+                                       + cksum[:-1] + 'p'
+                                       + "\nChecksum calculated: "
+                                       + cksum
+                                       + "\nInvalid checksum received.")
+
+class TestSendError:
+    def test_send_error(self, socket_pair, readout):
+        s1, s2 = socket_pair
+        message_to_send = "ERROR test message"
+
+        err = server.send_error(message_to_send, s1)
+        _ = s2.recv(1024)
+
+        assert not err
+
+        out = readout()
+        assert "Sending ERROR test message" in out
+        assert "closing connection" in out
+
+class TestPrepareSocket:
+    def test_prepare_socket_with_mocked_ssl(self, monkeypatch, readout):
+        fake_context = FakeContext()
+
+        def fake_create_default_context(purpose):
+            fake_context.purpose = purpose
+            return fake_context
+
+        monkeypatch.setattr(server.ssl, "create_default_context", fake_create_default_context)
+
+        server_sock, context = server.prepare_socket("localhost", 0,
+                                              ca_cert_path="ca.pem",
+                                              server_cert_path="srv.pem",
+                                              server_key_path="key.pem")
+
+        # server_sock and context were created and are valid types
+        assert isinstance(server_sock, socket.socket)
+        assert context is fake_context
+
+        # socket bound to a valid port (positive integer)
+        assert server_sock.getsockname()[1] > 0
+
+        # CA, server certificate and server key are succesfully loaded
+        assert ("chain", "srv.pem", "key.pem") in fake_context._loaded
+        assert ("ca", "ca.pem") in fake_context._loaded
+
+        out = readout()
+        assert out.startswith("Server listening on https://localhost:")
 
 ## integration tests
 
-def test_tls_handshake_connect(capsys):
+def test_tls_handshake_connect():
     import ssl, trustme
     import threading
 
