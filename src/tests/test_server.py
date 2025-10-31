@@ -17,7 +17,7 @@ class FakeContext:
 
     def load_verify_locations(self, cafile=None, capath=None, cadata=None):
         # record parameters for assertion if desired
-        self._loaded.append(("ca", cafile))
+        self._loaded.append(("ca", cafile, capath, bool(cadata)))
 
     def load_cert_chain(self, certfile=None, keyfile=None):
         self._loaded.append(("chain", certfile, keyfile))
@@ -29,6 +29,7 @@ def peer(sock, q, to_send):
 
     received_message = sock.recv(1024)
     q.put(received_message)
+    q.put("__PEER_DONE__")
 
     try:
         sock.close()
@@ -38,37 +39,20 @@ def peer(sock, q, to_send):
     return True
 
 ## unit tests
-# send_message
 class TestSendMessage:
-    def test_send_message(self, socket_pair, readout):
+    @pytest.mark.parametrize(
+        "payload, expected",
+        [("HELO\n", "HELO\n"), ("HELO", "HELO\n")]
+    )
+    def test_send_message(self, socket_pair, readout, payload, expected):
         s1, s2 = socket_pair
-        message_to_send = "HELO\n"
-
-        err = server.send_message(message_to_send, s1)
+        err = server.send_message(payload, s1)
         out = s2.recv(1024)
-
         assert err == 0
-        assert out.decode().endswith("\n")
-        assert out == (message_to_send).encode()
+        assert out == expected.encode()
+        assert readout() == "\nSending " + expected.rstrip("\n")
 
-        out = readout()
-        assert out == "\nSending " + message_to_send.rstrip("\n")
 
-    def test_send_message_no_newline(self, socket_pair, readout):
-        s1, s2 = socket_pair
-        message_to_send = "HELO"
-
-        err = server.send_message(message_to_send, s1)
-        out = s2.recv(1024)
-
-        assert err == 0
-        assert out.decode().endswith("\n")
-        assert out == (message_to_send + "\n").encode()
-
-        out = readout()
-        assert out == "\nSending " + message_to_send
-
-# receive_message
 class TestReceiveMessage:
     def test_receive_message(self, socket_pair, readout):
         s1, s2 = socket_pair
@@ -86,7 +70,7 @@ class TestReceiveMessage:
         s1, s2 = socket_pair
         message_to_receive = u'æ'.encode('cp1252')
 
-        _ = s1.send(message_to_receive)
+        _ = s1.sendall(message_to_receive)
         err = server.receive_message(s2)
         assert err == -1
 
@@ -97,7 +81,7 @@ class TestReceiveMessage:
         s1, s2 = socket_pair
         message_to_receive = b"EHLO"
 
-        _ = s1.send(message_to_receive)
+        _ = s1.sendall(message_to_receive)
         err = server.receive_message(s2)
         assert err == -1
 
@@ -122,11 +106,11 @@ class TestReceiveMessage:
         out = readout()
         assert out.startswith("unexpected type: ")
 
-@pytest.fixture(autouse=True, scope="class")
+@pytest.fixture(scope="class")
 def cksum():
     return 'bd8de303197ac9997d5a721a11c46d9ed0450798'
 
-@pytest.fixture(autouse=True, scope="class")
+@pytest.fixture(scope="class")
 def pow_hash():
     return '000000dbb98b6c3a3bdc5a9ab0346633247d0ab9'
 
@@ -159,7 +143,7 @@ class TestIsSucceedSendAndReceive:
     def test_is_succeed_send_and_receive_helo(self, socket_pair, authdata, readout):
         s1, s2 = socket_pair
 
-        _ = s2.send(b'EHLO\n')
+        _ = s2.sendall(b'EHLO\n')
         err = server.is_succeed_send_and_receive(authdata, 'HELO',s1)
         assert err
 
@@ -169,7 +153,7 @@ class TestIsSucceedSendAndReceive:
     def test_is_succeed_send_and_receive_end(self, socket_pair, authdata, readout):
         s1, s2 = socket_pair
 
-        _ = s2.send(b'OK\n')
+        _ = s2.sendall(b'OK\n')
         err = server.is_succeed_send_and_receive(authdata, 'END',s1)
         assert err
 
@@ -180,7 +164,7 @@ class TestIsSucceedSendAndReceive:
                                                  random_string, cksum, readout):
         s1, s2 = socket_pair
 
-        _ = s2.send((cksum + ' 2\n').encode("utf-8"))
+        _ = s2.sendall((cksum + ' 2\n').encode("utf-8"))
         err = server.is_succeed_send_and_receive(authdata,
                                                  'MAILNUM ' + random_string, s1)
         assert err
@@ -198,7 +182,7 @@ class TestIsSucceedSendAndReceive:
                                              difficulty, readout):
         s1, s2 = socket_pair
 
-        _ = s2.send((suffix + '\n').encode("utf-8"))
+        _ = s2.sendall((suffix + '\n').encode("utf-8"))
         err = server.is_succeed_send_and_receive(authdata,
                                                  'POW ' + authdata + ' ' + difficulty, s1)
         assert err
@@ -232,7 +216,7 @@ class TestIsSucceedSendAndReceive:
         t.join(timeout=2)
         assert not t.is_alive(), "peer did not finish"
 
-        # check first messasge sent from server requesting POW challenge
+        # check first message sent from server requesting POW challenge
         received_message = q.get(timeout=1)
         assert received_message == ("POW " + authdata + " " + difficulty + "\n").encode("utf-8")
 
@@ -264,7 +248,7 @@ class TestIsSucceedSendAndReceive:
 
         t.join(timeout=2)
 
-        # check first messasge sent from server requesting MAILNUM
+        # check first message sent from server requesting MAILNUM
         received_message = q.get(timeout=1)
         assert received_message == ("MAILNUM " + random_string + "\n").encode("utf-8")
 
@@ -321,7 +305,7 @@ class TestPrepareSocket:
 
         # CA, server certificate and server key are succesfully loaded
         assert ("chain", "srv.pem", "key.pem") in fake_context._loaded
-        assert ("ca", "ca.pem") in fake_context._loaded
+        assert ("ca", "ca.pem", None, False) in fake_context._loaded
 
         out = readout()
         assert out.startswith("Server listening on https://localhost:")
