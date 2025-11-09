@@ -7,6 +7,9 @@ complete a WORK challenge in under 2 hours, and reply to multiple queries.
 This is designed to be run in an interactive session, printing output to the
 stdout.
 
+Note: The C++ code used in the WORK benchmark is not optimized and will in the 
+future be fixed.
+
 **Table of Contents**
 
 - [Installation](#installation)
