@@ -1,3 +1,4 @@
+// pow_core.cpp
 #include <iostream>
 #include <thread>
 #include <vector>
@@ -40,7 +41,7 @@ bool has_leading_zeros(const uint8_t *digest, int bits_required)
 
     if (remaining_bits)
     {
-        uint8_t mask = 0xFF << (8 - remaining_bits);
+        const uint8_t mask = static_cast<uint8_t>(0xFF << (8 - remaining_bits));
         if ((digest[full_bytes] & mask) != 0)
             return false;
     }
@@ -66,8 +67,12 @@ void pow_worker(const char *authdata, size_t auth_len, int difficulty,
         counter += total_threads;
 
         size_t input_len = auth_len + suffix_length;
+        if (input_len > MAX_INPUT_SIZE)
+        {
+            throw std::runtime_error("Authdata is too long.");
+        }
         std::memcpy(input, authdata, auth_len);
-        std::memcpy(input + auth_len, suffix, input_len);
+        std::memcpy(input + auth_len, suffix, suffix_length);
 
         SHA1(input, input_len, digest);
 
@@ -81,7 +86,7 @@ void pow_worker(const char *authdata, size_t auth_len, int difficulty,
     }
 }
 
-std::vector<std::string> run_pow(const char *authdata, int difficulty)
+PowResult run_pow(const char *authdata, int difficulty)
 {
     size_t auth_len = std::strlen(authdata);
 
@@ -92,7 +97,11 @@ std::vector<std::string> run_pow(const char *authdata, int difficulty)
     std::uniform_int_distribution<uint64_t> dist(0, UINT64_MAX);
     uint64_t base_counter = dist(gen);
 
-    const int max_threads = std::thread::hardware_concurrency();
+    int max_threads = std::thread::hardware_concurrency();
+    if (max_threads < 1)
+    {
+        max_threads = 1;
+    }
 
     std::atomic<bool> found(false);
     std::vector<char> result(suffix_length + 1, 0);
@@ -121,10 +130,12 @@ std::vector<std::string> run_pow(const char *authdata, int difficulty)
     if (found)
     {
 
-        return {suffix, elapsed_time};
+        return PowResult{
+            suffix, elapsed_time, found};
     }
     else
     {
-        return {"", elapsed_time};
+        return PowResult{
+            "", elapsed_time, found};
     }
 }
