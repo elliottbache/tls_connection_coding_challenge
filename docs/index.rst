@@ -10,13 +10,10 @@ TLS line protocol documentation
    :maxdepth: 2
    :caption: Contents:
 
-This documentation is generated from the docstrings inside the source code.
+   getting_started
+   python_api
+   cpp_api
 
-API Reference
--------------
+The Python API documentation is generated from the docstrings inside the source code and compiled with Sphinx.
+The C++ API documentation is compiled wiht Doxygen.
 
-.. autosummary::
-   :toctree: _autosummary
-   :recursive:
-
-   src
