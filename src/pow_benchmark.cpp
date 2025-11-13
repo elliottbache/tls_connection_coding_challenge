@@ -18,16 +18,16 @@ int main(int argc, char *argv[])
     const char *token = argv[1];
     int difficulty = std::stoi(argv[2]);
 
-    std::vector<std::string> outputs = run_pow(token, difficulty);
+    PowResult outputs = run_pow(token, difficulty);
 
-    if (outputs[0].empty())
+    if (outputs.suffix.empty())
     {
         std::cerr << "No result found.\n";
     }
     else
     {
-        std::cout << "RESULT:" << outputs[0] << "\n";
-        std::cout << "Time: " << outputs[1] << " seconds\n";
+        std::cout << "RESULT:" << outputs.suffix << "\n";
+        std::cout << "Time: " << outputs.seconds << " seconds\n";
     }
 
     return 0;
