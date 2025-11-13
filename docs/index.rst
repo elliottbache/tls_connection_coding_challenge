@@ -10,7 +10,7 @@ TLS connection coding challenge documentation
    :maxdepth: 2
    :caption: Contents:
 
-   getting_started
+   intro
    python_api
    cpp_api
 

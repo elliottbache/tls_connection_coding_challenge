@@ -1,3 +1,4 @@
+<!-- docs:start -->
 # TLS connection coding challenge
 
 [![Documentation Status](https://readthedocs.org/projects/tls-connection-coding-challenge/badge/?version=latest)](https://tls-connection-coding-challenge.readthedocs.io/en/latest/?badge=latest)
@@ -66,7 +67,7 @@ $ openssl req -x509 -newkey rsa:2048 -keyout server-key.pem -out server-cert.pem
 This creates "server-cert.pem" and "server-key.pem".  You will need to answer a few questions and input a password.  
 This password will be used every time you launch the server and use the certificate. 
 
-# Compiling C++ code for finding checksum
+## Compiling C++ code for finding checksum
 The C++ code "pow_benchmark.cpp" is used to find a checksum with enough leading zeroes for specified difficulty.  C++
 is used rather than Python due to its speed.
 
@@ -140,3 +141,4 @@ these fellows have put into the project's growth and improvement.
 
 TLS connection coding challenge is distributed under the MIT license. 
 
+<!-- docs:end -->
