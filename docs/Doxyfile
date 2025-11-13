@@ -1,0 +1,17 @@
+# docs/Doxyfile
+PROJECT_NAME           = "TLS Coding Challenge"
+
+# ---- Inputs (headers only) ----
+INPUT                  = ../src
+RECURSIVE              = YES
+FILE_PATTERNS          = *.h *.hpp *.hh *.hxx *.ipp
+EXCLUDE_PATTERNS       = */build/* */.venv/* */.tox/* */tests/_build/*
+
+# ---- Emit even if undocumented (optional) ----
+EXTRACT_ALL            = YES
+
+# ---- Output for Breathe ----
+GENERATE_XML           = YES
+OUTPUT_DIRECTORY       = _build/doxygen
+XML_OUTPUT             = xml
+WARN_LOGFILE           = _build/doxygen/warnings.txt
