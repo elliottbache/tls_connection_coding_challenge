@@ -4,9 +4,11 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 import os
 import sys
+import pathlib
 
 # Make your package importable
-sys.path.insert(0, os.path.abspath(".."))  # parent dir that contains `maths/`
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))  # <- make src/ importable
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -23,7 +25,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.doctest',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'breathe'
 ]
 
 # Generate autosummary stub pages automatically on build
@@ -51,3 +54,14 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+
+
+# add C++ documentation
+# Sphinx (docs/conf.py)
+breathe_projects = {"tls-line-protocol": "_build/doxygen/xml"}
+breathe_default_project = "tls-line-protocol"
+
+DOCS = pathlib.Path(__file__).parent
+BREATHE_XML = DOCS / "_build" / "doxygen" / "xml"
+
+breathe_projects = {"tls-line-protocol": str(BREATHE_XML)}
