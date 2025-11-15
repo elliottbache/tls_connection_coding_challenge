@@ -9,8 +9,6 @@
 #include <cmath>
 #include "pow_core.h"
 
-const size_t charset_size = sizeof(charset) - 1;
-
 // Determine suffix length so that keyspace ≥ 2^(difficulty * 4)
 size_t determine_suffix_length(uint8_t difficulty)
 {
@@ -19,9 +17,9 @@ size_t determine_suffix_length(uint8_t difficulty)
     return static_cast<size_t>(std::ceil(required_bits / bits_per_char));
 }
 
-void generate_counter_string(uint64_t counter, unsigned char *output, size_t length)
+void generate_counter_string(uint64_t counter, unsigned char *output, size_t output_length)
 {
-    for (int i = length - 1; i >= 0; --i)
+    for (int i = output_length - 1; i >= 0; --i)
     {
         output[i] = charset[counter % charset_size];
         counter /= charset_size;
