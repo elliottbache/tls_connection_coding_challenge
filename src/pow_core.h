@@ -38,7 +38,7 @@ const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123
 size_t determine_suffix_length(int difficulty);
 
 /**
- * \brief Encode \p counter into a fixed-length base-\p charset string.
+ * \brief Encode \p counter into a fixed-length base-charset string.
  *
  * Fills \p output[0..length-1] with characters from ::charset.
  *
