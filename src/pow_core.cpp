@@ -12,7 +12,7 @@
 const size_t charset_size = sizeof(charset) - 1;
 
 // Determine suffix length so that keyspace ≥ 2^(difficulty * 4)
-size_t determine_suffix_length(int difficulty)
+size_t determine_suffix_length(uint8_t difficulty)
 {
     double required_bits = difficulty * 4;
     double bits_per_char = std::log2(charset_size);
@@ -49,7 +49,7 @@ bool has_leading_zeros(const uint8_t *digest, int bits_required)
     return true;
 }
 
-void pow_worker(const char *authdata, size_t auth_len, int difficulty,
+void pow_worker(const char *authdata, size_t auth_len, uint8_t difficulty,
                 std::atomic<bool> &found, char *result,
                 int thread_id, int total_threads, uint64_t base_counter, size_t suffix_length)
 {
@@ -86,7 +86,7 @@ void pow_worker(const char *authdata, size_t auth_len, int difficulty,
     }
 }
 
-PowResult run_pow(const char *authdata, int difficulty)
+PowResult run_pow(const char *authdata, uint8_t difficulty)
 {
     size_t auth_len = std::strlen(authdata);
 
