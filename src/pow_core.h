@@ -35,23 +35,23 @@ const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123
  *
  * \note Each step of difficulty adds 4 bits.
  */
-size_t determine_suffix_length(int difficulty);
+size_t determine_suffix_length(uint8_t difficulty);
 
 /**
- * \brief Encode \p counter into a fixed-length base-charset string.
+ * \brief Create fixed-length string from \p counter.
  *
  * Fills \p output[0..length-1] with characters from ::charset.
  *
- * \param counter       Non-negative integer to encode.
- * \param output        Destination buffer of size at least \p length.
- * \param length        Exact number of characters to write (no terminator).
+ * \param counter Non-negative integer to encode.
+ * \param output Destination buffer of size at least \p length.
+ * \param length Exact number of characters to write (no terminator).
  */
 void generate_counter_string(uint64_t counter, unsigned char *output, size_t length);
 
 /**
  * \brief Check whether the first \p bits_required bits of \p digest are zero.
  *
- * \param digest        20-byte SHA-256 digest.
+ * \param digest 20-byte SHA-256 digest.
  * \param bits_required Number of leading zero bits required.
  * \return true if the condition holds, false otherwise.
  */
@@ -60,21 +60,21 @@ bool has_leading_zeros(const uint8_t *digest, int bits_required);
 /**
  * \brief Per-thread worker that searches disjoint counters for a valid suffix.
  *
- * Writes the found suffix into \p result (NUL-terminated) and sets \p found.
+ * Writes the found suffix into \p result (NULL-terminated) and sets \p found.
  *
- * \param token      View of the fixed auth string (read-only).
- * \param difficulty    Required leading zero bits / 4 (hex nibbles).
+ * \param token      Fixed auth string (read-only).
+ * \param difficulty    Required leading zeros.  Each byte is 2 zeros.
  * \param found         Shared stop flag; set to true when a solution is found.
- * \param result        Shared output buffer (size ≥ suffix_length+1).
+ * \param result        Shared output buffer (size = suffix_length+1).
  * \param thread_id     This thread’s id in [0,total_threads).
  * \param total_threads Total worker threads.
- * \param base_counter  Global starting counter (thread_id is added to stride).
+ * \param base_counter  Global starting counter (thread_id is added to this).
  * \param suffix_length Length of suffix to generate.
  *
  * \warning The caller must ensure \p result has sufficient storage and that
  * all threads join before \p result is read.
  */
-void pow_worker(const char *token, size_t auth_len, int difficulty,
+void pow_worker(const char *token, size_t auth_len, uint8_t difficulty,
                 std::atomic<bool> &found, char *result,
                 int thread_id, int total_threads, uint64_t base_counter, size_t suffix_length);
 
@@ -98,4 +98,4 @@ struct PowResult
  * \return PowResult. If not found within the search window,
  *         suffix is empty and seconds still reflects elapsed time.
  */
-PowResult run_pow(const char *token, int difficulty);
+PowResult run_pow(const char *token, uint8_t difficulty);

@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
     }
 
     const char *token = argv[1];
-    int difficulty = std::stoi(argv[2]);
+    uint8_t difficulty = std::stoi(argv[2]);
 
     PowResult outputs = run_pow(token, difficulty);
 
