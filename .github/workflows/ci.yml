@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Check out your repository code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2) Configure with CMake (out-of-source build)
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      # 3) Build the code
+      - name: Build
+        run: cmake --build build --config Release -- -j 4
+
+      # 4) Run tests (GoogleTest via ctest)
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure
