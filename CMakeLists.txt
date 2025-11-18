@@ -34,12 +34,14 @@ enable_testing()
 add_executable(pow_core_test
   src/tests/pow_core_test.cpp
 )
+target_include_directories(pow_core_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 include(GoogleTest)
 gtest_discover_tests(pow_core_test)
 
 target_link_libraries(pow_core_test
     PRIVATE
+        pow_core
         GTest::gtest_main
         OpenSSL::SSL
         OpenSSL::Crypto
