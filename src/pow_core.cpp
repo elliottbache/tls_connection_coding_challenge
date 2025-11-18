@@ -77,6 +77,10 @@ namespace pow_internal
 
     bool has_leading_zeros(const unsigned char *digest, int bits_required)
     {
+        if (bits_required <= 0)
+            return true;
+        if (digest == nullptr)
+            return false;
         int full_bytes = bits_required / 8;
         int remaining_bits = bits_required % 8;
 
