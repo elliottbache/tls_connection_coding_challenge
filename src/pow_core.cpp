@@ -66,6 +66,8 @@ namespace pow_internal
     void generate_counter_string(uint64_t counter, unsigned char *output, size_t output_length)
     {
         assert(output != nullptr);
+        if (output_length == 0)
+            return;
         for (int i = output_length - 1; i >= 0; --i)
         {
             output[i] = pow_internal::charset[counter % pow_internal::charset_size];
