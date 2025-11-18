@@ -75,7 +75,7 @@ namespace pow_internal
         }
     }
 
-    bool has_leading_zeros(const uint8_t *digest, int bits_required)
+    bool has_leading_zeros(const unsigned char *digest, int bits_required)
     {
         int full_bytes = bits_required / 8;
         int remaining_bits = bits_required % 8;
@@ -88,7 +88,7 @@ namespace pow_internal
 
         if (remaining_bits)
         {
-            const uint8_t mask = static_cast<uint8_t>(0xFF << (8 - remaining_bits));
+            const unsigned char mask = static_cast<unsigned char>(0xFF << (8 - remaining_bits));
             if ((digest[full_bytes] & mask) != 0)
                 return false;
         }
