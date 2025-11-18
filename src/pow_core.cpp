@@ -107,6 +107,11 @@ PowResult run_pow(const char *authdata, uint8_t difficulty)
 
     size_t suffix_length = pow_internal::determine_suffix_length(difficulty);
 
+    if (auth_len + suffix_length > pow_internal::MAX_INPUT_SIZE)
+    {
+        throw std::overflow_error("Authdata length is too long.");
+    }
+
     std::random_device rd;
     std::mt19937_64 gen(rd());
     std::uniform_int_distribution<uint64_t> dist(0, UINT64_MAX);
