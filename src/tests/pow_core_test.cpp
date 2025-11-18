@@ -33,11 +33,31 @@ TEST(DetermineSuffixLength, MonotonicIncreasingLength)
     }
 }
 
+/*
 TEST(DetermineSuffixLength, SolutionSpace)
 {
     size_t length = 3;
     uint8_t difficulty = 4;
     EXPECT_GE(std::pow(pow_internal::charset_size, length), std::pow(2, 4 * difficulty));
+}
+*/
+
+TEST(DetermineSuffixLength, SolutionSpaceSatisfiesInequality)
+{
+    const uint8_t d = 4;
+    const size_t L = pow_internal::determine_suffix_length(d);
+
+    // Check L * log2(|Σ|) >= 4*d   (no overflow, stable)
+    const long double lhs = static_cast<long double>(L) * std::log2(static_cast<long double>(pow_internal::charset_size));
+    const long double rhs = static_cast<long double>(4 * d);
+    EXPECT_GE(lhs + 1e-12L, rhs); // tiny epsilon for FP
+}
+
+TEST(GenerateCounterString, ZeroLength_NoWrite)
+{
+    unsigned char dummy = 0xAB;
+    pow_internal::generate_counter_string(0, &dummy, 0); // must not touch memory
+    EXPECT_EQ(dummy, 0xAB);
 }
 
 TEST(GenerateCounterString, ZeroCounter)
@@ -52,7 +72,7 @@ struct Case
 {
     int counter;
     size_t length;
-    unsigned char *expected_output;
+    const unsigned char *expected_output;
 };
 
 class GenerateTest : public ::testing::TestWithParam<Case>
@@ -62,17 +82,17 @@ class GenerateTest : public ::testing::TestWithParam<Case>
 TEST_P(GenerateTest, ExpectedOutputs)
 {
     auto [counter, length, expected_output] = GetParam();
-    std::vector<unsigned char> char_vector(expected_output, expected_output + length);
 
     unsigned char output[length];
     pow_internal::generate_counter_string(counter, output, length);
+    std::vector<unsigned char> actual(output, output + length);
 
-    EXPECT_EQ(char_vector, std::vector<unsigned char>(expected_output, expected_output + length));
+    EXPECT_EQ(actual, std::vector<unsigned char>(expected_output, expected_output + length));
 }
 
-unsigned char expected_output1[5] = "AAAA";
-unsigned char expected_output2[5] = "BAAA";
-unsigned char expected_output3[5] = "ABAA";
+const unsigned char expected_output1[5] = "AAAA";
+const unsigned char expected_output2[5] = "AAAB";
+const unsigned char expected_output3[5] = "AABA";
 
 INSTANTIATE_TEST_SUITE_P(
     Table,
@@ -84,14 +104,14 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST(GenerateCounterString, AllCharactersBelongToSet)
 {
-    std::set<char> possibleChars(pow_internal::charset, pow_internal::charset + 64);
+    std::set<char> possibleChars(pow_internal::charset, pow_internal::charset + pow_internal::charset_size);
     ASSERT_NE(possibleChars.find('A'), possibleChars.end());
     unsigned char output[4];
 
     for (int counter = 0; counter < 100; ++counter)
     {
         pow_internal::generate_counter_string(counter, output, 4);
-        for (const char this_char : output)
+        for (const unsigned char this_char : output)
         {
             //            std::cout << "Considering " << this_char << "\n";
             EXPECT_NE(possibleChars.find(this_char), possibleChars.end());
@@ -162,22 +182,13 @@ static int leading_zero_bits(const unsigned char *d, size_t n = SHA_DIGEST_LENGT
     return count; // all zero
 }
 
-std::array<unsigned char, 20> sha1(std::span<unsigned char> data)
+std::array<unsigned char, 20> sha1(std::span<const unsigned char> data)
 {
     std::array<unsigned char, SHA_DIGEST_LENGTH> output;
     unsigned char *ok = SHA1(data.data(), data.size(), output.data());
 
     assert(ok == output.data());
-    /*
-    std::ostringstream oss;
-    for (unsigned char i : output)
-    {
-        oss << std::hex << std::setw(2) << std::setfill('0')
-            << static_cast<int>(i);
-        //        std::cout << std::hex << i;
-    }
-    std::cout << oss.str() << "\n";
-    */
+
     return output;
 }
 
@@ -193,53 +204,10 @@ TEST(RunPow, LowDifficulty_ProducesValidSuffix)
     std::span<unsigned char> input_span(input, 4 + result.suffix.size());
     std::array<unsigned char, 20> output_hash = sha1(input_span);
 
-    /*
-    std::ostringstream oss;
-    for (unsigned char i : output_hash)
-    {
-        oss << std::hex << std::setw(2) << std::setfill('0')
-            << static_cast<int>(i);
-        //        std::cout << std::hex << i;
-    }
-    std::cout << oss.str() << "\n";
-    */
-
-    EXPECT_EQ(16, leading_zero_bits(output_hash.data(), SHA_DIGEST_LENGTH));
+    EXPECT_EQ(difficulty * 4, leading_zero_bits(output_hash.data(), SHA_DIGEST_LENGTH));
 }
 
 TEST(RunPow, LongAuthdata_Excepts)
 {
     EXPECT_THROW(run_pow("ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", 4), std::overflow_error);
 }
-// PowResult run_pow(const char *authdata, int difficulty);
-// Threads availability: handle hardware_concurrency()==0 fallback.
-
-/*
-TEST(MinValueTest, HandlesNormalVector) { ASSERT_EQ(min_value({1, 2, 3, 4}), 1); }
-
-class StatsTest : public ::testing::Test
-{
-protected:
-    void SetUp() override
-    {
-        // Called before *each* test using this fixture
-        pressures = {0.0, 100.0, 50.0, 75.0, 89.0};
-        tiny = {1.0};
-        empty = {};
-    }
-
-    // Optional: TearDown() override { ... }
-
-    std::vector<double> pressures;
-    std::vector<double> tiny;
-    std::vector<double> empty;
-    double tol = 1e-9;
-};
-
-// Now use TEST_F instead of TEST
-
-TEST_F(StatsTest, MinValueWorksOnNormalVector) { EXPECT_DOUBLE_EQ(min_value(pressures), 0.0); }
-
-TEST_F(StatsTest, MinThrowsOnEmptyVector) { EXPECT_THROW(min_value(empty), std::invalid_argument); }
-
-*/
