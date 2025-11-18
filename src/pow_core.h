@@ -14,6 +14,7 @@ The resulting suffix and calculation time is returned as a 2-element vector of s
 The run_pow function should be called to initiate calculations:
 run_pow(const char *authdata, int difficulty)
 */
+#pragma once
 #include <atomic>
 #include <string>
 
@@ -31,6 +32,8 @@ struct PowResult
 
 /**
  * \brief Run the parallel search and return the result and elapsed time.
+ *
+ * \post res.found ⇒ suffix satisfies predicate
  *
  * \param authdata   Input string concatenated before the suffix.
  * \param difficulty Required leading hex zeros (nibbles).
