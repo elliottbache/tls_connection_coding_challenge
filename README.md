@@ -102,11 +102,19 @@ connection will close.  Otherwise, the final command will be END.
 
 An in-depth description of the modules and functions of this program can be found in the [Read the Docs](https://tls-connection-coding-challenge.readthedocs.io/en/latest/index.html) and the [GitHub](https://github.com/elliottbache/tls_connection_coding_challenge) page.
 
+In order to create Sphinx documentation from the docstrings in PyCharm, a new run task must be created: 
+Run > Edit Configurations... > + (top-left) > Sphinx task.  In the window that opens, name the Sphinx task in the
+"Name" field, select "html" under the "Command:" dropdown, select the docs folder in the root folder in the "Input:"
+field, and select the docs/_build folder in the "Output:" field.  If the docs or docs/_build folder do not already
+exist, they will perhaps need to be created.  The Sphinx documentation can now be created by going to Run > Run... and
+selecting the Sphinx task name.
+
 ## Technologies
 
 TLS connection coding challenge uses the following technologies and tools:
 
-- [Python](https://www.python.org/): ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+- [![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://www.python.org/)
+- [![Sphinx](https://img.shields.io/badge/Sphinx-3B4D92?style=for-the-badge&logo=sphinx&logoColor=white)](https://www.sphinx-doc.org/en/master/)
 
 ## Contributing
 
