@@ -76,7 +76,7 @@ In a Linux terminal from the "src" folder, enter:
 $ mkdir ../build
 ```
 ```sh
-$ g++ -O3 -std=c++17 pow_benchmark.cpp -o ../build/pow_benchmark -lssl -lcrypto -pthread
+$ g++ -O3 -std=c++17 pow_benchmark.cpp pow_core.cpp -o ../build/pow_benchmark -lssl -lcrypto -pthread
 ```
 
 ## Execution / Usage
