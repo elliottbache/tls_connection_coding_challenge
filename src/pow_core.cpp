@@ -19,38 +19,39 @@ namespace
                     int thread_id, int total_threads, uint64_t base_counter, size_t suffix_length)
     {
         unsigned char digest[SHA_DIGEST_LENGTH]{};
-        unsigned char suffix[suffix_length + 1]{};
-        alignas(64) unsigned char input[pow_internal::MAX_INPUT_SIZE] = {};
+        std::vector<unsigned char> suffix(suffix_length + 1);
+        alignas(64) unsigned char input[pow_internal::MAX_INPUT_SIZE]{};
 
-        int bits_required = difficulty * 4;
-
+        const int bits_required = difficulty * 4;
         uint64_t counter = base_counter + thread_id;
 
-        while (!found.load())
+        while (!found.load(std::memory_order_acquire))
         {
-            pow_internal::generate_counter_string(counter, suffix, suffix_length);
+            pow_internal::generate_counter_string(counter, suffix.data(), suffix_length);
             counter += total_threads;
 
-            size_t input_len = auth_len + suffix_length;
+            const size_t input_len = auth_len + suffix_length;
             if (input_len > pow_internal::MAX_INPUT_SIZE)
-            {
                 throw std::runtime_error("Authdata is too long.");
-            }
+
             std::memcpy(input, token, auth_len);
-            std::memcpy(input + auth_len, suffix, suffix_length);
+            std::memcpy(input + auth_len, suffix.data(), suffix_length);
 
             SHA256(input, input_len, digest);
 
             if (pow_internal::has_leading_zeros(digest, bits_required))
             {
-                std::memcpy(result, suffix, suffix_length);
-                result[suffix_length] = '\0';
-                found.store(true);
-                break;
+                bool expected = false;
+                if (found.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
+                {
+                    // This thread wins: it's the ONLY writer.
+                    std::memcpy(result, suffix.data(), suffix_length);
+                    result[suffix_length] = '\0';
+                }
+                break; // winner or loser, stop after a hit
             }
         }
     }
-
 }
 
 namespace pow_internal
