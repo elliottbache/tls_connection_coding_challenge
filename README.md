@@ -142,8 +142,8 @@ these fellows have put into the project's growth and improvement.
 
 ## Change log
 
-- 0.0.1
-    - First working version
+- v0.1.0
+    - TLS Client/Server Challenge with POW, PyTest Suite & Sphinx Docs
 
 ## License
 
