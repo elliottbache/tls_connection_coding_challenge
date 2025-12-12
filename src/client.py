@@ -43,7 +43,6 @@ from typing import List, Set
 import errno
 
 DEFAULT_CPP_BINARY_PATH = "../build/pow_benchmark"  # path to c++ executable
-DEFAULT_THREADS = "2"  # number of threads used in c++ code to find hash
 DEFAULT_RESPONSES = {
     "FULL_NAME": "Elliott Bache",
     "MAILNUM": "2",
@@ -175,7 +174,7 @@ def decipher_message(message: str, valid_messages: Set[str]) \
 
 
 def handle_pow_cpp(token: str, difficulty: str, cpp_binary_path: str
-                   = DEFAULT_CPP_BINARY_PATH, threads: str = DEFAULT_THREADS) \
+                   = DEFAULT_CPP_BINARY_PATH) \
         -> tuple[int, bytes]:
     """Find a hash with the given number of leading zeros.
 
@@ -187,7 +186,6 @@ def handle_pow_cpp(token: str, difficulty: str, cpp_binary_path: str
         difficulty (str): The number of leading zeroes required.
         cpp_binary_path (str): The path to the C++ program that solves
             the WORK challenge.
-        threads (str): The number of threads to use for the C++ program.
 
     Returns:
         tuple[int, str]: An error code 0 if no error and 4 if an error,
@@ -199,9 +197,8 @@ def handle_pow_cpp(token: str, difficulty: str, cpp_binary_path: str
             + 'WROTeTaSmqFCAzuwkwLCRgIIq'
         >>> difficulty = "6"
         >>> cpp_binary_path = "build/pow_benchmark"
-        >>> threads = "2"
         >>> from src.client import handle_pow_cpp
-        >>> handle_pow_cpp(token, difficulty, cpp_binary_path, threads) \
+        >>> handle_pow_cpp(token, difficulty, cpp_binary_path) \
             # doctest: +ELLIPSIS
         WORK difficulty: ...
         WORK benchmark executable not found.
@@ -225,7 +222,7 @@ def handle_pow_cpp(token: str, difficulty: str, cpp_binary_path: str
     # run pre-compiled c++ code for finding suffix
     try:
         result = subprocess.run(
-            [cpp_binary_path, token, difficulty, threads],
+            [cpp_binary_path, token, difficulty],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -261,8 +258,7 @@ def handle_pow_cpp(token: str, difficulty: str, cpp_binary_path: str
 
 def define_response(args: List[str], token: str, valid_messages: List[str],
                     queue, responses=DEFAULT_RESPONSES,
-                    cpp_binary_path=DEFAULT_CPP_BINARY_PATH,
-                    threads=DEFAULT_THREADS):
+                    cpp_binary_path=DEFAULT_CPP_BINARY_PATH):
     """
     Create response to message depending on received message.
 
@@ -279,7 +275,6 @@ def define_response(args: List[str], token: str, valid_messages: List[str],
         responses (list[str]): The list of responses to send.
         cpp_binary_path (str): The path to the C++ program that solves
             the WORK challenge.
-        threads (str): The number of threads to use for the C++ program.
 
     Returns:
         None: results are added to "results" list where results[0]
@@ -296,7 +291,6 @@ def define_response(args: List[str], token: str, valid_messages: List[str],
             'MAILNUM', 'ADDRNUM', 'EMAIL1', 'ADDR_LINE2', 'WORK', 'ERROR', \
             'SOCIAL', 'COUNTRY', 'ADDR_LINE1', 'FULL_NAME'}
             >>> cpp_binary_path = "build/pow_benchmark"
-            >>> threads = "2"
             >>> responses = {}
             >>> from src.client import define_response
             >>> # a tiny queue we can inspect
@@ -305,7 +299,7 @@ def define_response(args: List[str], token: str, valid_messages: List[str],
             ...     def put(self, x): self.items.append(x)
             >>> queue = Q()
             >>> define_response(args, token, valid_messages,
-            ...     queue, responses, cpp_binary_path, threads)
+            ...     queue, responses, cpp_binary_path)
             >>> queue.items
             [[0, b'HELLOBACK\\n']]
     """
@@ -322,8 +316,7 @@ def define_response(args: List[str], token: str, valid_messages: List[str],
 
         # record start time
         start = time.time()
-        return_list = handle_pow_cpp(token, difficulty, cpp_binary_path,
-                                     threads)
+        return_list = handle_pow_cpp(token, difficulty, cpp_binary_path)
 
         # record end time
         end = time.time()
@@ -411,7 +404,6 @@ def main() -> int:
     """
 
     cpp_binary_path = DEFAULT_CPP_BINARY_PATH
-    threads = DEFAULT_THREADS
     responses = DEFAULT_RESPONSES
     hostname = DEFAULT_HOSTFULL_NAME
     ports = DEFAULT_PORTS
@@ -474,7 +466,7 @@ def main() -> int:
         p = multiprocessing.Process(
             target=define_response,
             args=(args, token, valid_messages, queue, responses,
-                  cpp_binary_path, threads),
+                  cpp_binary_path),
         )
         p.start()
         p.join(timeout=this_timeout)  # Wait up to 6 or 7200 seconds
