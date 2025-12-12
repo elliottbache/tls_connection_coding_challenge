@@ -20,12 +20,10 @@ Functions:
     prepare_socket:
         prepare a socket to be used for sending and receiving.
 """
-
-import ssl
-import socket
-import random
-from typing import Union
 import hashlib
+import random
+import socket
+import ssl
 
 # module-level defaults (safe to import, optional)
 DEFAULT_HOSTNAME = "localhost"
@@ -85,12 +83,12 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
     try:
         secure_sock.send(bstring_to_send)
         return 0
-    except (socket.timeout, ssl.SSLError, OSError) as e:
+    except (TimeoutError, ssl.SSLError, OSError) as e:
         print(f"Send failed: {e}")
         return -1
 
 
-def receive_message(secure_sock: socket.socket) -> Union[int, str]:
+def receive_message(secure_sock: socket.socket) -> int | str:
     """Receive string from the client.
 
     This ensures that the string is UTF-8 and ends with a newline
@@ -117,7 +115,7 @@ def receive_message(secure_sock: socket.socket) -> Union[int, str]:
     # receive data
     try:
         string_to_receive = secure_sock.recv(1024)
-    except (socket.timeout, ssl.SSLError, OSError) as e:
+    except (TimeoutError, ssl.SSLError, OSError) as e:
         print(f"Receive failed: {e}")
         return -1
 
@@ -188,10 +186,10 @@ def is_succeed_send_and_receive(authdata: str, to_send: str,
                   f"Authentification data: {authdata}\n"
                   f"Hash: {hash}")
             if not hash.startswith(first_zeros):
-                print(f"Invalid suffix returned from client.")
+                print("Invalid suffix returned from client.")
                 return send_error("ERROR from invalid POW challenge hash.", secure_sock)
             else:
-                print(f"Valid suffix returned from client.")
+                print("Valid suffix returned from client.")
                 return True
 
         elif not (to_send.startswith("HELO") or to_send.startswith("ERROR")
@@ -212,8 +210,9 @@ def is_succeed_send_and_receive(authdata: str, to_send: str,
         else:
             return True
 
-    finally:
-        pass
+    except Exception as e:
+        print(f"Exception: {e}")
+        return False
 
 
 def send_error(to_send: str, secure_sock: socket.socket) -> bool:
@@ -225,18 +224,20 @@ def send_error(to_send: str, secure_sock: socket.socket) -> bool:
         is_succeed (bool): True if the string is correctly send.
 
     Returns:
-        bool: False send we will be returning in parent function for an
-              error message.
+        bool: False
     """
 
     try:
         print("going to send message")
         send_message(to_send, secure_sock)
+    except Exception as e:
+        print(f"error: {e}")
     finally:
         print("going to close connection")
         secure_sock.close()
         print("closing connection")
-        return False
+
+    return False
 
 
 def prepare_socket(hostname: str, port: int, ca_cert_path: str,
@@ -317,7 +318,7 @@ def main() -> int:
                 break
 
             # body
-            for i in range(20):
+            for _ in range(20):
                 # This randomly sends requests to the client.
                 choice = random.choice([
                                         "NAME", "MAILNUM", "MAIL1", "MAIL2",

@@ -2,9 +2,8 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
-import os
-import sys
 import pathlib
+import sys
 
 # Make your package importable
 ROOT = pathlib.Path(__file__).resolve().parents[1]

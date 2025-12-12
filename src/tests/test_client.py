@@ -1,10 +1,12 @@
-import pytest
-import ssl
-import socket
 import errno
 import hashlib
-import subprocess
 import queue
+import socket
+import ssl
+import subprocess
+
+import pytest
+
 from src import client
 
 
@@ -129,7 +131,7 @@ class TestHandlePowCpp:
 
         assert (client.handle_pow_cpp(wrong_authdata, difficulty,
                                       path_to_pow_benchmark)
-                == (4, '\n'.encode()))
+                == (4, b'\n'))
 
         out = readout()
         assert "authdata is not a string.  Exiting since hashing function " \
@@ -142,7 +144,7 @@ class TestHandlePowCpp:
 
         assert (client.handle_pow_cpp(authdata, wrong_difficulty,
                                       path_to_pow_benchmark)
-                == (4, '\n'.encode()))
+                == (4, b'\n'))
 
         out = readout()
         assert "POW difficulty is not an integer" in out
@@ -152,7 +154,7 @@ class TestHandlePowCpp:
 
         assert (client.handle_pow_cpp(authdata, difficulty,
                                       path_to_pow_benchmark)
-                == (4, '\n'.encode()))
+                == (4, b'\n'))
 
         out = readout()
         assert "POW benchmark executable not found." in out
@@ -169,7 +171,7 @@ class TestHandlePowCpp:
 
         assert (client.handle_pow_cpp(authdata, difficulty,
                                       path_to_pow_benchmark)
-                == (4, '\n'.encode()))
+                == (4, b'\n'))
 
         out = readout()
         assert "Error running executable:" in out
@@ -184,7 +186,7 @@ class TestHandlePowCpp:
 
         assert (client.handle_pow_cpp(authdata, difficulty,
                                       path_to_pow_benchmark)
-                == (4, '\n'.encode()))
+                == (4, b'\n'))
 
         out = readout()
         assert "No RESULT found in output." in out
@@ -198,7 +200,7 @@ class TestDefineResponse:
         responses = {}
         client.define_response(["HELO"], authdata, valid_messages, q,
                                responses, path_to_pow_benchmark)
-        assert q.get() == [0, "EHLO\n".encode()]
+        assert q.get() == [0, b'EHLO\n']
 
         out = readout()
         assert out == ""
@@ -212,7 +214,7 @@ class TestDefineResponse:
         responses = {}
         client.define_response(["END"], authdata, valid_messages, q, responses,
                                path_to_pow_benchmark)
-        assert q.get() == [1, "OK\n".encode()]
+        assert q.get() == [1, b'OK\n']
 
         out = readout()
         assert out == ""
@@ -227,7 +229,7 @@ class TestDefineResponse:
         client.define_response(["ERROR", "test", "args"], authdata,
                                valid_messages, q, responses,
                                path_to_pow_benchmark)
-        assert q.get() == [2, "\n".encode()]
+        assert q.get() == [2, b'\n']
 
         out = readout()
         assert out == "Server error: test args"
@@ -279,7 +281,7 @@ class TestDefineResponse:
         responses = {}
         client.define_response(["HELOP"], authdata, valid_messages, q,
                                responses, path_to_pow_benchmark)
-        assert q.get() == [4, "\n".encode()]
+        assert q.get() == [4, b'\n']
 
     def test_define_response_result_no_newline(self, authdata, difficulty,
                                                random_string, suffix,
@@ -309,7 +311,7 @@ class TestConnectToServer:
         calls = {}
 
         # create socket-like object
-        class FakeSocket():
+        class FakeSocket:
             def connect(self, addr):
                 calls["addr"] = addr
                 return None
@@ -323,7 +325,7 @@ class TestConnectToServer:
         assert "Connected to 3481" in out
 
     @pytest.mark.parametrize("exc, expected", [
-        (lambda: socket.timeout(), "Connect timeout to localhost:3481"),
+        (lambda: TimeoutError(), "Connect timeout to localhost:3481"),
         (lambda: ConnectionRefusedError(),
          "Connection refused by localhost:3481"),
         (lambda: socket.gaierror(8, "hostname not found"),
@@ -342,7 +344,7 @@ class TestConnectToServer:
     def test_connect_to_server_exception(self, readout, monkeypatch, exc,
                                          expected):
         # create socket-like object
-        class FakeSocket():
+        class FakeSocket:
             def connect(self, addr):
                 return None
 

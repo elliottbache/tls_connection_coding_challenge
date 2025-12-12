@@ -30,17 +30,15 @@ Functions:
         Main function.
 
 """
-
-import ssl
-import socket
+import errno
 import hashlib
+import multiprocessing
 import os
+import socket
+import ssl
+import subprocess
 import sys
 import time
-import multiprocessing
-import subprocess
-from typing import List, Set
-import errno
 
 DEFAULT_CPP_BINARY_PATH = "build/pow_benchmark"  # path to c++ executable
 DEFAULT_RESPONSES = {
@@ -59,7 +57,8 @@ DEFAULT_HOSTNAME = os.getenv("HOSTNAME", "localhost")
 DEFAULT_PORTS = [int(p) for p in os.getenv("PORTS", "3481").split(",")]
 DEFAULT_PRIVATE_KEY_PATH = 'certificates/ec_private_key.pem'
 DEFAULT_CLIENT_CERT_PATH = 'certificates/client_cert.pem'
-
+DEFAULT_ALL_TIMEOUT = 6
+DEFAULT_POW_TIMEOUT = 7200
 
 def tls_connect(client_cert_path: str, private_key_path: str, hostname: str) \
         -> socket.socket:
@@ -125,17 +124,17 @@ def hasher(authdata: str, input_string: str) -> str:
     return cksum_in_hex
 
 
-def decipher_message(message: str, valid_messages: Set[str]) \
-        -> tuple[int, List[str]]:
+def decipher_message(message: str, valid_messages: set[str]) \
+        -> tuple[int, list[str]]:
     """Read message and do error checking.
 
     Args:
         message (str): The message to read.
-        valid_messages (List[str]): A set of valid messages that can
+        valid_messages (list[str]): A set of valid messages that can
                                     be received from server.
 
     Returns:
-        Union[int, List[str]]: An error code 0 if no error, 1 if
+        Union[int, list[str]]: An error code 0 if no error, 1 if
                                decoding error, and 2 if message is not
                                valid the decoded message
                                split into list.
@@ -215,7 +214,7 @@ def handle_pow_cpp(authdata: str, difficulty: str, cpp_binary_path: str
     if not isinstance(authdata, str):
         print("authdata is not a string.  Exiting since hashing function "
               "will not work correctly")
-        return 4, "\n".encode()
+        return 4, b'\n'
 
     # error check difficulty
     try:
@@ -223,14 +222,13 @@ def handle_pow_cpp(authdata: str, difficulty: str, cpp_binary_path: str
         print(f"POW difficulty: {idifficulty}")
     except (ValueError, TypeError):
         print("POW difficulty is not an integer")
-        return 4, "\n".encode()
+        return 4, b'\n'
 
     # run pre-compiled c++ code for finding suffix
     try:
         result = subprocess.run(
             [cpp_binary_path, authdata, difficulty],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
             check=True
         )
@@ -250,7 +248,7 @@ def handle_pow_cpp(authdata: str, difficulty: str, cpp_binary_path: str
             return 0, (suffix + "\n").encode()
         else:
             print("No RESULT found in output.")
-            return 4, "\n".encode()
+            return 4, b'\n'
 
     except FileNotFoundError:
         print("POW benchmark executable not found.")
@@ -259,10 +257,10 @@ def handle_pow_cpp(authdata: str, difficulty: str, cpp_binary_path: str
         print("Error running executable:")
         print(e.stderr)
 
-    return 4, "\n".encode()
+    return 4, b'\n'
 
 
-def define_response(args: List[str], authdata: str, valid_messages: List[str],
+def define_response(args: list[str], authdata: str, valid_messages: list[str],
                     queue, responses=DEFAULT_RESPONSES,
                     cpp_binary_path=DEFAULT_CPP_BINARY_PATH):
     """
@@ -311,12 +309,12 @@ def define_response(args: List[str], authdata: str, valid_messages: List[str],
     """
 
     if args[0] == "HELO":
-        err, result = 0, "EHLO\n".encode()
+        err, result = 0, b'EHLO\n'
     elif args[0] == "END":
-        err, result = 1, "OK\n".encode()
+        err, result = 1, b'OK\n'
     elif args[0] == "ERROR":
         print("Server error: " + " ".join(args[1:]))
-        err, result = 2, "\n".encode()
+        err, result = 2, b'\n'
     elif args[0] == "POW":
         difficulty = args[2]
 
@@ -341,7 +339,7 @@ def define_response(args: List[str], authdata: str, valid_messages: List[str],
                           + responses[args[0]] + "\n").encode()
 
     else:
-        err, result = 4, "\n".encode()
+        err, result = 4, b'\n'
 
     # double check that newline has been placed on string
     if not result.decode('utf-8').endswith("\n"):
@@ -368,7 +366,7 @@ def connect_to_server(sock: socket.socket, hostname: str, port: int) -> bool:
         sock.connect((hostname, int(port)))
         print(f"Connected to {port}\n")
         return True
-    except socket.timeout:
+    except TimeoutError:
         print(f"Connect timeout to {hostname}:{port}")
     except ConnectionRefusedError:
         print(f"Connection refused by {hostname}:{port}")
@@ -395,6 +393,24 @@ def connect_to_server(sock: socket.socket, hostname: str, port: int) -> bool:
 
     return False
 
+
+def _receive_and_decipher_message(
+        secure_sock: socket.socket, valid_messages: list, all_timeout: float,
+) -> tuple[int, list[str]]:
+    """Receive and decode message from server and return a tuple
+    with error code and arguments containing message."""
+    while True:
+        message = secure_sock.recv(1024)
+
+        if message == b'':
+            print(f"Received empty message.  Waiting {all_timeout} continuing.")
+            time.sleep(all_timeout)
+            continue
+
+        # Error check message and create list from message
+        return decipher_message(message, valid_messages)
+
+
 def main() -> int:
     """
     Entry point for the CLI.
@@ -420,8 +436,8 @@ def main() -> int:
         "HELO", "POW", "ERROR", "END", "NAME", "MAILNUM", "MAIL1", "MAIL2",
         "SKYPE", "BIRTHDATE", "COUNTRY", "ADDRNUM", "ADDRLINE1", "ADDRLINE2"
     }  # valid first arguments coming from the server
-    pow_timeout = 7200  # timeout for pow in seconds
-    all_timeout = 6  # timeout for all function except pow in seconds
+    pow_timeout = DEFAULT_POW_TIMEOUT  # timeout for pow in seconds
+    all_timeout = DEFAULT_ALL_TIMEOUT  # timeout for all function except pow in seconds
     authdata = ''  # this will be set with POW message from server
 
     # Create and wrap socket
@@ -441,16 +457,7 @@ def main() -> int:
     # listen to connection until broken
     while True:
 
-        # Receive the message from the server
-        message = secure_sock.recv(1024)
-
-        # If nothing is received wait 6 seconds and continue
-        if message == b"":
-            print("received empty message.  continuing.")
-            continue
-
-        # Error check message and create list from message
-        err, args = decipher_message(message, valid_messages)
+        err, args = _receive_and_decipher_message(secure_sock, valid_messages, all_timeout)
         print(f"Command: {args[0]}")
 
         # If no args are received, continue
@@ -479,7 +486,7 @@ def main() -> int:
         if p.is_alive():
             p.terminate()  # forcefully stop the process
             p.join()
-            err, response = 3, "".encode()
+            err, response = 3, b''
             print(f"{args[0]} Function timed out.")
             continue
         else:
