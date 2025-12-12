@@ -27,7 +27,8 @@ extensions = [
     'sphinx.ext.autosummary',
     'sphinx.ext.doctest',
     'sphinx.ext.napoleon',
-    'breathe'
+    'breathe',
+    "sphinxcontrib.mermaid"  # the mermaid extension
 ]
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 myst_heading_anchors = 3   # create anchors for ##, ###, etc.
