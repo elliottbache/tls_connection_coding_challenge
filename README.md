@@ -3,42 +3,38 @@
 
 [![CI](https://github.com/elliottbache/tls_connection_coding_challenge/actions/workflows/ci.yml/badge.svg)](https://github.com/elliottbache/tls_connection_coding_challenge/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/coverage-—-blue.svg)](#) 
-[![Docs](https://img.shields.io/badge/docs-Read%20the%20Docs-brightgreen)](https://app.readthedocs.org/projects/tls-connection-coding-challenge/)
+[![Docs](https://img.shields.io/badge/docs-Read%20the%20Docs-brightgreen)](https://tls-connection-coding-challenge.readthedocs.io/en/latest/?badge=latest)
 [![Release](https://img.shields.io/github/v/release/elliottbache/tls_connection_coding_challenge)](https://github.com/elliottbache/tls_connection_coding_challenge/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: GPL-3.0](https://img.shields.io/badge/license-%20%20GNU%20GPLv3%20-green?style=plastic)](LICENSE)
 
 > **60-second summary**
 > - Minimal client/server that perform a TLS handshake, then a **HELO → POW → info requests → END** flow.
 > - POW solved by a fast C++ helper (multi-threaded) invoked from Python.
-> - Clean separation of **secure defaults** (verify server cert, hostname) with an opt-in “insecure local test” path.
-> - Fully testable: unit tests for parsing & hashing; integration test spins a throwaway TLS server and exercises the full round-trip.
+> - Fully testable: unit tests for parsing & hashing; integration test creates a throwaway TLS server and exercises the full round-trip.
 
 ---
 
 ## Architecture (at a glance)
 
-```mermaid
+```{mermaid}
 sequenceDiagram
-    participant Client (Python)
-    participant POW (C++ exe)
-    participant Server (Python)
+  autonumber
+  participant C as Client
+  participant S as Server
 
-    Client->>Server: TLS handshake (mTLS optional)
-    Server-->>Client: HELO\n
-    Client-->>Server: EHLO\n
-    Server-->>Client: POW <authdata> <difficulty>\n
-    Client->>POW: find suffix s.t. SHA1(authdata+suffix) has N leading hex 0s
-    POW-->>Client: RESULT:<suffix>
-    Client-->>Server: <suffix>\n
-    loop Info requests
-        Server-->>Client: NAME/Mail/etc <nonce>\n
-        Client->>Client: sha1(authdata + nonce)
-        Client-->>Server: <checksum> <value>\n
-    end
-    Server-->>Client: END\n
-    Client-->>Server: OK\n
+  S->>C: HELO\n
+  C->>S: EHLO\n
 
-[![Documentation Status](https://readthedocs.org/projects/tls-connection-coding-challenge/badge/?version=latest)](https://tls-connection-coding-challenge.readthedocs.io/en/latest/?badge=latest)
+  S->>C: POW <authdata> <difficulty>\n
+  C->>C: find suffix so that SHA1(authdata+suffix) has N hex zeros
+  C->>S: <suffix>\n
+
+  S->>C: MAILNUM <arg>\n (and other info requests)
+  C->>S: <sha1(authdata+arg)> <response>\n
+
+  S->>C: END\n
+  C->>S: OK\n
+```
 
 This is a coding challenge that requires the client to connect to a server,
 complete a POW challenge in under 2 hours, and reply to multiple queries.
@@ -47,6 +43,7 @@ stdout.
 
 **Table of Contents**
 
+- [Quickstart](#quickstart)
 - [Installation](#installation)
 - [Execution / Usage](#execution--usage)
 - [Technologies](#technologies)
@@ -55,6 +52,54 @@ stdout.
 - [Author](#author)
 - [Change log](#change-log)
 - [License](#license)
+
+## Quickstart
+### Option A: No Docker
+1. Create & activate a venv
+```bash
+python -m venv .venv
+. .venv/bin/activate 
+```
+2. Install
+```bash
+pip install -U pip
+pip install -e .[dev]   # if you define extras in pyproject; otherwise: pip install -r requirements.txt
+```
+3. Build the C++ POW helper
+```bash
+cmake -S . -B build
+cmake --build build --config Release
+```
+4. Generate local certs (CA, server, client)
+```bash
+bash scripts/make-certs.sh
+```
+5. Run demo server (listens on localhost, verifies client by default)
+```bash
+python -m src.server
+```
+6. In another terminal, run the client
+```bash
+python -m src.client
+```
+
+### Option B: Docker
+1. Build the POW helper on host (or inside a client Dockerfile stage)
+```bash
+cmake -S . -B build && cmake --build build --config Release
+```
+2. Generate local certs (CA, server, client)
+```bash
+bash scripts/make-certs.sh
+```
+3. Start a docker container
+```bash
+docker start <name>
+```
+4. Then run
+```bash
+docker compose up --build
+```
 
 ## Installation
 ## Creating client and server side certificates
@@ -93,7 +138,7 @@ This creates "ca_cert.srl" and "client_cert.pem".
 ### Server side
 #### Prepare the server certificates
 ```sh
-$ openssl req -x509 -newkey rsa:2048 -keyout server-key.pem -out server-cert.pem -days 365
+$ openssl req -x509 -newkey rsa:2048 -nodes -keyout server-key.pem -out server-cert.pem -days 365 -subj "/CN=localhost"
 ```
 
 
