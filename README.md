@@ -1,5 +1,42 @@
 <!-- docs:start -->
-# TLS line protocol
+# TLS Line Protocol
+
+[![CI](https://github.com/elliottbache/tls_line_protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/elliottbache/tls_line_protocol/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-—-blue.svg)](#) 
+[![Docs](https://img.shields.io/badge/docs-Read%20the%20Docs-brightgreen)](https://app.readthedocs.org/projects/tls-line-protocol/)
+[![Release](https://img.shields.io/github/v/release/elliottbache/tls_line_protocol)](https://github.com/elliottbache/tls_line_protocol/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+> **60-second summary**
+> - Minimal client/server that perform a TLS handshake, then a **HELLO → WORK → info requests → DONE** flow.
+> - WORK solved by a fast C++ helper (multi-threaded) invoked from Python.
+> - Clean separation of **secure defaults** (verify server cert, hostname) with an opt-in “insecure local test” path.
+> - Fully testable: unit tests for parsing & hashing; integration test spins a throwaway TLS server and exercises the full round-trip.
+
+---
+
+## Architecture (at a glance)
+
+```mermaid
+sequenceDiagram
+    participant Client (Python)
+    participant WORK (C++ exe)
+    participant Server (Python)
+
+    Client->>Server: TLS handshake (mTLS optional)
+    Server-->>Client: HELLO\n
+    Client-->>Server: HELLOBACK\n
+    Server-->>Client: WORK <token> <difficulty>\n
+    Client->>WORK: find suffix s.t. SHA256(token+suffix) has N leading hex 0s
+    WORK-->>Client: RESULT:<suffix>
+    Client-->>Server: <suffix>\n
+    loop Info requests
+        Server-->>Client: FULL_NAME/Mail/etc <nonce>\n
+        Client->>Client: sha256(token + nonce)
+        Client-->>Server: <checksum> <value>\n
+    end
+    Server-->>Client: DONE\n
+    Client-->>Server: OK\n
 
 [![Documentation Status](https://readthedocs.org/projects/tls-line-protocol/badge/?version=latest)](https://tls-line-protocol.readthedocs.io/en/latest/?badge=latest)
 
@@ -141,6 +178,6 @@ these fellows have put into the project's growth and improvement.
 
 ## License
 
-TLS line protocol is distributed under the MIT license. 
+TLS line protocol is distributed under the GPL-3.0 license. 
 
 <!-- docs:end -->
