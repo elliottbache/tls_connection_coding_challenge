@@ -1,0 +1,15 @@
+[project]
+name = "tls-line-protocol"
+version = "0.1.0"
+dependencies = ["cryptography", "trustme"]  # runtime deps (example)
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-timeout",
+  "pytest-cov",
+  "flake8",
+  "mypy",
+  "sphinx",
+  "sphinxcontrib-mermaid",
+]
