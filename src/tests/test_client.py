@@ -105,7 +105,7 @@ def pow_hash():
 
 
 class TestHandlePowCpp:
-    def test_handle_pow_cpp_success(self, token, difficulty, threads,
+    def test_handle_pow_cpp_success(self, token, difficulty,
                                     suffix, pow_hash, path_to_pow_benchmark,
                                     monkeypatch, readout):
         def fake_subprocess_run(*a, **k):
@@ -115,7 +115,7 @@ class TestHandlePowCpp:
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
 
         assert (client.handle_pow_cpp(token, difficulty,
-                                      path_to_pow_benchmark, threads)
+                                      path_to_pow_benchmark)
                 == (0, (suffix + '\n').encode()))
 
         out = readout()
@@ -123,12 +123,12 @@ class TestHandlePowCpp:
                f"Hash: {pow_hash}" in out
 
     def test_handle_pow_cpp_non_str_token(self, token, difficulty,
-                                             threads, path_to_pow_benchmark,
+                                             path_to_pow_benchmark,
                                              readout):
         wrong_token = 5.3
 
         assert (client.handle_pow_cpp(wrong_token, difficulty,
-                                      path_to_pow_benchmark, threads)
+                                      path_to_pow_benchmark)
                 == (4, '\n'.encode()))
 
         out = readout()
@@ -136,28 +136,28 @@ class TestHandlePowCpp:
                "will not work correctly" in out
 
     def test_handle_pow_cpp_non_int_difficulty(self, token, difficulty,
-                                               threads, path_to_pow_benchmark,
+                                               path_to_pow_benchmark,
                                                readout):
         wrong_difficulty = 'five'
 
         assert (client.handle_pow_cpp(token, wrong_difficulty,
-                                      path_to_pow_benchmark, threads)
+                                      path_to_pow_benchmark)
                 == (4, '\n'.encode()))
 
         out = readout()
         assert "WORK difficulty is not an integer" in out
 
-    def test_handle_pow_cpp_no_executable(self, token, difficulty, threads,
+    def test_handle_pow_cpp_no_executable(self, token, difficulty,
                                           path_to_pow_benchmark, readout):
 
         assert (client.handle_pow_cpp(token, difficulty,
-                                      path_to_pow_benchmark, threads)
+                                      path_to_pow_benchmark)
                 == (4, '\n'.encode()))
 
         out = readout()
         assert "WORK benchmark executable not found." in out
 
-    def test_handle_pow_cpp_error(self, token, difficulty, threads, suffix,
+    def test_handle_pow_cpp_error(self, token, difficulty, suffix,
                                   pow_hash, path_to_pow_benchmark, monkeypatch,
                                   readout):
         def fake_subprocess_run(*a, **k):
@@ -168,13 +168,13 @@ class TestHandlePowCpp:
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
 
         assert (client.handle_pow_cpp(token, difficulty,
-                                      path_to_pow_benchmark, threads)
+                                      path_to_pow_benchmark)
                 == (4, '\n'.encode()))
 
         out = readout()
         assert "Error running executable:" in out
 
-    def test_handle_pow_cpp_no_result(self, token, difficulty, threads,
+    def test_handle_pow_cpp_no_result(self, token, difficulty,
                                       suffix, pow_hash, path_to_pow_benchmark,
                                       monkeypatch, readout):
         def fake_subprocess_run(*a, **k):
@@ -183,7 +183,7 @@ class TestHandlePowCpp:
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
 
         assert (client.handle_pow_cpp(token, difficulty,
-                                      path_to_pow_benchmark, threads)
+                                      path_to_pow_benchmark)
                 == (4, '\n'.encode()))
 
         out = readout()
@@ -192,33 +192,33 @@ class TestHandlePowCpp:
 
 class TestDefineResponse:
     def test_define_response_success_helo(self, token, valid_messages,
-                                          path_to_pow_benchmark, threads,
+                                          path_to_pow_benchmark,
                                           readout):
         q = queue.Queue()
         responses = {}
         client.define_response(["HELLO"], token, valid_messages, q,
-                               responses, path_to_pow_benchmark, threads)
+                               responses, path_to_pow_benchmark)
         assert q.get() == [0, "HELLOBACK\n".encode()]
 
         out = readout()
         assert out == ""
 
     def test_define_response_success_end(self, token, valid_messages,
-                                         path_to_pow_benchmark, threads,
+                                         path_to_pow_benchmark,
                                          readout):
         import queue
 
         q = queue.Queue()
         responses = {}
         client.define_response(["DONE"], token, valid_messages, q, responses,
-                               path_to_pow_benchmark, threads)
+                               path_to_pow_benchmark)
         assert q.get() == [1, "OK\n".encode()]
 
         out = readout()
         assert out == ""
 
     def test_define_response_success_error(self, token, valid_messages,
-                                           path_to_pow_benchmark, threads,
+                                           path_to_pow_benchmark,
                                            readout):
         import queue
 
@@ -226,7 +226,7 @@ class TestDefineResponse:
         responses = {}
         client.define_response(["ERROR", "test", "args"], token,
                                valid_messages, q, responses,
-                               path_to_pow_benchmark, threads)
+                               path_to_pow_benchmark)
         assert q.get() == [2, "\n".encode()]
 
         out = readout()
@@ -234,14 +234,14 @@ class TestDefineResponse:
 
     def test_define_response_success(self, token, random_string,
                                      valid_messages, path_to_pow_benchmark,
-                                     threads, readout):
+                                     readout):
         import queue
         q = queue.Queue()
         responses = {"MAILNUM": "2"}
         args = ["MAILNUM", random_string]
 
         client.define_response(args, token, valid_messages, q, responses,
-                               path_to_pow_benchmark, threads)
+                               path_to_pow_benchmark)
         out_string = (hashlib.sha256((token + args[1]).encode()).hexdigest()
                       + " " + responses[args[0]] + "\n")
         assert q.get() == [0, out_string.encode()]
@@ -252,7 +252,7 @@ class TestDefineResponse:
 
     def test_define_response_success_pow(self, token, difficulty,
                                          random_string, suffix, valid_messages,
-                                         path_to_pow_benchmark, threads,
+                                         path_to_pow_benchmark,
                                          readout, monkeypatch):
         import queue
         q = queue.Queue()
@@ -265,26 +265,26 @@ class TestDefineResponse:
         monkeypatch.setattr(client, "handle_pow_cpp", fake_handle_pow_cpp)
 
         client.define_response(args, token, valid_messages, q, responses,
-                               path_to_pow_benchmark, threads)
+                               path_to_pow_benchmark)
         assert q.get() == [0, (suffix + "\n").encode()]
 
         out = readout()
         assert "The time of execution of WORK challenge is :" in out
 
     def test_define_response_success_invalid(self, token, valid_messages,
-                                             path_to_pow_benchmark, threads):
+                                             path_to_pow_benchmark):
         import queue
 
         q = queue.Queue()
         responses = {}
         client.define_response(["HELLOP"], token, valid_messages, q,
-                               responses, path_to_pow_benchmark, threads)
+                               responses, path_to_pow_benchmark)
         assert q.get() == [4, "\n".encode()]
 
     def test_define_response_result_no_newline(self, token, difficulty,
                                                random_string, suffix,
                                                valid_messages,
-                                               path_to_pow_benchmark, threads,
+                                               path_to_pow_benchmark,
                                                readout, monkeypatch):
         import queue
         q = queue.Queue()
@@ -297,7 +297,7 @@ class TestDefineResponse:
         monkeypatch.setattr(client, "handle_pow_cpp", fake_handle_pow_cpp)
 
         client.define_response(args, token, valid_messages, q, responses,
-                               path_to_pow_benchmark, threads)
+                               path_to_pow_benchmark)
         assert q.get() == [0, (suffix + "\n").encode()]
 
         out = readout()
