@@ -1,5 +1,10 @@
+import queue
 import socket
+import ssl
+import threading
+
 import pytest
+import trustme
 
 from src import server
 
@@ -71,7 +76,7 @@ class TestReceiveMessage:
 
     def test_receive_message_non_utf(self, socket_pair, readout):
         s1, s2 = socket_pair
-        message_to_receive = u'æ'.encode('cp1252')
+        message_to_receive = 'æ'.encode('cp1252')
 
         _ = s1.sendall(message_to_receive)
         err = server.receive_message(s2)
@@ -213,8 +218,6 @@ class TestIsSucceedSendAndReceive:
     def test_is_succeed_send_and_receive_invalid_suffix(
             self, socket_pair, token, suffix, pow_hash, difficulty, readout
     ):
-        import threading
-        import queue
 
         s1, s2 = socket_pair
 
@@ -255,8 +258,6 @@ class TestIsSucceedSendAndReceive:
     def test_is_succeed_send_and_receive_invalid_cksum(
             self, socket_pair, token, random_string, cksum, readout
     ):
-        import threading
-        import queue
 
         s1, s2 = socket_pair
 
@@ -345,9 +346,6 @@ class TestPrepareSocket:
 
 # integration tests
 def test_tls_handshake_connect():
-    import ssl
-    import trustme
-    import threading
 
     # generate throwaway certificates
     ca = trustme.CA()

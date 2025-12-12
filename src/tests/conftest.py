@@ -1,5 +1,7 @@
-import pytest
 import socket
+
+import pytest
+
 
 @pytest.fixture
 def readout(capsys) -> str:
