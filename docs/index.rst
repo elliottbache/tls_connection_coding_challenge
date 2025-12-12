@@ -11,6 +11,7 @@ TLS connection coding challenge documentation
    :caption: Contents:
 
    intro
+   guide
    python_api
    cpp_api
 
