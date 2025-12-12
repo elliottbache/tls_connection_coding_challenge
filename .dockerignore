@@ -1,0 +1,8 @@
+.git
+.venv
+__pycache__/
+*.pyc
+dist/
+build/           # (only ignore if you’re compiling via multi-stage)
+.docs_build/
+.cache/
