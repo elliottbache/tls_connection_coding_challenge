@@ -35,8 +35,6 @@ $ cd certificates
 #### Create a certificate authority (CA)
 ```sh
 $ openssl genrsa -out ca_key.pem 2048
-```
-```sh
 $ openssl req -x509 -new -nodes -key ca_key.pem -sha256 -days 3650 -out ca_cert.pem -subj "/CN=My Test CA"
 ```
 This should create "ca_cert.pem" and "ca_key.pem".
@@ -44,8 +42,6 @@ This should create "ca_cert.pem" and "ca_key.pem".
 #### Create a client key and certificate signing request (CSR)
 ```sh
 $ openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out ec_private_key.pem
-```
-```sh
 $ openssl req -new -key ec_private_key.pem -out client.csr -subj "/CN=client"
 ```
 This should create "client.csr" and "ec_private_key.pem".
@@ -74,8 +70,6 @@ is used rather than Python due to its speed.
 In a Linux terminal from the "src" folder, enter:
 ```sh
 $ mkdir ../build
-```
-```sh
 $ g++ -O3 -std=c++17 pow_benchmark.cpp pow_core.cpp -o ../build/pow_benchmark -lssl -lcrypto -pthread
 ```
 
