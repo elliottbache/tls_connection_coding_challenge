@@ -1,0 +1,18 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+    network_mode: "host"
+    command: ["python", "-m", "src.server"]      # server binds 127.0.0.1:3481
+
+  client:
+    build:
+      context: .
+      dockerfile: docker/client.Dockerfile
+    network_mode: "host"
+    environment:
+      HOSTNAME: "localhost"
+      PORT: "3481"
+    command: ["python", "-m", "src.client"]      # client connects to 127.0.0.1:3481
+

@@ -30,9 +30,9 @@ import hashlib
 # module-level defaults (safe to import, optional)
 DEFAULT_HOSTNAME = "localhost"
 DEFAULT_PORT = 3481
-DEFAULT_CA_CERT = "../certificates/ca_cert.pem"
-DEFAULT_SERVER_CERT = "../certificates/server-cert.pem"
-DEFAULT_SERVER_KEY = "../certificates/server-key.pem"
+DEFAULT_CA_CERT = "certificates/ca_cert.pem"
+DEFAULT_SERVER_CERT = "certificates/server-cert.pem"
+DEFAULT_SERVER_KEY = "certificates/server-key.pem"
 
 
 def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
@@ -255,6 +255,11 @@ def prepare_socket(hostname: str, port: int, ca_cert_path: str,
         socket.socket: the socket to be used for sending and receiving.
         ssl.SSLContext: the ssl context to be used for sending and receiving.
     """
+    # Check that hostname is local, otherwise raise error so that unsecure
+    # connection isn't mistakenly used
+    if hostname != 'localhost':
+        raise ValueError(f"Refusing insecure TLS to ‘{hostname}’. For "
+                         f"non-local hosts, enable certificate verification.")
 
     # Define the server address and port
     server_address = (hostname, port)
@@ -273,7 +278,7 @@ def prepare_socket(hostname: str, port: int, ca_cert_path: str,
     context.verify_mode = ssl.CERT_REQUIRED
     context.load_cert_chain(certfile=server_cert_path, keyfile=server_key_path)
 
-    print(f"Server listening on https://localhost:{port}")
+    print(f"Server listening on https://{hostname}:{port}")
 
     return server_socket, context
 

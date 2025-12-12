@@ -42,7 +42,7 @@ import subprocess
 from typing import List, Set
 import errno
 
-DEFAULT_CPP_BINARY_PATH = "../build/pow_benchmark"  # path to c++ executable
+DEFAULT_CPP_BINARY_PATH = "build/pow_benchmark"  # path to c++ executable
 DEFAULT_RESPONSES = {
     "NAME": "Elliott Bache",
     "MAILNUM": "2",
@@ -55,10 +55,10 @@ DEFAULT_RESPONSES = {
     "ADDRLINE1": "234 Evergreen Terrace",
     "ADDRLINE2": "Springfield"
 }
-DEFAULT_HOSTNAME = 'localhost'  # This PC
-DEFAULT_PORTS = [3336, 8083, 8446, 49155, 3481, 65532]
-DEFAULT_PRIVATE_KEY_PATH = '../certificates/ec_private_key.pem'
-DEFAULT_CLIENT_CERT_PATH = '../certificates/client_cert.pem'
+DEFAULT_HOSTNAME = os.getenv("HOSTNAME", "localhost")
+DEFAULT_PORTS = [int(p) for p in os.getenv("PORTS", "3481").split(",")]
+DEFAULT_PRIVATE_KEY_PATH = 'certificates/ec_private_key.pem'
+DEFAULT_CLIENT_CERT_PATH = 'certificates/client_cert.pem'
 
 
 def tls_connect(client_cert_path: str, private_key_path: str, hostname: str) \
@@ -74,6 +74,12 @@ def tls_connect(client_cert_path: str, private_key_path: str, hostname: str) \
     Returns:
         socket.socket: The socket object.
     """
+    # Check that hostname is local, otherwise raise error so that unsecure
+    # connection isn't mistakenly used
+    if hostname != 'localhost':
+        raise ValueError(f"Refusing insecure TLS to ‘{hostname}’. For "
+                         f"non-local hosts, enable certificate verification.")
+
     # Create the client socket
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -430,7 +436,7 @@ def main() -> int:
 
     if not is_connected:
         print("Not able to connect to any port.  Exiting")
-        sys.exit()
+        sys.exit(1)
 
     # listen to connection until broken
     while True:
