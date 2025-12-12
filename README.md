@@ -1,5 +1,42 @@
 <!-- docs:start -->
-# TLS connection coding challenge
+# TLS Connection Coding Challenge
+
+[![CI](https://github.com/elliottbache/tls_connection_coding_challenge/actions/workflows/ci.yml/badge.svg)](https://github.com/elliottbache/tls_connection_coding_challenge/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-—-blue.svg)](#) 
+[![Docs](https://img.shields.io/badge/docs-Read%20the%20Docs-brightgreen)](https://app.readthedocs.org/projects/tls-connection-coding-challenge/)
+[![Release](https://img.shields.io/github/v/release/elliottbache/tls_connection_coding_challenge)](https://github.com/elliottbache/tls_connection_coding_challenge/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+> **60-second summary**
+> - Minimal client/server that perform a TLS handshake, then a **HELO → POW → info requests → END** flow.
+> - POW solved by a fast C++ helper (multi-threaded) invoked from Python.
+> - Clean separation of **secure defaults** (verify server cert, hostname) with an opt-in “insecure local test” path.
+> - Fully testable: unit tests for parsing & hashing; integration test spins a throwaway TLS server and exercises the full round-trip.
+
+---
+
+## Architecture (at a glance)
+
+```mermaid
+sequenceDiagram
+    participant Client (Python)
+    participant POW (C++ exe)
+    participant Server (Python)
+
+    Client->>Server: TLS handshake (mTLS optional)
+    Server-->>Client: HELO\n
+    Client-->>Server: EHLO\n
+    Server-->>Client: POW <authdata> <difficulty>\n
+    Client->>POW: find suffix s.t. SHA1(authdata+suffix) has N leading hex 0s
+    POW-->>Client: RESULT:<suffix>
+    Client-->>Server: <suffix>\n
+    loop Info requests
+        Server-->>Client: NAME/Mail/etc <nonce>\n
+        Client->>Client: sha1(authdata + nonce)
+        Client-->>Server: <checksum> <value>\n
+    end
+    Server-->>Client: END\n
+    Client-->>Server: OK\n
 
 [![Documentation Status](https://readthedocs.org/projects/tls-connection-coding-challenge/badge/?version=latest)](https://tls-connection-coding-challenge.readthedocs.io/en/latest/?badge=latest)
 
@@ -141,6 +178,6 @@ these fellows have put into the project's growth and improvement.
 
 ## License
 
-TLS connection coding challenge is distributed under the MIT license. 
+TLS connection coding challenge is distributed under the GPL-3.0 license. 
 
 <!-- docs:end -->
