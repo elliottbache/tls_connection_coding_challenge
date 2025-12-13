@@ -158,8 +158,11 @@ $ g++ -O3 -std=c++17 pow_benchmark.cpp pow_core.cpp -o ../build/pow_benchmark -l
 
 ## Execution / Usage
 
-This program was developed with Python 3.11.14.  To run TLS connection coding challenge,
-fire up a terminal window and run the following command in the "src" folder:
+This program was developed with Python 3.11.14.  It is intended for use in Linux, and some of the security 
+checks are not available in Windows (such as checking that the POW benchmark binary file launched with 
+subprocess.run is not world writable).  
+
+To run TLS connection coding challenge, fire up a terminal window and run the following command in the "src" folder:
 ```sh
 $ python server.py
 ```

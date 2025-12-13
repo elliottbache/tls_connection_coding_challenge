@@ -1,9 +1,12 @@
 import errno
 import hashlib
+import os
 import queue
 import socket
 import ssl
+import stat
 import subprocess
+import sys
 
 import pytest
 
@@ -17,6 +20,29 @@ class FakeCompleted:
         self.stderr = stderr
         self.returncode = returncode
 
+
+class FakeParent:
+    def __init__(self, st_mode=16804):
+        self.st_mode = st_mode
+
+    def stat(self):
+        return self
+
+class FakeFile:
+    def __init__(self, file_type='file', content="", st_mode=4516):
+        self.file_type = file_type
+        self.content = content
+        self.st_mode = st_mode
+        self.parent = FakeParent()
+
+    def is_file(self):
+        return self.file_type == 'file'
+
+    def is_symlink(self):
+        return self.file_type == 'symlink'
+
+    def stat(self):
+        return self
 
 class FakeWrappedSock:
     pass
@@ -39,6 +65,16 @@ class FakeContext:
             **kwargs
         })
         return FakeWrappedSock()
+
+
+@pytest.fixture(scope="function")
+def fake_bin(tmp_path):
+    new_path = tmp_path
+    new_path.chmod(new_path.stat().st_mode & ~stat.S_IWOTH)
+    new_bin = new_path / "pow_benchmark"
+    new_bin.touch()
+    new_bin.chmod(new_bin.stat().st_mode & ~stat.S_IWOTH)
+    return new_bin
 
 
 # unit tests
@@ -78,6 +114,22 @@ class TestTlsConnect:
         assert "Client cert exists: True" in out
         assert "Private key exists: True" in out
 
+    def test_tls_connect_non_local_host(self, monkeypatch):
+
+        fake_context = FakeContext()
+
+        def fake_create_default_context():
+            return fake_context
+
+        monkeypatch.setattr(client.ssl, "create_default_context",
+                            fake_create_default_context)
+
+        # make os.path.exists deterministic for prints
+        monkeypatch.setattr(client.os.path, "exists", lambda p: True)
+
+        with pytest.raises(ValueError, match="Refusing insecure TLS to"):
+            client.tls_connect("cert.pem", "key.pem", "example.com")
+
 
 class TestHasher:
     def test_hasher(self, authdata, random_string):
@@ -108,90 +160,138 @@ def pow_hash():
     return '000000dbb98b6c3a3bdc5a9ab0346633247d0ab9'
 
 
-class TestHandlePowCpp:
-    def test_handle_pow_cpp_success(self, authdata, difficulty,
+class TestRunPowBinary:
+    def test_run_pow_binary_success(self, fake_bin, authdata, difficulty,
                                     suffix, pow_hash, path_to_pow_benchmark,
                                     monkeypatch, readout):
+
+        calls = {}
+        def fake_subprocess_run(args, *, text, capture_output, check, timeout, cwd, env):
+            calls["args"] = args
+            calls["text"] = text
+            calls["capture_output"] = capture_output
+            calls["check"] = check
+            calls["timeout"] = timeout
+            calls["cwd"] = cwd
+            calls["env"] = env
+            return FakeCompleted(stdout="RESULT:" + suffix + "\n", stderr="",
+                                 returncode=0)
+        monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
+
+        result = client.run_pow_binary(str(fake_bin), authdata, difficulty)
+
+        assert isinstance(result, FakeCompleted)
+        assert result.returncode == 0
+        assert result.stdout == "RESULT:" + suffix + "\n"
+        assert result.stderr == ""
+
+        assert calls["args"] == [
+            os.fspath(fake_bin),
+            "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq",
+            "6"
+        ]
+        assert calls["text"] is True
+        assert calls["capture_output"] is True
+        assert calls["check"] is True
+        assert calls["timeout"] == 7200
+        assert calls["cwd"] == os.fspath(fake_bin.parent)
+        assert calls["env"] == {"LC_ALL": "C"}
+
+    def test_run_pow_binary_non_str_authdata(self, fake_bin, difficulty,
+                                             path_to_pow_benchmark):
+        wrong_authdata = 5.3
+
+        with pytest.raises(ValueError, match=r"authdata is not a string."):
+            client.run_pow_binary(fake_bin, wrong_authdata, difficulty)
+
+    def test_run_pow_binary_invalid_authdata(self, difficulty,
+                                             fake_bin):
+        wrong_authdata = 'poiasfdlkas+/'
+        with pytest.raises(ValueError, match="authdata contains disallowed characters or length"):
+            client.run_pow_binary(fake_bin, wrong_authdata, difficulty)
+
+        wrong_authdata = 'poiasfdlkaspppppppppppppppppppppppppppppppppppppppppppppppp'\
+            + 'asdfdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd' \
+            + 'asdfdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'
+        with pytest.raises(ValueError, match="authdata contains disallowed characters or length"):
+            client.run_pow_binary(fake_bin, wrong_authdata, difficulty)
+
+    def test_run_pow_binary_non_int_difficulty(self, authdata,
+                                               fake_bin):
+        wrong_difficulty = 'five'
+        with pytest.raises(TypeError, match="POW difficulty is not an integer"):
+            client.run_pow_binary(fake_bin, authdata, wrong_difficulty)
+
+    def test_run_pow_binary_invalid_difficulty(self, authdata,
+                                               fake_bin):
+        wrong_difficulty = 65
+        with pytest.raises(ValueError, match="POW difficulty is out of range"):
+            client.run_pow_binary(fake_bin, authdata, wrong_difficulty)
+
+    def test_run_pow_binary_no_executable(self, authdata, difficulty,
+                                          fake_bin):
+
+        with pytest.raises(FileNotFoundError, match="POW binary not a regular file"):
+            client.run_pow_binary(fake_bin.parent, authdata, difficulty)
+
+    @pytest.mark.skipif(sys.platform.startswith("win"),
+                        reason="POSIX chmod not supported on Windows")
+    def test_run_pow_binary_writable_linux_executable(self, authdata, difficulty,
+                                          fake_bin):
+
+        fake_bin.chmod(0o777)
+        with pytest.raises(PermissionError, match="Insecure permissions on"):
+            client.run_pow_binary(fake_bin, authdata, difficulty)
+
+    def test_run_pow_binary_error(self, authdata, difficulty, suffix,
+                                  fake_bin, monkeypatch):
+        def fake_subprocess_run(*a, **k):
+            raise subprocess.CalledProcessError(
+                returncode=1, stderr="Big, bad error",
+                cmd="pow_benchmark gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFC"\
+                    +"AzuwkwLCRgIIq 6"
+            )
+
+        monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
+        with pytest.raises(subprocess.CalledProcessError):
+            client.run_pow_binary(fake_bin, authdata, difficulty)
+
+
+class TestHandlePowCpp:
+    def test_handle_pow_cpp_success(self, fake_bin, authdata, difficulty, timeout,
+                                    suffix, pow_hash, path_to_pow_benchmark,
+                                    monkeypatch, readout):
+
         def fake_subprocess_run(*a, **k):
             return FakeCompleted(stdout="RESULT:" + suffix + "\n", stderr="",
                                  returncode=0)
-
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
 
-        assert (client.handle_pow_cpp(authdata, difficulty,
-                                      path_to_pow_benchmark)
-                == (0, (suffix + '\n').encode()))
+        err, suffix_output = client.handle_pow_cpp(authdata, difficulty,
+                                      str(fake_bin))
+
+        assert (err, suffix_output) == (0, (suffix + '\n').encode())
 
         out = readout()
         assert f"Authdata: {authdata}\nValid POW Suffix: {suffix}\n" \
                f"Hash: {pow_hash}" in out
 
-    def test_handle_pow_cpp_non_str_authdata(self, authdata, difficulty,
-                                             path_to_pow_benchmark,
-                                             readout):
-        wrong_authdata = 5.3
+    def test_handle_pow_cpp_no_executable(self, authdata, difficulty, timeout,
+                                          path_to_pow_benchmark):
 
-        assert (client.handle_pow_cpp(wrong_authdata, difficulty,
-                                      path_to_pow_benchmark)
-                == (4, b'\n'))
+        with pytest.raises(FileNotFoundError, match="POW binary not a regular file"):
+            client.handle_pow_cpp(authdata, difficulty, path_to_pow_benchmark, timeout)
 
-        out = readout()
-        assert "authdata is not a string.  Exiting since hashing function " \
-               "will not work correctly" in out
+    def test_handle_pow_cpp_no_result(self, authdata, difficulty, timeout,
+                                      fake_bin, monkeypatch):
 
-    def test_handle_pow_cpp_non_int_difficulty(self, authdata, difficulty,
-                                               path_to_pow_benchmark,
-                                               readout):
-        wrong_difficulty = 'five'
-
-        assert (client.handle_pow_cpp(authdata, wrong_difficulty,
-                                      path_to_pow_benchmark)
-                == (4, b'\n'))
-
-        out = readout()
-        assert "POW difficulty is not an integer" in out
-
-    def test_handle_pow_cpp_no_executable(self, authdata, difficulty,
-                                          path_to_pow_benchmark, readout):
-
-        assert (client.handle_pow_cpp(authdata, difficulty,
-                                      path_to_pow_benchmark)
-                == (4, b'\n'))
-
-        out = readout()
-        assert "POW benchmark executable not found." in out
-
-    def test_handle_pow_cpp_error(self, authdata, difficulty, suffix,
-                                  pow_hash, path_to_pow_benchmark, monkeypatch,
-                                  readout):
-        def fake_subprocess_run(*a, **k):
-            raise subprocess.CalledProcessError(returncode=1, cmd=a[0],
-                                                output="RESULT:" + suffix
-                                                       + "\n", stderr="")
-
-        monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
-
-        assert (client.handle_pow_cpp(authdata, difficulty,
-                                      path_to_pow_benchmark)
-                == (4, b'\n'))
-
-        out = readout()
-        assert "Error running executable:" in out
-
-    def test_handle_pow_cpp_no_result(self, authdata, difficulty,
-                                      suffix, pow_hash, path_to_pow_benchmark,
-                                      monkeypatch, readout):
         def fake_subprocess_run(*a, **k):
             return FakeCompleted(stdout="RESULT:\n", stderr="", returncode=0)
 
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
 
-        assert (client.handle_pow_cpp(authdata, difficulty,
-                                      path_to_pow_benchmark)
-                == (4, b'\n'))
-
-        out = readout()
-        assert "No RESULT found in output." in out
+        with pytest.raises(ValueError, match=r"No RESULT found in POW output."):
+            client.handle_pow_cpp(authdata, difficulty, fake_bin, timeout)
 
 
 class TestDefineResponse:
@@ -319,6 +419,8 @@ class TestConnectToServer:
             def connect(self, addr):
                 calls["addr"] = addr
                 return None
+            def close(self):
+                return None
 
         # call connect_to_server(sock: socket.socket, hostname: str, port: int)
         assert client.connect_to_server(FakeSocket(), 'localhost', 3481)
@@ -350,6 +452,8 @@ class TestConnectToServer:
         # create socket-like object
         class FakeSocket:
             def connect(self, addr):
+                return None
+            def close(self):
                 return None
 
         def fake_connect(*a, **k):

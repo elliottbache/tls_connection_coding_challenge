@@ -34,11 +34,14 @@ import errno
 import hashlib
 import multiprocessing
 import os
+import re
 import socket
 import ssl
+import stat
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 DEFAULT_CPP_BINARY_PATH = "build/pow_benchmark"  # path to c++ executable
 DEFAULT_RESPONSES = {
@@ -178,9 +181,141 @@ def decipher_message(message: str, valid_messages: set[str]) \
     return 0, args
 
 
+def _is_world_writable(path: Path) -> bool:
+    """Check if path is world writable.
+
+    A world writable path is one where anyone can write to this path,
+    not only the owner.
+
+    Args:
+          path (Path): The path to be checked.
+
+    Returns:
+          bool: Whether the path is world writable.  Returns False for
+          0 and True for all other ints
+
+    Notes:
+        - mode is an int representing info for file system object "path"
+          converting to octal gives the more typical representation
+        - e.g. 100644 is for a regular file where the owner has
+          read/write permissions, and the group and others have
+          read-only access (rw-r--r--).
+        - r=4, w=2, x=1: e.g. u+rwx, g+rw, a+r -> 0o764
+        - stat.S_IWOTH = 0o002 (corresponds to a+w)
+        - since 4 = 0b100, 2 = 0b010, 1 = 0b001: 4 & 2 = 0, 6 & 2 = 2
+    """
+    try:
+        mode = path.stat().st_mode
+        if os.name == 'posix':
+            return bool(mode & stat.S_IWOTH)
+        else:
+            return False  # Windows is assumed to be OK
+    except OSError as e:
+        print(f"OS error: {e}")
+        return True
+
+
+def _validate_path(bin_path: Path) -> None:
+    """Resolve and vet path."""
+    # check if file exists
+    if not bin_path.is_file():
+        raise FileNotFoundError(f"POW binary not a regular file: {bin_path}")
+    # check if it's a symbolic link
+    if bin_path.is_symlink():
+        raise PermissionError(f"Refusing to execute symlink: {bin_path}")
+    # check if it's executable
+    if os.name == "posix" and not os.access(bin_path, os.X_OK):
+        try:
+            bin_path.chmod(bin_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        except Exception as e:
+            raise PermissionError(
+                f"POW binary at {bin_path} is not executable; chmod failed: {e}"
+            ) from e
+    # check if it's world writable
+    if _is_world_writable(bin_path) or _is_world_writable(bin_path.parent):
+        raise PermissionError(f"Insecure permissions on {bin_path} or its directory")
+
+
+def _validate_authdata(authdata: str) -> None:
+    """Validate authdata."""
+    if not isinstance(authdata, str):
+        raise ValueError("authdata is not a string.  Exiting since hashing function "
+              "will not work correctly")
+
+    if not re.fullmatch(r'[A-Za-z0-9._~-]{1,128}', authdata):
+        raise ValueError("authdata contains disallowed characters or length")
+
+
+def _validate_difficulty(difficulty: str) -> None:
+    """Cast difficulty to int and error check."""
+    try:
+        idifficulty = int(difficulty)
+    except (ValueError, TypeError) as e:
+        raise TypeError("POW difficulty is not an integer") from e
+
+    if idifficulty < 0 or idifficulty > 64:
+        raise ValueError("POW difficulty is out of range")
+
+
+def _check_inputs(cpp_binary_path: Path, authdata: str, difficulty: str) -> None:
+
+    # resolve and vet the executable path
+    _validate_path(cpp_binary_path)
+
+    # validate authdata
+    _validate_authdata(authdata)
+
+    # validate difficulty as an int
+    _validate_difficulty(difficulty)
+
+
+def run_pow_binary(cpp_binary_path: str, authdata: str, difficulty: str,
+                   timeout: int = 7200) -> subprocess.CompletedProcess:
+    """Run the POW challenge C++ binary.
+
+    Args:
+        cpp_binary_path (Path): The path of the C++ binary.
+        authdata (str): The authdata to use.
+        difficulty (str): The difficulty to use.
+        timeout (int, optional): The timeout to use.
+
+    Returns:
+        subprocess.CompletedProcess: The completed process.
+
+    Notes:
+        In subprocess.run,
+            - the environment variables are scrubbed, leaving only the
+              simplest (env={"LC_ALL": "C"})
+            - the stdout and stderr are returned as text and not bytes
+              (text=True, capture_output=True)
+            - the exit status is returned and a CalledProcessError
+              exception is raised if non-zero (check=True)
+            - the timeout is set at 2 hours (timeout=timeout)
+            - the current working directory is set as the binary's
+              directory to avoid flakiness in tests
+              (cwd=str(cpp_binary_path.parent))
+
+    """
+    bin_path = Path(cpp_binary_path).resolve(strict=True)
+    # on Windows, allow implicit .exe
+    if sys.platform.startswith("win") and bin_path.suffix == "" and not bin_path.exists():
+        bin_path = bin_path.with_suffix(".exe")
+
+    _check_inputs(bin_path, authdata, difficulty)
+
+    return subprocess.run(
+        args=[os.fspath(bin_path), authdata, difficulty],
+        text=True,
+        capture_output=True,
+        check=True,
+        timeout=timeout,
+        cwd=os.fspath(bin_path.parent),
+        env={"LC_ALL": "C"}
+    )
+
+
 def handle_pow_cpp(authdata: str, difficulty: str, cpp_binary_path: str
-                   = DEFAULT_CPP_BINARY_PATH) \
-        -> tuple[int, bytes]:
+                   = DEFAULT_CPP_BINARY_PATH, timeout: int = 7200) -> tuple[int, bytes]:
     """Find a hash with the given number of leading zeros.
 
     Takes the authdata and difficulty and find a suffix that will
@@ -209,29 +344,9 @@ def handle_pow_cpp(authdata: str, difficulty: str, cpp_binary_path: str
         POW benchmark executable not found.
         (4, b'\\n')
     """
-
-    # error check authdata
-    if not isinstance(authdata, str):
-        print("authdata is not a string.  Exiting since hashing function "
-              "will not work correctly")
-        return 4, b'\n'
-
-    # error check difficulty
-    try:
-        idifficulty = int(difficulty)
-        print(f"POW difficulty: {idifficulty}")
-    except (ValueError, TypeError):
-        print("POW difficulty is not an integer")
-        return 4, b'\n'
-
     # run pre-compiled c++ code for finding suffix
     try:
-        result = subprocess.run(
-            [cpp_binary_path, authdata, difficulty],
-            capture_output=True,
-            text=True,
-            check=True
-        )
+        result = run_pow_binary(cpp_binary_path, authdata, difficulty, timeout)
 
         # Extract the single result line
         suffix = None
@@ -247,17 +362,14 @@ def handle_pow_cpp(authdata: str, difficulty: str, cpp_binary_path: str
                   f"Hash: {hash}")
             return 0, (suffix + "\n").encode()
         else:
-            print("No RESULT found in output.")
-            return 4, b'\n'
+            raise ValueError("No RESULT found in POW output.")
 
-    except FileNotFoundError:
-        print("POW benchmark executable not found.")
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"POW binary not a regular file: {cpp_binary_path}") \
+            from e
 
     except subprocess.CalledProcessError as e:
-        print("Error running executable:")
-        print(e.stderr)
-
-    return 4, b'\n'
+        raise subprocess.CalledProcessError(f"Error running executable: {e}") from e
 
 
 def define_response(args: list[str], authdata: str, valid_messages: list[str],
@@ -317,6 +429,8 @@ def define_response(args: list[str], authdata: str, valid_messages: list[str],
         err, result = 2, b'\n'
     elif args[0] == "POW":
         difficulty = args[2]
+        print(f"POW difficulty: {difficulty}")
+
 
         # record start time
         start = time.time()
@@ -390,6 +504,8 @@ def connect_to_server(sock: socket.socket, hostname: str, port: int) -> bool:
                   f"{hostname}:{port}")
         else:
             print(f"OS error connecting to {hostname}:{port}: {e}")
+    finally:
+        sock.close()
 
     return False
 
@@ -424,6 +540,7 @@ def main() -> int:
     Side effects:
         Opens network connections, prints to stdout/stderr.
     """
+    print("Windows ACLs not checked.  Skipping world-writable test.")
 
     cpp_binary_path = DEFAULT_CPP_BINARY_PATH
     responses = DEFAULT_RESPONSES
@@ -455,53 +572,56 @@ def main() -> int:
         sys.exit(1)
 
     # listen to connection until broken
-    while True:
+    try:
+        while True:
 
-        err, args = _receive_and_decipher_message(secure_sock, valid_messages, all_timeout)
-        print(f"Command: {args[0]}")
+            err, args = _receive_and_decipher_message(secure_sock, valid_messages, all_timeout)
+            print(f"Command: {args[0]}")
 
-        # If no args are received, continue
-        if err or not args or not args[0]:
-            print(f"Problem deciphering message. Error code = {err}."
-                  f" continuing.")
-            continue
+            # If no args are received, continue
+            if err or not args or not args[0]:
+                print(f"Problem deciphering message. Error code = {err}."
+                      f" continuing.")
+                continue
 
-        # Define timeouts
-        if args and args[0] and args[0] == "POW":
-            this_timeout = pow_timeout
-            authdata = args[1]
-        else:
-            this_timeout = all_timeout
+            # Define timeouts
+            if args and args[0] and args[0] == "POW":
+                this_timeout = pow_timeout
+                authdata = args[1]
+            else:
+                this_timeout = all_timeout
 
-        # use multiprocessing for setting timeout.  Only 1 process is
-        # launched at this stage
-        queue = multiprocessing.Queue()
-        p = multiprocessing.Process(
-            target=define_response,
-            args=(args, authdata, valid_messages, queue, responses,
-                  cpp_binary_path),
-        )
-        p.start()
-        p.join(timeout=this_timeout)  # Wait up to 6 or 7200 seconds
-        if p.is_alive():
-            p.terminate()  # forcefully stop the process
-            p.join()
-            err, response = 3, b''
-            print(f"{args[0]} Function timed out.")
-            continue
-        else:
-            err, response = queue.get()
+            # use multiprocessing for setting timeout.  Only 1 process is
+            # launched at this stage
+            queue = multiprocessing.Queue()
+            p = multiprocessing.Process(
+                target=define_response,
+                args=(args, authdata, valid_messages, queue, responses,
+                      cpp_binary_path),
+            )
+            p.start()
+            p.join(timeout=this_timeout)  # Wait up to 6 or 7200 seconds
+            if p.is_alive():
+                p.terminate()  # forcefully stop the process
+                p.join()
+                err, response = 3, b''
+                print(f"{args[0]} Function timed out.")
+                continue
+            else:
+                err, response = queue.get()
 
-        # if correctly handled message (1 for END and 0 for all other
-        # correctly handled)
-        if err == 0 or err == 1:
-            # Send the response
-            print(f"Sending to server = {response.decode()}")
-            secure_sock.send(response)
+            # if correctly handled message (1 for END and 0 for all other
+            # correctly handled)
+            if err == 0 or err == 1:
+                # Send the response
+                print(f"Sending to server = {response.decode()}")
+                secure_sock.send(response)
 
-        # If END, ERROR, or invalid message received from server, break
-        if err == 1 or err == 2 or err == 4:
-            break
+            # If END, ERROR, or invalid message received from server, break
+            if err == 1 or err == 2 or err == 4:
+                break
+    finally:
+        secure_sock.close()
 
     # Close the connection
     print("close connection")
@@ -511,4 +631,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    print(f"\nsys: {sys.platform}")
+
     main()
