@@ -170,14 +170,29 @@ Once the server is running, the client can be launched.  This is done by enterin
 ```sh
 $ python client.py
 ```
-
 The client will connect to the server and answer the various commands sent by the server.  The server will first send a
 a handshake set of commands (HELO and POW).  Once the POW challenge is solved by the client under 2 hours, the correct
 suffix will be sent to the server and a further 20 random commands will be sent.  If ERROR is randomly selected, the
 connection will close.  Otherwise, the final command will be END.
 
+## Development
 An in-depth description of the modules and functions of this program can be found in the [Read the Docs](https://tls-connection-coding-challenge.readthedocs.io/en/latest/index.html) and the [GitHub](https://github.com/elliottbache/tls_connection_coding_challenge) page.
 
+### Make commands
+A list of make commands is made available through ``Makefile``.  The following list comes from using ``make help``:
+- make venv: Create virtualenv (.venv)
+- make install-dev: Install project + dev deps
+- make test: Run pytest
+- make lint: Run ruff (lint), black --check, isort --check, codespell
+- make format: Run ruff --fix, black, isort
+- make typecheck: Run mypy
+- make docs: Build Sphinx HTML docs
+- make run-server: Run server (local)
+- make run-client: Run client (local)
+- make bench: Quick benchmark for pow (example)
+- make clean: Remove caches and build artifacts
+
+### Sphinx in PyCharm
 In order to create Sphinx documentation from the docstrings in PyCharm, a new run task must be created: 
 Run > Edit Configurations... > + (top-left) > Sphinx task.  In the window that opens, name the Sphinx task in the
 "Name" field, select "html" under the "Command:" dropdown, select the docs folder in the root folder in the "Input:"
