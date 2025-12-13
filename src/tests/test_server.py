@@ -336,7 +336,7 @@ class TestPrepareSocket:
         # socket bound to a valid port (positive integer)
         assert server_sock.getsockname()[1] > 0
 
-        # CA, server certificate and server key are succesfully loaded
+        # CA, server certificate and server key are successfully loaded
         assert ("chain", "srv.pem", "key.pem") in fake_context._loaded
         assert ("ca", "ca.pem", None, False) in fake_context._loaded
 
