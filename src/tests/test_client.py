@@ -61,7 +61,7 @@ class TestTlsConnect:
         # client_sock was created and is valid types
         assert isinstance(wrapped_sock, FakeWrappedSock)
 
-        # certificate and key are succesfully loaded
+        # certificate and key are successfully loaded
         assert ("chain", "cert.pem", "key.pem") in fake_context._loaded
 
         # check context parameters
