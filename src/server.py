@@ -183,7 +183,7 @@ def is_succeed_send_and_receive(authdata: str, to_send: str,
             suffix = received_message.replace("\n", "")
             hash = hashlib.sha1((authdata + suffix).encode()).hexdigest()
             print(f"POW suffix from client: {suffix}\n"
-                  f"Authentification data: {authdata}\n"
+                  f"Authentication data: {authdata}\n"
                   f"Hash: {hash}")
             if not hash.startswith(first_zeros):
                 print("Invalid suffix returned from client.")
@@ -256,7 +256,7 @@ def prepare_socket(hostname: str, port: int, ca_cert_path: str,
         socket.socket: the socket to be used for sending and receiving.
         ssl.SSLContext: the ssl context to be used for sending and receiving.
     """
-    # Check that hostname is local, otherwise raise error so that unsecure
+    # Check that hostname is local, otherwise raise error so that insecure
     # connection isn't mistakenly used
     if hostname != 'localhost':
         raise ValueError(f"Refusing insecure TLS to ‘{hostname}’. For "
@@ -310,7 +310,7 @@ def main() -> int:
             # handshake
             if not is_succeed_send_and_receive(authdata, "HELO", secure_sock):
                 break
-            print(f"Authentification data: {authdata}\nDifficulty: "
+            print(f"Authentication data: {authdata}\nDifficulty: "
                   f"{difficulty}")
             if not is_succeed_send_and_receive(authdata, "POW "
                                                + str(authdata) + " "

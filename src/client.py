@@ -73,7 +73,7 @@ def tls_connect(client_cert_path: str, private_key_path: str, hostname: str) \
     Returns:
         socket.socket: The socket object.
     """
-    # Check that hostname is local, otherwise raise error so that unsecure
+    # Check that hostname is local, otherwise raise error so that insecure
     # connection isn't mistakenly used
     if hostname != 'localhost':
         raise ValueError(f"Refusing insecure TLS to ‘{hostname}’. For "
@@ -334,7 +334,7 @@ def define_response(args: list[str], authdata: str, valid_messages: list[str],
 
     elif args[0] in valid_messages:
         print("Extra arguments = " + args[1])
-        print("Authentification data = " + authdata)
+        print("Authentication data = " + authdata)
         err, result = 0, (hasher(authdata, args[1]) + " "
                           + responses[args[0]] + "\n").encode()
 

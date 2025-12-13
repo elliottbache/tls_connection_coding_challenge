@@ -3,7 +3,7 @@
 
 This set of functions finds a hex string that has the indicated number of leading zeros
 using the supplied authdata string.  The authdata is concatenated with a
-suffix, and they are then passsed through a SHA1 hash.  The hash is tested to
+suffix, and they are then passed through a SHA1 hash.  The hash is tested to
 see if it has a number of leading zeroes equal to the required difficulty.
 This code automatically adjusts the suffix string length so that the solution
 space will contain enough possible valid suffixes.
