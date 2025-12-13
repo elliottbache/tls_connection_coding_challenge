@@ -35,6 +35,10 @@ def difficulty():
     return '6'
 
 @pytest.fixture
+def timeout():
+    return 7200
+
+@pytest.fixture
 def threads():
     return '2'
 
