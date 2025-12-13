@@ -49,5 +49,5 @@ def socket_pair():
         for s in (s1, s2):
             try:
                 s.close()
-            except OSError:
-                pass
+            except OSError as e:
+                print(f"OSError: {e}")

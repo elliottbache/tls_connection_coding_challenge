@@ -66,6 +66,7 @@ sequenceDiagram
 - **Transport**: TLS.
 - **Encoding**: UTF-8 text.
 - **Line format**: ``COMMAND [ARG]...\n``
+- Hasher: SHA256.
 
 ### Commands (server → client)
 - ``HELLO\n`` → client must reply ``HELLOBACK\n``.
