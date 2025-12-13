@@ -211,7 +211,7 @@ class TestIsSucceedSendAndReceive:
         assert out.startswith(
             "\nSending WORK " + token + " " + difficulty + "\nReceived "
             + suffix + "\n" + "WORK suffix from client: " + suffix
-            + "\nAuthentification data: " + token + "\n" + "Hash: "
+            + "\nAuthentication data: " + token + "\n" + "Hash: "
             + pow_hash + "\n" + "Valid suffix returned from client."
         )
 
