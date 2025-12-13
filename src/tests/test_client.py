@@ -249,7 +249,7 @@ class TestDefineResponse:
         assert q.get() == [0, out_string.encode()]
 
         out = readout()
-        assert ("Extra arguments = " + args[1] + "\nAuthentification data = "
+        assert ("Extra arguments = " + args[1] + "\nAuthentication data = "
                 + token in out)
 
     def test_define_response_success_pow(self, token, difficulty,
