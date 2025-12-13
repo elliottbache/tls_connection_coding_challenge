@@ -37,9 +37,10 @@ sequenceDiagram
 ```
 
 This is a coding challenge that requires the client to connect to a server,
-complete a POW challenge in under 2 hours, and reply to multiple queries.
+complete a POW challenge using SHA1 in under 2 hours, and reply to multiple queries.
 This is designed to be run in an interactive session, printing output to the
-stdout.
+stdout.  The choice of this hasher was made by the entity who created the challenge
+and must not be changed in this project.
 
 **Table of Contents**
 

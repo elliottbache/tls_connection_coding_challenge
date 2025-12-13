@@ -81,8 +81,10 @@ class TestTlsConnect:
 
 class TestHasher:
     def test_hasher(self, authdata, random_string):
-        assert (hashlib.sha1((authdata + random_string).encode()).hexdigest()
-                == client.hasher(authdata, random_string))
+        assert (
+            hashlib.sha1((authdata + random_string).encode()).hexdigest()  # noqa: S324
+            == client.hasher(authdata, random_string)
+        )
 
 
 class TestDecipherMessage:
@@ -95,7 +97,7 @@ class TestDecipherMessage:
     ])
     def test_decipher_message_cases(self, valid_messages, message, err,
                                     expected, readout):
-        e, args = client.decipher_message(message, valid_messages)
+        e, _ = client.decipher_message(message, valid_messages)
         assert e == err
         out = readout()
         assert expected in out
@@ -244,8 +246,10 @@ class TestDefineResponse:
 
         client.define_response(args, authdata, valid_messages, q, responses,
                                path_to_pow_benchmark)
-        out_string = (hashlib.sha1((authdata + args[1]).encode()).hexdigest()
-                      + " " + responses[args[0]] + "\n")
+        out_string = (
+            hashlib.sha1((authdata + args[1]).encode()).hexdigest()  # noqa: S324
+            + " " + responses[args[0]] + "\n"
+        )
         assert q.get() == [0, out_string.encode()]
 
         out = readout()

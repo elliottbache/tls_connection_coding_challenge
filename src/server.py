@@ -181,7 +181,7 @@ def is_succeed_send_and_receive(authdata: str, to_send: str,
             difficulty = to_send.split(" ")[2]
             first_zeros = '0' * int(difficulty)
             suffix = received_message.replace("\n", "")
-            hash = hashlib.sha1((authdata + suffix).encode()).hexdigest()
+            hash = hashlib.sha1((authdata + suffix).encode()).hexdigest()  # noqa: S324
             print(f"POW suffix from client: {suffix}\n"
                   f"Authentication data: {authdata}\n"
                   f"Hash: {hash}")
@@ -196,8 +196,10 @@ def is_succeed_send_and_receive(authdata: str, to_send: str,
                   or to_send.startswith("END")):
             cksum = received_message.split(" ")[0]
             random_string = to_send.split(" ")[1]
-            cksum_calc = hashlib.sha1((authdata
-                                       + random_string).encode()).hexdigest()
+            cksum_calc = (
+                hashlib.sha1((authdata + random_string)  # noqa: S324
+                             .encode()).hexdigest()
+            )
             print(f"Checksum received: {cksum}\n"
                   f"Checksum calculated: {cksum_calc}")
             if cksum == cksum_calc:
@@ -259,7 +261,7 @@ def prepare_socket(hostname: str, port: int, ca_cert_path: str,
     # Check that hostname is local, otherwise raise error so that insecure
     # connection isn't mistakenly used
     if hostname != 'localhost':
-        raise ValueError(f"Refusing insecure TLS to ‘{hostname}’. For "
+        raise ValueError(f"Refusing insecure TLS to {hostname}. For "
                          f"non-local hosts, enable certificate verification.")
 
     # Define the server address and port
@@ -320,12 +322,14 @@ def main() -> int:
             # body
             for _ in range(20):
                 # This randomly sends requests to the client.
-                choice = random.choice([
-                                        "NAME", "MAILNUM", "MAIL1", "MAIL2",
-                                        "SKYPE", "BIRTHDATE", "COUNTRY",
-                                        "ADDRNUM", "ADDRLINE1", "ADDRLINE2",
-                                        "ERROR internal server error"
-                ])
+                choice = random.choice(  # noqa: S311
+                    [
+                        "NAME", "MAILNUM", "MAIL1", "MAIL2",
+                        "SKYPE", "BIRTHDATE", "COUNTRY",
+                        "ADDRNUM", "ADDRLINE1", "ADDRLINE2",
+                        "ERROR internal server error"
+                    ]
+                )
                 if not is_succeed_send_and_receive(authdata, f"{choice} "
                                                    f"{random_string}",
                                                    secure_sock):

@@ -76,7 +76,7 @@ def tls_connect(client_cert_path: str, private_key_path: str, hostname: str) \
     # Check that hostname is local, otherwise raise error so that insecure
     # connection isn't mistakenly used
     if hostname != 'localhost':
-        raise ValueError(f"Refusing insecure TLS to ‘{hostname}’. For "
+        raise ValueError(f"Refusing insecure TLS to {hostname}. For "
                          f"non-local hosts, enable certificate verification.")
 
     # Create the client socket
@@ -119,7 +119,7 @@ def hasher(authdata: str, input_string: str) -> str:
         'bd8de303197ac9997d5a721a11c46d9ed0450798'
     """
     to_be_hashed = authdata + input_string
-    cksum_in_hex = hashlib.sha1(to_be_hashed.encode()).hexdigest()
+    cksum_in_hex = hashlib.sha1(to_be_hashed.encode()).hexdigest()  # noqa: S324
 
     return cksum_in_hex
 
@@ -241,7 +241,7 @@ def handle_pow_cpp(authdata: str, difficulty: str, cpp_binary_path: str
                 break
 
         if suffix:
-            hash = hashlib.sha1((authdata + suffix).encode()).hexdigest()
+            hash = hashlib.sha1((authdata + suffix).encode()).hexdigest()  # noqa: S324
             print(f"Authdata: {authdata}\n"
                   f"Valid POW Suffix: {suffix}\n"
                   f"Hash: {hash}")

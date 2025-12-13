@@ -40,8 +40,8 @@ def peer(sock, q, to_send):
 
     try:
         sock.close()
-    except OSError:
-        pass
+    except OSError as e:
+        print(f"Caught OSError: {e}")
 
     return True
 
@@ -375,8 +375,7 @@ def test_tls_handshake_connect():
     client_ctx.check_hostname = False  # we're connecting by IP
 
     # 5) Connect and read
-    with socket.create_connection((host, port), timeout=3) as s:
-        with client_ctx.wrap_socket(s, server_hostname=None) as c:
+    with client_ctx.wrap_socket(socket.create_connection((host, port), timeout=3), server_hostname=None) as c:
             assert c.recv(1024) == b"hello\n"
 
     lsock.close()
