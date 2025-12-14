@@ -112,6 +112,13 @@ def pow_hash():
 
 
 class TestSendAndReceive:
+    def test_send_and_receive_error_choice(self, socket_pair, token):
+        s1, s2 = socket_pair
+
+        _ = s2.sendall(b"ERROR internal server error\n")
+        with pytest.raises(Exception, match=r"ERROR internal server error"):
+            server.send_and_receive(token, "ERROR internal server error", s1)
+
     def test_send_and_receive_error_sending(
         self, socket_pair, token, random_string, readout
     ):
@@ -234,16 +241,6 @@ class TestSendAndReceive:
         # occurred in the checksum
         received_message = q.get(timeout=1)
         assert "ERROR Invalid checksum received" in received_message.decode()
-
-        """# check that stdout error is correctly printed
-        out = readout()
-        assert (
-            "Sending MAILNUM" in out
-            and "Received " in out
-            and "Checksum received:" in out
-            and "Checksum calculated:" in out
-            and "Invalid checksum received." in out
-        )"""
 
 
 class TestSendError:
