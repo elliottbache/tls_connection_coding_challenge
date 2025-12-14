@@ -32,6 +32,9 @@ DEFAULT_PORT = 3481
 DEFAULT_CA_CERT = "certificates/ca_cert.pem"
 DEFAULT_SERVER_CERT = "certificates/server-cert.pem"
 DEFAULT_SERVER_KEY = "certificates/server-key.pem"
+DEFAULT_AUTHDATA = "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq"
+DEFAULT_RANDOM_STRING = "LGTk"
+DEFAULT_DIFFICULTY = 6
 
 
 def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
@@ -151,15 +154,35 @@ def receive_message(secure_sock: socket.socket) -> str:
     return decoded_string.replace("\n", "")
 
 
+def _check_suffix(to_send: str, authdata: str, received_message: str) -> bool:
+    """Check if suffix has enough leading zeros."""
+    difficulty = to_send.split(" ")[2]
+    first_zeros = "0" * int(difficulty)
+    hash = hashlib.sha1(  # noqa: S324
+        (authdata + received_message).encode()
+    ).hexdigest()
+    return hash.startswith(first_zeros)
+
+
+def _check_cksum(to_send: str, authdata: str, received_message: str) -> bool:
+    """Check if checksum is correct."""
+    cksum = str(received_message).split(" ")[0]
+    random_string = to_send.split(" ")[1]
+    cksum_calc = hashlib.sha1(  # noqa: S324
+        (authdata + random_string).encode()
+    ).hexdigest()
+    return cksum == cksum_calc
+
+
 def send_and_receive(authdata: str, to_send: str, secure_sock: socket.socket) -> str:
     """Send message and receive the string from the client.
 
-    The messages are checked for validity.  Closes the socket if an error
-    occurs.
+    The sent and received messages are checked for format validity and the received
+    messages that contain checksums or a POW suffix are checked.
 
     Args:
         authdata (str): the authorization data.
-        to_send (str): the string to send.
+        to_send (str): the string to send (with or without newline character).
         secure_sock (socket.socket): the secure socket to receive from.
 
     Returns:
@@ -168,33 +191,26 @@ def send_and_receive(authdata: str, to_send: str, secure_sock: socket.socket) ->
     received_message = ""
     try:
         if to_send.startswith("ERROR"):
-            raise Exception(f"ERROR {to_send}")
+            raise Exception(to_send)
 
         send_message(to_send, secure_sock)
 
         received_message = receive_message(secure_sock)
 
-        if to_send.startswith("POW"):
-            difficulty = to_send.split(" ")[2]
-            first_zeros = "0" * int(difficulty)
-            hash = hashlib.sha1(  # noqa: S324
-                (authdata + received_message).encode()
-            ).hexdigest()
-            if not hash.startswith(first_zeros):
-                raise Exception(r"Invalid suffix returned from client.")
+        # check POW suffix
+        if to_send.startswith("POW") and not _check_suffix(
+            to_send, authdata, received_message
+        ):
+            raise Exception(r"Invalid suffix returned from client.")
 
+        # check checksum for rest of possible messages
         elif not (
-            to_send.startswith("HELO")
+            to_send.startswith("POW")
+            or to_send.startswith("HELO")
             or to_send.startswith("ERROR")
             or to_send.startswith("END")
-        ):
-            cksum = str(received_message).split(" ")[0]
-            random_string = to_send.split(" ")[1]
-            cksum_calc = hashlib.sha1(  # noqa: S324
-                (authdata + random_string).encode()
-            ).hexdigest()
-            if cksum != cksum_calc:
-                raise Exception(r"Invalid checksum received.")
+        ) and not _check_cksum(to_send, authdata, received_message):
+            raise Exception(r"Invalid checksum received.")
 
     except Exception as e:
         #        print(f"Exception: {e.args[0]}")
@@ -273,9 +289,9 @@ def prepare_socket(
 
 def main() -> int:
 
-    authdata = "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu" + "WROTeTaSmqFCAzuwkwLCRgIIq"
-    random_string = "LGTk"
-    difficulty = 6
+    authdata = DEFAULT_AUTHDATA
+    random_string = DEFAULT_RANDOM_STRING
+    difficulty = DEFAULT_DIFFICULTY
     ca_cert_path = DEFAULT_CA_CERT
     server_cert_path = DEFAULT_SERVER_CERT
     server_key_path = DEFAULT_SERVER_KEY
@@ -294,11 +310,11 @@ def main() -> int:
             print(f"Connection from {client_address}")
 
             # handshake
-            print("Sending HELO")
+            print("\nSending HELO")
             msg = send_and_receive(authdata, "HELO", secure_sock)
             print(f"Received {msg}")
 
-            print(f"Authentication data: {authdata}\nDifficulty: " f"{difficulty}")
+            print(f"\nAuthentication data: {authdata}\nDifficulty: " f"{difficulty}")
             print(f"Sending POW {authdata} {difficulty}")
             msg = send_and_receive(
                 authdata, "POW " + str(authdata) + " " + str(difficulty), secure_sock
@@ -326,7 +342,7 @@ def main() -> int:
                         "ERROR internal server error",
                     ]
                 )
-                print(f"Sending {choice} {random_string}")
+                print(f"\nSending {choice} {random_string}")
                 msg = send_and_receive(
                     authdata, f"{choice} " f"{random_string}", secure_sock
                 )
@@ -335,7 +351,7 @@ def main() -> int:
                 print("Valid checksum received.")
 
             # end message
-            print("Sending END")
+            print("\nSending END")
             msg = send_and_receive(authdata, "END", secure_sock)
             print(f"Received {msg}")
             print("\nConnection closed")
