@@ -48,7 +48,10 @@ strict = false
 warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
-files = ["src"]      # tell mypy what to check
+files = ["src"]
+explicit_package_bases = true
+namespace_packages = true
+mypy_path = ["."]
 
 [[tool.mypy.overrides]]
 module = "src.tests.*"
