@@ -25,3 +25,5 @@ repos:
     rev: v1.13.0
     hooks:
       - id: mypy
+        args: ["--config-file=pyproject.toml", "src"]  # check src explicitly
+        pass_filenames: false                           # <-- critical
