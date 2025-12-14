@@ -78,40 +78,32 @@ class TestReceiveMessage:
         message_to_receive = "æ".encode("cp1252")
 
         _ = s1.sendall(message_to_receive)
-        err = server.receive_message(s2)
-        assert err == -1
-
-        out = readout()
-        assert out.startswith("string is not valid: ")
+        with pytest.raises(ValueError, match=r"Receive failed.  Invalid UTF-8:"):
+            server.receive_message(s2)
 
     def test_receive_message_no_newline(self, socket_pair, readout):
         s1, s2 = socket_pair
         message_to_receive = b"HELLOBACK"
 
         _ = s1.sendall(message_to_receive)
-        err = server.receive_message(s2)
-        assert err == -1
-
-        out = readout()
-        assert out == "string does not end with new line"
+        with pytest.raises(
+            ValueError, match=r"Receive failed. String does not " "end with new line."
+        ):
+            server.receive_message(s2)
 
     def test_receive_empty_message(self, socket_pair, readout):
         s1, s2 = socket_pair
         s1.close()
 
-        err = server.receive_message(s2)
-        assert err == -1
-
-        out = readout()
-        assert out == "empty string"
+        with pytest.raises(
+            ValueError, match=r"Receive failed.  Received empty string."
+        ):
+            server.receive_message(s2)
 
     def test_receive_non_bytes(self, socket_pair, readout):
         sock = FakeSock()
-        err = server.receive_message(sock)
-        assert err == -1
-
-        out = readout()
-        assert out.startswith("unexpected type: ")
+        with pytest.raises(TypeError, match=r"Receive failed.  Unexpected type:"):
+            server.receive_message(sock)
 
 
 @pytest.fixture(scope="class")

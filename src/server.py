@@ -93,7 +93,7 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
         ) from e
 
 
-def receive_message(secure_sock: socket.socket) -> int | str:
+def receive_message(secure_sock: socket.socket) -> str:
     """Receive string from the client.
 
     This ensures that the string is UTF-8 and ends with a newline
@@ -103,7 +103,10 @@ def receive_message(secure_sock: socket.socket) -> int | str:
         secure_sock (socket.socket): the secure socket to receive from.
 
     Returns:
-        int, str: the string if reception is successful.  Otherwise, -1.
+        str: the string if reception is successful.
+
+    Raises:
+        Exception if error in receiving.
 
     Examples:
         Basic usage with an in-process socketpair (no network):
@@ -121,31 +124,28 @@ def receive_message(secure_sock: socket.socket) -> int | str:
     try:
         string_to_receive = secure_sock.recv(1024)
     except (TimeoutError, ssl.SSLError, OSError) as e:
-        print(f"Receive failed: {e}")
-        return -1
+        raise Exception(f"Receive failed: {e}") from e
 
     # test for empty string
     if not string_to_receive:
-        print("empty string")
-        return -1
+        raise ValueError("Receive failed.  Received empty string.")
 
     # ensure it's a bytes-like object
     if not isinstance(string_to_receive, bytes):
-        print(f"unexpected type: {type(string_to_receive)!r}")
-        return -1
+        raise TypeError(
+            f"Receive failed.  Unexpected type: " f"{type(string_to_receive)!r}"
+        )
 
     # test received data to make sure it is UTF-8
     try:
         decoded_string = string_to_receive.decode("utf-8")
         to_return = decoded_string
     except UnicodeDecodeError as e:
-        print("string is not valid: ", e)
-        return -1
+        raise ValueError(f"Receive failed.  Invalid UTF-8: {e}") from e
 
     # test received data to make sure it ends in newline
     if not decoded_string.endswith("\n"):
-        print("string does not end with new line")
-        return -1
+        raise ValueError("Receive failed. String does not end with new line.")
 
     string_received = decoded_string.replace("\n", "")
     print(f"Received {string_received}")
@@ -178,8 +178,6 @@ def is_succeed_send_and_receive(
         send_message(to_send, secure_sock)
 
         received_message = receive_message(secure_sock)
-        if received_message == -1:
-            return send_error("ERROR receiving " + to_send, secure_sock)
 
         if to_send.startswith("WORK"):
             difficulty = to_send.split(" ")[2]
@@ -223,6 +221,8 @@ def is_succeed_send_and_receive(
         print(f"Exception: {e}")
         if "Send failed." in e.args:
             return send_error("ERROR sending " + to_send, secure_sock)
+        if "Receive failed." in e.args:
+            return send_error("ERROR receiving " + to_send, secure_sock)
 
         return False
 

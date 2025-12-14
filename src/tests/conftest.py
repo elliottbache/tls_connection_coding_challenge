@@ -53,7 +53,7 @@ def threads():
     return "2"
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def socket_pair():
     s1, s2 = socket.socketpair()
     s1.settimeout(1.0)
