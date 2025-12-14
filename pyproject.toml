@@ -48,7 +48,7 @@ strict = false
 warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
-mypy_path = ["src"]
+# mypy_path = ["src"]
 
 [[tool.mypy.overrides]]
 module = "src.tests.*"
