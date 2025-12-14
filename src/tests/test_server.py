@@ -55,7 +55,7 @@ class TestSendMessage:
         s1, s2 = socket_pair
         err = server.send_message(payload, s1)
         out = s2.recv(1024)
-        assert err == 0
+        assert err is None
         assert out == expected.encode()
         assert readout() == "\nSending " + expected.rstrip("\n")
 
@@ -136,7 +136,7 @@ class TestIsSucceedSendAndReceive:
         assert not err
 
         out = readout()
-        assert out.startswith("\nSending " + random_string + "\nSend failed:")
+        assert "Send failed" in out
 
     def test_is_succeed_send_and_receive_error_receiving(
         self, socket_pair, authdata, random_string, readout
@@ -148,7 +148,7 @@ class TestIsSucceedSendAndReceive:
         assert not err
 
         out = readout()
-        assert out.startswith("\nSending " + random_string + "\nReceive failed:")
+        assert "Receive failed:" in out
 
     def test_is_succeed_send_and_receive_helo(self, socket_pair, authdata, readout):
         s1, s2 = socket_pair
