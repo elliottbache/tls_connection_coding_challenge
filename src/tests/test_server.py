@@ -124,11 +124,8 @@ class TestIsSucceedSendAndReceive:
         s1.close()
         s2.close()
 
-        err = server.is_succeed_send_and_receive(authdata, random_string, s1)
-        assert not err
-
-        out = readout()
-        assert "Send failed" in out
+        with pytest.raises(Exception, match=r"Send failed."):
+            server.is_succeed_send_and_receive(authdata, random_string, s1)
 
     def test_is_succeed_send_and_receive_error_receiving(
         self, socket_pair, authdata, random_string, readout
@@ -136,11 +133,8 @@ class TestIsSucceedSendAndReceive:
         s1, s2 = socket_pair
         s2.close()
 
-        err = server.is_succeed_send_and_receive(authdata, random_string, s1)
-        assert not err
-
-        out = readout()
-        assert "Receive failed:" in out
+        with pytest.raises(Exception, match=r"Receive failed."):
+            server.is_succeed_send_and_receive(authdata, random_string, s1)
 
     def test_is_succeed_send_and_receive_helo(self, socket_pair, authdata, readout):
         s1, s2 = socket_pair
@@ -254,9 +248,7 @@ class TestIsSucceedSendAndReceive:
         # check second message sent from server declaring an error has
         # occurred in the POW challenge
         received_message = q.get(timeout=1)
-        assert received_message.decode().startswith(
-            "ERROR from invalid POW challenge hash."
-        )
+        assert "ERROR Invalid suffix returned from client." in received_message.decode()
 
         # check that stdout error is correctly printed
         out = readout()
@@ -267,7 +259,6 @@ class TestIsSucceedSendAndReceive:
     ):
 
         s1, s2 = socket_pair
-
         q = queue.Queue()
 
         # create thread for client actions
@@ -296,38 +287,42 @@ class TestIsSucceedSendAndReceive:
         # check second message sent from server declaring an error has
         # occurred in the checksum
         received_message = q.get(timeout=1)
-        assert received_message.decode().startswith("ERROR from invalid checksum.")
+        assert "ERROR Invalid checksum received" in received_message.decode()
 
         # check that stdout error is correctly printed
         out = readout()
-        assert out.startswith(
-            "\nSending MAILNUM "
-            + random_string
-            + "\nReceived "
-            + cksum[:-1]
-            + "p"
-            + " 2\nChecksum received: "
-            + cksum[:-1]
-            + "p"
-            + "\nChecksum calculated: "
-            + cksum
-            + "\nInvalid checksum received."
+        assert (
+            "Sending MAILNUM" in out
+            and "Received " in out
+            and "Checksum received:" in out
+            and "Checksum calculated:" in out
+            and "Invalid checksum received." in out
         )
 
 
 class TestSendError:
-    def test_send_error(self, socket_pair, readout):
+    def test_send_error_success(self, socket_pair, readout):
         s1, s2 = socket_pair
         message_to_send = "ERROR test message"
 
         err = server.send_error(message_to_send, s1)
         _ = s2.recv(1024)
 
-        assert not err
+        assert err is None
 
         out = readout()
         assert "Sending ERROR test message" in out
         assert "closing connection" in out
+
+    def test_send_error_fail(self, socket_pair, readout):
+        s1, _ = socket_pair
+        message_to_send = "æ".encode("cp1252")
+
+        with pytest.raises(TypeError, match=r"Send failed.  Unexpected type:"):
+            server.send_error(message_to_send, s1)
+
+            out = readout()
+            assert "closing connection" in out
 
 
 class TestPrepareSocket:

@@ -74,6 +74,9 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
         Sending OK
         b'OK\\n'
     """
+    # ensure it's a string object
+    if not isinstance(string_to_send, str):
+        raise TypeError(f"Send failed.  Unexpected type: " f"{type(string_to_send)!r}")
 
     # ensure that the string ends with endline
     if not string_to_send.endswith("\n"):
@@ -173,7 +176,7 @@ def is_succeed_send_and_receive(
 
     try:
         if to_send.startswith("ERROR"):
-            return send_error(to_send, secure_sock)
+            raise Exception(f"ERROR {to_send}")
 
         send_message(to_send, secure_sock)
 
@@ -190,8 +193,7 @@ def is_succeed_send_and_receive(
                 f"Hash: {hash}"
             )
             if not hash.startswith(first_zeros):
-                print("Invalid suffix returned from client.")
-                return send_error("ERROR from invalid POW challenge hash.", secure_sock)
+                raise Exception(r"Invalid suffix returned from client.")
             else:
                 print("Valid suffix returned from client.")
                 return True
@@ -211,23 +213,25 @@ def is_succeed_send_and_receive(
                 print("Valid checksum received.")
                 return True
             else:
-                print("Invalid checksum received.")
-                return send_error("ERROR from invalid checksum.", secure_sock)
+                raise Exception(r"Invalid checksum received.")
 
         else:
             return True
 
     except Exception as e:
         print(f"Exception: {e}")
-        if "Send failed." in e.args:
-            return send_error("ERROR sending " + to_send, secure_sock)
+        send_error("ERROR " + str(e.args[0]), secure_sock)
+        """if "Send failed." in e.args:
+            send_error("ERROR sending. " + str(e.args[0]), secure_sock)
         if "Receive failed." in e.args:
-            return send_error("ERROR receiving " + to_send, secure_sock)
+            send_error("ERROR receiving. " + str(e.args[0]), secure_sock)
+        if "ERROR" in e.args:
+            send_error("ERROR " + str(e.args[0]), secure_sock)"""
 
         return False
 
 
-def send_error(to_send: str, secure_sock: socket.socket) -> bool:
+def send_error(to_send: str, secure_sock: socket.socket) -> None:
     """Send an error message to the client.
 
     Args:
@@ -236,20 +240,14 @@ def send_error(to_send: str, secure_sock: socket.socket) -> bool:
         is_succeed (bool): True if the string is correctly send.
 
     Returns:
-        bool: False
+        None
     """
 
     try:
-        print("going to send message")
         send_message(to_send, secure_sock)
-    except Exception as e:
-        print(f"error: {e}")
     finally:
-        print("going to close connection")
-        secure_sock.close()
         print("closing connection")
-
-    return False
+        secure_sock.close()
 
 
 def prepare_socket(
