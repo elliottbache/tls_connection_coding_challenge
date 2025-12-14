@@ -1,46 +1,57 @@
 import socket
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 
 
 @pytest.fixture
-def readout(capsys) -> str:
+def readout(capsys) -> Callable[[], Any]:
     def _():
         return capsys.readouterr().out.replace("\r\n", "\n").rstrip("\n")
+
     return _
+
 
 @pytest.fixture
 def path_to_pow_benchmark():
     return "path/to/pow_benchmark"
 
+
 @pytest.fixture
 def valid_messages():
-    return {'MAILNUM', 'HELO', 'POW', 'ERROR'}
+    return {"MAILNUM", "HELO", "POW", "ERROR"}
+
 
 @pytest.fixture
 def authdata():
-    return 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu' \
-            + 'WROTeTaSmqFCAzuwkwLCRgIIq'
+    return "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu" + "WROTeTaSmqFCAzuwkwLCRgIIq"
+
 
 @pytest.fixture
 def suffix():
-    return '2biu'
+    return "2biu"
+
 
 @pytest.fixture
 def random_string():
-    return 'LGTk'
+    return "LGTk"
+
 
 @pytest.fixture
 def difficulty():
-    return '6'
+    return "6"
+
 
 @pytest.fixture
 def timeout():
     return 7200
 
+
 @pytest.fixture
 def threads():
-    return '2'
+    return "2"
+
 
 @pytest.fixture
 def socket_pair():
