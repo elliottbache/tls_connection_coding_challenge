@@ -399,7 +399,7 @@ def define_response(
     args: list[str],
     authdata: str,
     valid_messages: set[str],
-    queue: multiprocessing.Queue[tuple[int, bytes]],
+    queue: multiprocessing.Queue,
     responses: dict[str, str] = DEFAULT_RESPONSES,
     cpp_binary_path: str = DEFAULT_CPP_BINARY_PATH,
 ) -> None:
@@ -504,26 +504,33 @@ def connect_to_server(sock: socket.socket, hostname: str, port: int) -> bool:
     Returns:
         bool: True if connection was successful, False otherwise.
     """
+    exc: Exception | None = None
     try:
         sock.connect((hostname, int(port)))
         print(f"Connected to {port}\n")
         return True
-    except TimeoutError:
+    except TimeoutError as e:
+        exc = e
         print(f"Connect timeout to {hostname}:{port}")
-    except ConnectionRefusedError:
+    except ConnectionRefusedError as e:
+        exc = e
         print(f"Connection refused by {hostname}:{port}")
     except socket.gaierror as e:
+        exc = e
         print(
             f"DNS/addr error for " f"{hostname}:{port}: {e}"
         )  # bad host / not resolvable
     except ssl.SSLCertVerificationError as e:
+        exc = e
         # hostname mismatch, expired, unknown CA, etc.
         print(f"Certificate verification failed for" f" {hostname}:{port}: {e}")
     except ssl.SSLError as e:
+        exc = e
         # other TLS/handshake issues (protocol mismatch, bad
         # record, etc.)
         print(f"TLS error during connect to {hostname}:{port}: {e}")
     except OSError as e:
+        exc = e
         # catch-all for OS-level socket errors
         if e.errno == errno.EHOSTUNREACH:
             print(f"Host unreachable: {hostname}:{port}")
@@ -532,7 +539,8 @@ def connect_to_server(sock: socket.socket, hostname: str, port: int) -> bool:
         else:
             print(f"OS error connecting to {hostname}:{port}: {e}")
     finally:
-        sock.close()
+        if exc is not None:
+            sock.close()
 
     return False
 
@@ -546,7 +554,6 @@ def _receive_and_decipher_message(
     with error code and arguments containing message."""
     while True:
         message = secure_sock.recv(1024)
-
         if message == b"":
             print(f"Received empty message.  Waiting {all_timeout} continuing.")
             time.sleep(all_timeout)
@@ -619,7 +626,6 @@ def main() -> int:
             err, args = _receive_and_decipher_message(
                 secure_sock, valid_messages, all_timeout
             )
-            print(f"Command: {args[0]}")
 
             # If no args are received, continue
             if err or not args or not args[0]:
