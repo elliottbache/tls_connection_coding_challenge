@@ -76,7 +76,7 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
     """
     # ensure it's a string object
     if not isinstance(string_to_send, str):
-        raise TypeError(f"Send failed.  Unexpected type: " f"{type(string_to_send)!r}")
+        raise TypeError(f"Send failed.  Unexpected type: " f"{type(string_to_send)}")
 
     # ensure that the string ends with endline
     if not string_to_send.endswith("\n"):
@@ -136,7 +136,7 @@ def receive_message(secure_sock: socket.socket) -> str:
     # ensure it's a bytes-like object
     if not isinstance(string_to_receive, bytes):
         raise TypeError(
-            f"Receive failed.  Unexpected type: " f"{type(string_to_receive)!r}"
+            f"Receive failed.  Unexpected type: " f"{type(string_to_receive)}"
         )
 
     # test received data to make sure it is UTF-8
@@ -156,9 +156,7 @@ def receive_message(secure_sock: socket.socket) -> str:
     return to_return
 
 
-def is_succeed_send_and_receive(
-    authdata: str, to_send: str, secure_sock: socket.socket
-) -> bool:
+def send_and_receive(authdata: str, to_send: str, secure_sock: socket.socket) -> None:
     """Send message and receive the string from the client.
 
     The messages are checked for validity.  Closes the socket if an error
@@ -170,8 +168,7 @@ def is_succeed_send_and_receive(
         secure_sock (socket.socket): the secure socket to receive from.
 
     Returns:
-        bool: True if the string is correctly sent and its response is
-            correctly received, False otherwise.
+        None
     """
 
     try:
@@ -196,7 +193,6 @@ def is_succeed_send_and_receive(
                 raise Exception(r"Invalid suffix returned from client.")
             else:
                 print("Valid suffix returned from client.")
-                return True
 
         elif not (
             to_send.startswith("HELO")
@@ -211,24 +207,13 @@ def is_succeed_send_and_receive(
             print(f"Checksum received: {cksum}\n" f"Checksum calculated: {cksum_calc}")
             if cksum == cksum_calc:
                 print("Valid checksum received.")
-                return True
             else:
                 raise Exception(r"Invalid checksum received.")
-
-        else:
-            return True
 
     except Exception as e:
         print(f"Exception: {e}")
         send_error("ERROR " + str(e.args[0]), secure_sock)
-        """if "Send failed." in e.args:
-            send_error("ERROR sending. " + str(e.args[0]), secure_sock)
-        if "Receive failed." in e.args:
-            send_error("ERROR receiving. " + str(e.args[0]), secure_sock)
-        if "ERROR" in e.args:
-            send_error("ERROR " + str(e.args[0]), secure_sock)"""
-
-        return False
+        raise Exception(str(e.args)) from e
 
 
 def send_error(to_send: str, secure_sock: socket.socket) -> None:
@@ -316,20 +301,18 @@ def main() -> int:
     )
 
     # Wait for a client to connect
-    is_error = False
     while True:
         client_socket, client_address = server_socket.accept()
         with context.wrap_socket(client_socket, server_side=True) as secure_sock:
             print(f"Connection from {client_address}")
 
             # handshake
-            if not is_succeed_send_and_receive(authdata, "HELO", secure_sock):
-                break
+            send_and_receive(authdata, "HELO", secure_sock)
+
             print(f"Authentication data: {authdata}\nDifficulty: " f"{difficulty}")
-            if not is_succeed_send_and_receive(
+            send_and_receive(
                 authdata, "POW " + str(authdata) + " " + str(difficulty), secure_sock
-            ):
-                break
+            )
 
             # body
             for _ in range(20):
@@ -349,21 +332,11 @@ def main() -> int:
                         "ERROR internal server error",
                     ]
                 )
-                if not is_succeed_send_and_receive(
-                    authdata, f"{choice} " f"{random_string}", secure_sock
-                ):
-                    is_error = True
-                    break
-                if choice == "ERROR internal server error":
-                    secure_sock.close()
-                    is_error = True
-                    break
-            if is_error:
-                break
+                send_and_receive(authdata, f"{choice} " f"{random_string}", secure_sock)
 
             # end message
-            if not is_succeed_send_and_receive(authdata, "END", secure_sock):
-                break
+            send_and_receive(authdata, "END", secure_sock)
+            break
 
     return 0
 

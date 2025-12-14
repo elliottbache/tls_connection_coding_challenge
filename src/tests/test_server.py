@@ -116,8 +116,8 @@ def pow_hash():
     return "000000dbb98b6c3a3bdc5a9ab0346633247d0ab9"
 
 
-class TestIsSucceedSendAndReceive:
-    def test_is_succeed_send_and_receive_error_sending(
+class TestSendAndReceive:
+    def test_send_and_receive_error_sending(
         self, socket_pair, authdata, random_string, readout
     ):
         s1, s2 = socket_pair
@@ -125,47 +125,45 @@ class TestIsSucceedSendAndReceive:
         s2.close()
 
         with pytest.raises(Exception, match=r"Send failed."):
-            server.is_succeed_send_and_receive(authdata, random_string, s1)
+            server.send_and_receive(authdata, random_string, s1)
 
-    def test_is_succeed_send_and_receive_error_receiving(
+    def test_send_and_receive_error_receiving(
         self, socket_pair, authdata, random_string, readout
     ):
         s1, s2 = socket_pair
         s2.close()
 
         with pytest.raises(Exception, match=r"Receive failed."):
-            server.is_succeed_send_and_receive(authdata, random_string, s1)
+            server.send_and_receive(authdata, random_string, s1)
 
-    def test_is_succeed_send_and_receive_helo(self, socket_pair, authdata, readout):
+    def test_send_and_receive_helo(self, socket_pair, authdata, readout):
         s1, s2 = socket_pair
 
         _ = s2.sendall(b"EHLO\n")
-        err = server.is_succeed_send_and_receive(authdata, "HELO", s1)
-        assert err
+        err = server.send_and_receive(authdata, "HELO", s1)
+        assert err is None
 
         out = readout()
         assert out.startswith("\nSending HELO\nReceived EHLO")
 
-    def test_is_succeed_send_and_receive_end(self, socket_pair, authdata, readout):
+    def test_send_and_receive_end(self, socket_pair, authdata, readout):
         s1, s2 = socket_pair
 
         _ = s2.sendall(b"OK\n")
-        err = server.is_succeed_send_and_receive(authdata, "END", s1)
-        assert err
+        err = server.send_and_receive(authdata, "END", s1)
+        assert err is None
 
         out = readout()
         assert out.startswith("\nSending END\nReceived OK")
 
-    def test_is_succeed_send_and_receive_mailnum(
+    def test_send_and_receive_mailnum(
         self, socket_pair, authdata, random_string, cksum, readout
     ):
         s1, s2 = socket_pair
 
         _ = s2.sendall((cksum + " 2\n").encode("utf-8"))
-        err = server.is_succeed_send_and_receive(
-            authdata, "MAILNUM " + random_string, s1
-        )
-        assert err
+        err = server.send_and_receive(authdata, "MAILNUM " + random_string, s1)
+        assert err is None
 
         out = readout()
         assert out.startswith(
@@ -180,16 +178,16 @@ class TestIsSucceedSendAndReceive:
             + "\nValid checksum received."
         )
 
-    def test_is_succeed_send_and_receive_pow(
+    def test_send_and_receive_pow(
         self, socket_pair, authdata, suffix, pow_hash, difficulty, readout
     ):
         s1, s2 = socket_pair
 
         _ = s2.sendall((suffix + "\n").encode("utf-8"))
-        err = server.is_succeed_send_and_receive(
+        err = server.send_and_receive(
             authdata, "POW " + authdata + " " + difficulty, s1
         )
-        assert err
+        assert err is None
 
         out = readout()
         assert out.startswith(
@@ -211,7 +209,7 @@ class TestIsSucceedSendAndReceive:
             + "Valid suffix returned from client."
         )
 
-    def test_is_succeed_send_and_receive_invalid_suffix(
+    def test_send_and_receive_invalid_suffix(
         self, socket_pair, authdata, suffix, pow_hash, difficulty, readout
     ):
 
@@ -231,10 +229,8 @@ class TestIsSucceedSendAndReceive:
         )
         t.start()
 
-        err = server.is_succeed_send_and_receive(
-            authdata, "POW " + authdata + " " + difficulty, s1
-        )
-        assert not err
+        with pytest.raises(Exception, match=r"Invalid suffix returned from client."):
+            server.send_and_receive(authdata, "POW " + authdata + " " + difficulty, s1)
 
         t.join(timeout=2)
         assert not t.is_alive(), "peer did not finish"
@@ -250,11 +246,7 @@ class TestIsSucceedSendAndReceive:
         received_message = q.get(timeout=1)
         assert "ERROR Invalid suffix returned from client." in received_message.decode()
 
-        # check that stdout error is correctly printed
-        out = readout()
-        assert "Invalid suffix returned from client." in out
-
-    def test_is_succeed_send_and_receive_invalid_cksum(
+    def test_send_and_receive_invalid_cksum(
         self, socket_pair, authdata, random_string, cksum, readout
     ):
 
@@ -273,10 +265,8 @@ class TestIsSucceedSendAndReceive:
         )
         t.start()
 
-        err = server.is_succeed_send_and_receive(
-            authdata, "MAILNUM " + random_string, s1
-        )
-        assert not err
+        with pytest.raises(Exception, match=r"Invalid checksum received."):
+            server.send_and_receive(authdata, "MAILNUM " + random_string, s1)
 
         t.join(timeout=2)
 
