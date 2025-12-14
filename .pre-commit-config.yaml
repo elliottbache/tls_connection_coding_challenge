@@ -25,4 +25,3 @@ repos:
     rev: v1.13.0
     hooks:
       - id: mypy
-        files: ^src/
