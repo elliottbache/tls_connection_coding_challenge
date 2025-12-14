@@ -86,10 +86,9 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
     bstring_to_send = string_to_send.encode("utf-8")
 
     # send message
-    print("\nSending " + string_to_send.rstrip("\n"))
     try:
         secure_sock.send(bstring_to_send)
-    except (TimeoutError, ssl.SSLError, OSError) as e:
+    except (TimeoutError, ssl.SSLEOFError, ssl.SSLError, OSError, BrokenPipeError) as e:
         string_to_send_no_newline = string_to_send.rstrip("\n")
         raise Exception(
             f"Send failed.  Sending {string_to_send_no_newline}." f"  {type(e)} {e}"
@@ -106,7 +105,7 @@ def receive_message(secure_sock: socket.socket) -> str:
         secure_sock (socket.socket): the secure socket to receive from.
 
     Returns:
-        str: the string if reception is successful.
+        str: the string without newline if reception is successful.
 
     Raises:
         Exception if error in receiving.
@@ -142,7 +141,6 @@ def receive_message(secure_sock: socket.socket) -> str:
     # test received data to make sure it is UTF-8
     try:
         decoded_string = string_to_receive.decode("utf-8")
-        to_return = decoded_string
     except UnicodeDecodeError as e:
         raise ValueError(f"Receive failed.  Invalid UTF-8: {e}") from e
 
@@ -150,13 +148,10 @@ def receive_message(secure_sock: socket.socket) -> str:
     if not decoded_string.endswith("\n"):
         raise ValueError("Receive failed. String does not end with new line.")
 
-    string_received = decoded_string.replace("\n", "")
-    print(f"Received {string_received}")
-
-    return to_return
+    return decoded_string.replace("\n", "")
 
 
-def send_and_receive(authdata: str, to_send: str, secure_sock: socket.socket) -> None:
+def send_and_receive(authdata: str, to_send: str, secure_sock: socket.socket) -> str:
     """Send message and receive the string from the client.
 
     The messages are checked for validity.  Closes the socket if an error
@@ -168,9 +163,9 @@ def send_and_receive(authdata: str, to_send: str, secure_sock: socket.socket) ->
         secure_sock (socket.socket): the secure socket to receive from.
 
     Returns:
-        None
+        str: the string received.
     """
-
+    received_message = ""
     try:
         if to_send.startswith("ERROR"):
             raise Exception(f"ERROR {to_send}")
@@ -182,17 +177,11 @@ def send_and_receive(authdata: str, to_send: str, secure_sock: socket.socket) ->
         if to_send.startswith("POW"):
             difficulty = to_send.split(" ")[2]
             first_zeros = "0" * int(difficulty)
-            suffix = str(received_message).replace("\n", "")
-            hash = hashlib.sha1((authdata + suffix).encode()).hexdigest()  # noqa: S324
-            print(
-                f"POW suffix from client: {suffix}\n"
-                f"Authentication data: {authdata}\n"
-                f"Hash: {hash}"
-            )
+            hash = hashlib.sha1(  # noqa: S324
+                (authdata + received_message).encode()
+            ).hexdigest()
             if not hash.startswith(first_zeros):
                 raise Exception(r"Invalid suffix returned from client.")
-            else:
-                print("Valid suffix returned from client.")
 
         elif not (
             to_send.startswith("HELO")
@@ -204,16 +193,16 @@ def send_and_receive(authdata: str, to_send: str, secure_sock: socket.socket) ->
             cksum_calc = hashlib.sha1(  # noqa: S324
                 (authdata + random_string).encode()
             ).hexdigest()
-            print(f"Checksum received: {cksum}\n" f"Checksum calculated: {cksum_calc}")
-            if cksum == cksum_calc:
-                print("Valid checksum received.")
-            else:
+            if cksum != cksum_calc:
                 raise Exception(r"Invalid checksum received.")
 
     except Exception as e:
-        print(f"Exception: {e}")
-        send_error("ERROR " + str(e.args[0]), secure_sock)
+        #        print(f"Exception: {e.args[0]}")
+        #        print(f"ERROR {e.args[0]}")
+        send_error("ERROR " + e.args[0], secure_sock)
         raise Exception(str(e.args)) from e
+
+    return received_message
 
 
 def send_error(to_send: str, secure_sock: socket.socket) -> None:
@@ -231,7 +220,6 @@ def send_error(to_send: str, secure_sock: socket.socket) -> None:
     try:
         send_message(to_send, secure_sock)
     finally:
-        print("closing connection")
         secure_sock.close()
 
 
@@ -280,8 +268,6 @@ def prepare_socket(
     context.verify_mode = ssl.CERT_REQUIRED
     context.load_cert_chain(certfile=server_cert_path, keyfile=server_key_path)
 
-    print(f"Server listening on https://{hostname}:{port}")
-
     return server_socket, context
 
 
@@ -299,6 +285,7 @@ def main() -> int:
     server_socket, context = prepare_socket(
         hostname, port, ca_cert_path, server_cert_path, server_key_path
     )
+    print(f"Server listening on https://{hostname}:{port}")
 
     # Wait for a client to connect
     while True:
@@ -307,12 +294,19 @@ def main() -> int:
             print(f"Connection from {client_address}")
 
             # handshake
-            send_and_receive(authdata, "HELO", secure_sock)
+            print("Sending HELO")
+            msg = send_and_receive(authdata, "HELO", secure_sock)
+            print(f"Received {msg}")
 
             print(f"Authentication data: {authdata}\nDifficulty: " f"{difficulty}")
-            send_and_receive(
+            print(f"Sending POW {authdata} {difficulty}")
+            msg = send_and_receive(
                 authdata, "POW " + str(authdata) + " " + str(difficulty), secure_sock
             )
+            print(f"Received suffix: {msg}")
+            hash = hashlib.sha1((authdata + msg).encode()).hexdigest()  # noqa: S324
+            print(f"Hash: {hash}")
+            print("Valid suffix returned from client.")
 
             # body
             for _ in range(20):
@@ -332,10 +326,19 @@ def main() -> int:
                         "ERROR internal server error",
                     ]
                 )
-                send_and_receive(authdata, f"{choice} " f"{random_string}", secure_sock)
+                print(f"Sending {choice} {random_string}")
+                msg = send_and_receive(
+                    authdata, f"{choice} " f"{random_string}", secure_sock
+                )
+                print(f"Received {msg}")
+                print(f"Checksum received: {msg.split(' ')[0]}")
+                print("Valid checksum received.")
 
             # end message
-            send_and_receive(authdata, "END", secure_sock)
+            print("Sending END")
+            msg = send_and_receive(authdata, "END", secure_sock)
+            print(f"Received {msg}")
+            print("\nConnection closed")
             break
 
     return 0
