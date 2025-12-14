@@ -12,7 +12,7 @@ from src import server
 # helpers
 class FakeSock:
     def recv(self, n):
-        return "hello\n"   # <-- str, not bytes
+        return "hello\n"  # <-- str, not bytes
 
 
 class FakeContext:
@@ -49,8 +49,7 @@ def peer(sock, q, to_send):
 # unit tests
 class TestSendMessage:
     @pytest.mark.parametrize(
-        "payload, expected",
-        [("HELLO\n", "HELLO\n"), ("HELLO", "HELLO\n")]
+        "payload, expected", [("HELLO\n", "HELLO\n"), ("HELLO", "HELLO\n")]
     )
     def test_send_message(self, socket_pair, readout, payload, expected):
         s1, s2 = socket_pair
@@ -76,7 +75,7 @@ class TestReceiveMessage:
 
     def test_receive_message_non_utf(self, socket_pair, readout):
         s1, s2 = socket_pair
-        message_to_receive = 'æ'.encode('cp1252')
+        message_to_receive = "æ".encode("cp1252")
 
         _ = s1.sendall(message_to_receive)
         err = server.receive_message(s2)
@@ -117,17 +116,17 @@ class TestReceiveMessage:
 
 @pytest.fixture(scope="class")
 def cksum():
-    return 'bd8de303197ac9997d5a721a11c46d9ed0450798'
+    return "bd8de303197ac9997d5a721a11c46d9ed0450798"
 
 
 @pytest.fixture(scope="class")
 def pow_hash():
-    return '000000dbb98b6c3a3bdc5a9ab0346633247d0ab9'
+    return "000000dbb98b6c3a3bdc5a9ab0346633247d0ab9"
 
 
 class TestIsSucceedSendAndReceive:
     def test_is_succeed_send_and_receive_error_sending(
-            self, socket_pair, token, random_string, readout
+        self, socket_pair, token, random_string, readout
     ):
         s1, s2 = socket_pair
         s1.close()
@@ -137,11 +136,10 @@ class TestIsSucceedSendAndReceive:
         assert not err
 
         out = readout()
-        assert out.startswith("\nSending " + random_string
-                              + "\nSend failed:")
+        assert out.startswith("\nSending " + random_string + "\nSend failed:")
 
     def test_is_succeed_send_and_receive_error_receiving(
-            self, socket_pair, token, random_string, readout
+        self, socket_pair, token, random_string, readout
     ):
         s1, s2 = socket_pair
         s2.close()
@@ -150,73 +148,85 @@ class TestIsSucceedSendAndReceive:
         assert not err
 
         out = readout()
-        assert out.startswith("\nSending " + random_string
-                              + "\nReceive failed:")
+        assert out.startswith("\nSending " + random_string + "\nReceive failed:")
 
-    def test_is_succeed_send_and_receive_helo(
-            self, socket_pair, token, readout
-    ):
+    def test_is_succeed_send_and_receive_helo(self, socket_pair, token, readout):
         s1, s2 = socket_pair
 
-        _ = s2.sendall(b'HELLOBACK\n')
-        err = server.is_succeed_send_and_receive(token, 'HELLO', s1)
+        _ = s2.sendall(b"HELLOBACK\n")
+        err = server.is_succeed_send_and_receive(token, "HELLO", s1)
         assert err
 
         out = readout()
         assert out.startswith("\nSending HELLO\nReceived HELLOBACK")
 
-    def test_is_succeed_send_and_receive_end(
-            self, socket_pair, token, readout
-    ):
+    def test_is_succeed_send_and_receive_end(self, socket_pair, token, readout):
         s1, s2 = socket_pair
 
-        _ = s2.sendall(b'OK\n')
-        err = server.is_succeed_send_and_receive(token, 'DONE', s1)
+        _ = s2.sendall(b"OK\n")
+        err = server.is_succeed_send_and_receive(token, "DONE", s1)
         assert err
 
         out = readout()
         assert out.startswith("\nSending DONE\nReceived OK")
 
     def test_is_succeed_send_and_receive_mailnum(
-            self, socket_pair, token, random_string, cksum, readout
+        self, socket_pair, token, random_string, cksum, readout
     ):
         s1, s2 = socket_pair
 
-        _ = s2.sendall((cksum + ' 2\n').encode("utf-8"))
+        _ = s2.sendall((cksum + " 2\n").encode("utf-8"))
         err = server.is_succeed_send_and_receive(
-            token, 'MAILNUM ' + random_string, s1
-        )
-        assert err
-
-        out = readout()
-        assert out.startswith("\nSending MAILNUM " + random_string
-                              + "\nReceived " + cksum
-                              + " 2\nChecksum received: " + cksum
-                              + "\nChecksum calculated: " + cksum
-                              + "\nValid checksum received."
-                              )
-
-    def test_is_succeed_send_and_receive_pow(
-            self, socket_pair, token, suffix, pow_hash, difficulty, readout
-    ):
-        s1, s2 = socket_pair
-
-        _ = s2.sendall((suffix + '\n').encode("utf-8"))
-        err = server.is_succeed_send_and_receive(
-            token, 'WORK ' + token + ' ' + difficulty, s1
+            token, "MAILNUM " + random_string, s1
         )
         assert err
 
         out = readout()
         assert out.startswith(
-            "\nSending WORK " + token + " " + difficulty + "\nReceived "
-            + suffix + "\n" + "WORK suffix from client: " + suffix
-            + "\nAuthentication data: " + token + "\n" + "Hash: "
-            + pow_hash + "\n" + "Valid suffix returned from client."
+            "\nSending MAILNUM "
+            + random_string
+            + "\nReceived "
+            + cksum
+            + " 2\nChecksum received: "
+            + cksum
+            + "\nChecksum calculated: "
+            + cksum
+            + "\nValid checksum received."
+        )
+
+    def test_is_succeed_send_and_receive_pow(
+        self, socket_pair, token, suffix, pow_hash, difficulty, readout
+    ):
+        s1, s2 = socket_pair
+
+        _ = s2.sendall((suffix + "\n").encode("utf-8"))
+        err = server.is_succeed_send_and_receive(
+            token, "WORK " + token + " " + difficulty, s1
+        )
+        assert err
+
+        out = readout()
+        assert out.startswith(
+            "\nSending WORK "
+            + token
+            + " "
+            + difficulty
+            + "\nReceived "
+            + suffix
+            + "\n"
+            + "WORK suffix from client: "
+            + suffix
+            + "\nAuthentication data: "
+            + token
+            + "\n"
+            + "Hash: "
+            + pow_hash
+            + "\n"
+            + "Valid suffix returned from client."
         )
 
     def test_is_succeed_send_and_receive_invalid_suffix(
-            self, socket_pair, token, suffix, pow_hash, difficulty, readout
+        self, socket_pair, token, suffix, pow_hash, difficulty, readout
     ):
 
         s1, s2 = socket_pair
@@ -226,14 +236,18 @@ class TestIsSucceedSendAndReceive:
         # create thread for client actions
         t = threading.Thread(
             target=peer,
-            args=(s2, q, (suffix + 'p\n').encode("utf-8"),),
-            daemon=True
+            args=(
+                s2,
+                q,
+                (suffix + "p\n").encode("utf-8"),
+            ),
+            daemon=True,
         )
         t.start()
 
-        err = server.is_succeed_send_and_receive(token,
-                                                 'WORK ' + token + ' '
-                                                 + difficulty, s1)
+        err = server.is_succeed_send_and_receive(
+            token, "WORK " + token + " " + difficulty, s1
+        )
         assert not err
 
         t.join(timeout=2)
@@ -241,8 +255,9 @@ class TestIsSucceedSendAndReceive:
 
         # check first message sent from server requesting WORK challenge
         received_message = q.get(timeout=1)
-        assert received_message == ("WORK " + token + " " + difficulty
-                                    + "\n").encode("utf-8")
+        assert received_message == ("WORK " + token + " " + difficulty + "\n").encode(
+            "utf-8"
+        )
 
         # check second message sent from server declaring an error has
         # occurred in the WORK challenge
@@ -256,7 +271,7 @@ class TestIsSucceedSendAndReceive:
         assert "Invalid suffix returned from client." in out
 
     def test_is_succeed_send_and_receive_invalid_cksum(
-            self, socket_pair, token, random_string, cksum, readout
+        self, socket_pair, token, random_string, cksum, readout
     ):
 
         s1, s2 = socket_pair
@@ -265,13 +280,18 @@ class TestIsSucceedSendAndReceive:
 
         # create thread for client actions
         t = threading.Thread(
-            target=peer, args=(s2, q, (cksum[:-1] + 'p 2\n').encode("utf-8"),),
-            daemon=True
+            target=peer,
+            args=(
+                s2,
+                q,
+                (cksum[:-1] + "p 2\n").encode("utf-8"),
+            ),
+            daemon=True,
         )
         t.start()
 
         err = server.is_succeed_send_and_receive(
-            token, 'MAILNUM ' + random_string, s1
+            token, "MAILNUM " + random_string, s1
         )
         assert not err
 
@@ -279,23 +299,28 @@ class TestIsSucceedSendAndReceive:
 
         # check first message sent from server requesting MAILNUM
         received_message = q.get(timeout=1)
-        assert received_message == ("MAILNUM " +
-                                    random_string + "\n").encode("utf-8")
+        assert received_message == ("MAILNUM " + random_string + "\n").encode("utf-8")
 
         # check second message sent from server declaring an error has
         # occurred in the checksum
         received_message = q.get(timeout=1)
-        assert received_message.decode().startswith(
-            "ERROR from invalid checksum.")
+        assert received_message.decode().startswith("ERROR from invalid checksum.")
 
         # check that stdout error is correctly printed
         out = readout()
-        assert out.startswith("\nSending MAILNUM " + random_string
-                              + "\nReceived " + cksum[:-1] + 'p'
-                              + " 2\nChecksum received: " + cksum[:-1] + 'p'
-                              + "\nChecksum calculated: " + cksum
-                              + "\nInvalid checksum received."
-                              )
+        assert out.startswith(
+            "\nSending MAILNUM "
+            + random_string
+            + "\nReceived "
+            + cksum[:-1]
+            + "p"
+            + " 2\nChecksum received: "
+            + cksum[:-1]
+            + "p"
+            + "\nChecksum calculated: "
+            + cksum
+            + "\nInvalid checksum received."
+        )
 
 
 class TestSendError:
@@ -321,12 +346,16 @@ class TestPrepareSocket:
             fake_context.purpose = purpose
             return fake_context
 
-        monkeypatch.setattr(server.ssl, "create_default_context",
-                            fake_create_default_context)
+        monkeypatch.setattr(
+            server.ssl, "create_default_context", fake_create_default_context
+        )
 
         server_sock, context = server.prepare_socket(
-            "localhost", 0, ca_cert_path="ca.pem", server_cert_path="srv.pem",
-            server_key_path="key.pem"
+            "localhost",
+            0,
+            ca_cert_path="ca.pem",
+            server_cert_path="srv.pem",
+            server_key_path="key.pem",
         )
 
         # server_sock and context were created and are valid types
@@ -361,7 +390,7 @@ def test_tls_handshake_connect():
     lsock.listen(1)
     host, port = lsock.getsockname()
 
-    def srv():
+    def srv() -> None:
         csock, _ = lsock.accept()
         with server_ctx.wrap_socket(csock, server_side=True) as ssock:
             ssock.sendall(b"hello\n")
@@ -375,8 +404,10 @@ def test_tls_handshake_connect():
     client_ctx.check_hostname = False  # we're connecting by IP
 
     # 5) Connect and read
-    with client_ctx.wrap_socket(socket.create_connection((host, port), timeout=3), server_hostname=None) as c:
-            assert c.recv(1024) == b"hello\n"
+    with client_ctx.wrap_socket(
+        socket.create_connection((host, port), timeout=3), server_hostname=None
+    ) as c:
+        assert c.recv(1024) == b"hello\n"
 
     lsock.close()
     t.join(timeout=1)

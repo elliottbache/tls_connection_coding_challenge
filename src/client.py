@@ -30,6 +30,7 @@ Functions:
         Main function.
 
 """
+
 import errno
 import hashlib
 import multiprocessing
@@ -54,17 +55,19 @@ DEFAULT_RESPONSES = {
     "COUNTRY": "USA",
     "ADDRNUM": "2",
     "ADDR_LINE1": "234 Evergreen Terrace",
-    "ADDR_LINE2": "Springfield"
+    "ADDR_LINE2": "Springfield",
 }
 DEFAULT_HOSTFULL_NAME = os.getenv("HOSTFULL_NAME", "localhost")
 DEFAULT_PORTS = [int(p) for p in os.getenv("PORTS", "1234").split(",")]
-DEFAULT_PRIVATE_KEY_PATH = 'certificates/ec_private_key.pem'
-DEFAULT_CLIENT_CERT_PATH = 'certificates/client_cert.pem'
+DEFAULT_PRIVATE_KEY_PATH = "certificates/ec_private_key.pem"
+DEFAULT_CLIENT_CERT_PATH = "certificates/client_cert.pem"
 DEFAULT_ALL_TIMEOUT = 6
 DEFAULT_WORK_TIMEOUT = 7200
 
-def tls_connect(client_cert_path: str, private_key_path: str, hostname: str) \
-        -> socket.socket:
+
+def tls_connect(
+    client_cert_path: str, private_key_path: str, hostname: str
+) -> socket.socket:
     """
     Create a connection to the remote server.
 
@@ -78,9 +81,11 @@ def tls_connect(client_cert_path: str, private_key_path: str, hostname: str) \
     """
     # Check that hostname is local, otherwise raise error so that insecure
     # connection isn't mistakenly used
-    if hostname != 'localhost':
-        raise ValueError(f"Refusing insecure TLS to {hostname}. For "
-                         f"non-local hosts, enable certificate verification.")
+    if hostname != "localhost":
+        raise ValueError(
+            f"Refusing insecure TLS to {hostname}. For "
+            f"non-local hosts, enable certificate verification."
+        )
 
     # Create the client socket
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -91,8 +96,7 @@ def tls_connect(client_cert_path: str, private_key_path: str, hostname: str) \
     # Load the client's private key and certificate
     print("Client cert exists:", os.path.exists(client_cert_path))
     print("Private key exists:", os.path.exists(private_key_path))
-    context.load_cert_chain(certfile=client_cert_path,
-                            keyfile=private_key_path)
+    context.load_cert_chain(certfile=client_cert_path, keyfile=private_key_path)
 
     # Disable server certificate verification (not recommended for production)
     context.check_hostname = False
@@ -127,13 +131,12 @@ def hasher(token: str, input_string: str) -> str:
     return cksum_in_hex
 
 
-def decipher_message(message: str, valid_messages: set[str]) \
-        -> tuple[int, list[str]]:
+def decipher_message(message: bytes, valid_messages: set[str]) -> tuple[int, list[str]]:
     """Read message and do error checking.
 
     Args:
         message (str): The message to read.
-        valid_messages (list[str]): A set of valid messages that can
+        valid_messages (set[str]): A set of valid messages that can
                                     be received from server.
 
     Returns:
@@ -155,7 +158,7 @@ def decipher_message(message: str, valid_messages: set[str]) \
 
     # check that we have a UTF-8 message
     try:
-        smessage = message.decode('utf-8').replace("\n", "")
+        smessage = message.decode("utf-8").replace("\n", "")
         print(f"Received {smessage}")
     except Exception as e:
         print("string is not valid: ", e)
@@ -206,7 +209,7 @@ def _is_world_writable(path: Path) -> bool:
     """
     try:
         mode = path.stat().st_mode
-        if os.name == 'posix':
+        if os.name == "posix":
             return bool(mode & stat.S_IWOTH)
         else:
             return False  # Windows is assumed to be OK
@@ -226,7 +229,9 @@ def _validate_path(bin_path: Path) -> None:
     # check if it's executable
     if os.name == "posix" and not os.access(bin_path, os.X_OK):
         try:
-            bin_path.chmod(bin_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            bin_path.chmod(
+                bin_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+            )
         except Exception as e:
             raise PermissionError(
                 f"WORK binary at {bin_path} is not executable; chmod failed: {e}"
@@ -239,10 +244,12 @@ def _validate_path(bin_path: Path) -> None:
 def _validate_token(token: str) -> None:
     """Validate token."""
     if not isinstance(token, str):
-        raise ValueError("token is not a string.  Exiting since hashing function "
-              "will not work correctly")
+        raise ValueError(
+            "token is not a string.  Exiting since hashing function "
+            "will not work correctly"
+        )
 
-    if not re.fullmatch(r'[A-Za-z0-9._~-]{1,128}', token):
+    if not re.fullmatch(r"[A-Za-z0-9._~-]{1,128}", token):
         raise ValueError("token contains disallowed characters or length")
 
 
@@ -269,8 +276,9 @@ def _check_inputs(cpp_binary_path: Path, token: str, difficulty: str) -> None:
     _validate_difficulty(difficulty)
 
 
-def run_pow_binary(cpp_binary_path: str, token: str, difficulty: str,
-                   timeout: int = 7200) -> subprocess.CompletedProcess:
+def run_pow_binary(
+    cpp_binary_path: str, token: str, difficulty: str, timeout: int = 7200
+) -> subprocess.CompletedProcess:
     """Run the WORK challenge C++ binary.
 
     Args:
@@ -298,7 +306,11 @@ def run_pow_binary(cpp_binary_path: str, token: str, difficulty: str,
     """
     bin_path = Path(cpp_binary_path).resolve(strict=True)
     # on Windows, allow implicit .exe
-    if sys.platform.startswith("win") and bin_path.suffix == "" and not bin_path.exists():
+    if (
+        sys.platform.startswith("win")
+        and bin_path.suffix == ""
+        and not bin_path.exists()
+    ):
         bin_path = bin_path.with_suffix(".exe")
 
     _check_inputs(bin_path, token, difficulty)
@@ -310,12 +322,16 @@ def run_pow_binary(cpp_binary_path: str, token: str, difficulty: str,
         check=True,
         timeout=timeout,
         cwd=os.fspath(bin_path.parent),
-        env={"LC_ALL": "C"}
+        env={"LC_ALL": "C"},
     )
 
 
-def handle_pow_cpp(token: str, difficulty: str, cpp_binary_path: str
-                   = DEFAULT_CPP_BINARY_PATH, timeout: int = 7200) -> tuple[int, bytes]:
+def handle_pow_cpp(
+    token: str,
+    difficulty: str,
+    cpp_binary_path: str = DEFAULT_CPP_BINARY_PATH,
+    timeout: int = 7200,
+) -> tuple[int, bytes]:
     """Find a hash with the given number of leading zeros.
 
     Takes the token and difficulty and find a suffix that will
@@ -352,29 +368,41 @@ def handle_pow_cpp(token: str, difficulty: str, cpp_binary_path: str
         suffix = None
         for line in result.stdout.splitlines():
             if line.startswith("RESULT:"):
-                suffix = line[len("RESULT:"):]
+                suffix = line[len("RESULT:") :]
                 break
 
         if suffix:
             hash = hashlib.sha256((token + suffix).encode()).hexdigest()  # noqa: S324
-            print(f"Authdata: {token}\n"
-                  f"Valid WORK Suffix: {suffix}\n"
-                  f"Hash: {hash}")
+            print(
+                f"Authdata: {token}\n"
+                f"Valid WORK Suffix: {suffix}\n"
+                f"Hash: {hash}"
+            )
             return 0, (suffix + "\n").encode()
         else:
             raise ValueError("No RESULT found in WORK output.")
 
     except FileNotFoundError as e:
-        raise FileNotFoundError(f"WORK binary not a regular file: {cpp_binary_path}") \
-            from e
+        raise FileNotFoundError(
+            f"WORK binary not a regular file: {cpp_binary_path}"
+        ) from e
 
     except subprocess.CalledProcessError as e:
-        raise subprocess.CalledProcessError(f"Error running executable: {e}") from e
+        raise subprocess.CalledProcessError(
+            1,
+            cmd="pow_benchmark" + token + difficulty,
+            stderr=f"Error running executable: {e}",
+        ) from e
 
 
-def define_response(args: list[str], token: str, valid_messages: list[str],
-                    queue, responses=DEFAULT_RESPONSES,
-                    cpp_binary_path=DEFAULT_CPP_BINARY_PATH):
+def define_response(
+    args: list[str],
+    token: str,
+    valid_messages: set[str],
+    queue: multiprocessing.Queue[tuple[int, bytes]],
+    responses: dict[str, str] = DEFAULT_RESPONSES,
+    cpp_binary_path: str = DEFAULT_CPP_BINARY_PATH,
+) -> None:
     """
     Create response to message depending on received message.
 
@@ -386,9 +414,9 @@ def define_response(args: list[str], token: str, valid_messages: list[str],
     Args:
         args (list[str]): The list of arguments to pass to the client.
         token (str): The token from the server.
-        valid_messages (list[str]): The list of valid messages that
+        valid_messages (set[str]): The list of valid messages that
             the server can send.
-        responses (list[str]): The list of responses to send.
+        responses (dict[str, str]): The list of responses to send.
         cpp_binary_path (str): The path to the C++ program that solves
             the WORK challenge.
 
@@ -421,16 +449,15 @@ def define_response(args: list[str], token: str, valid_messages: list[str],
     """
 
     if args[0] == "HELLO":
-        err, result = 0, b'HELLOBACK\n'
+        err, result = 0, b"HELLOBACK\n"
     elif args[0] == "DONE":
-        err, result = 1, b'OK\n'
+        err, result = 1, b"OK\n"
     elif args[0] == "ERROR":
         print("Server error: " + " ".join(args[1:]))
-        err, result = 2, b'\n'
+        err, result = 2, b"\n"
     elif args[0] == "WORK":
         difficulty = args[2]
         print(f"WORK difficulty: {difficulty}")
-
 
         # record start time
         start = time.time()
@@ -441,27 +468,28 @@ def define_response(args: list[str], token: str, valid_messages: list[str],
 
         # print the difference between start
         # and end time in milli. secs
-        print("The time of execution of WORK challenge is :",
-              (end-start), "s")
+        print("The time of execution of WORK challenge is :", (end - start), "s")
 
         err, result = return_list[0], return_list[1]
 
     elif args[0] in valid_messages:
         print("Extra arguments = " + args[1])
         print("Authentication data = " + token)
-        err, result = 0, (hasher(token, args[1]) + " "
-                          + responses[args[0]] + "\n").encode()
+        err, result = (
+            0,
+            (hasher(token, args[1]) + " " + responses[args[0]] + "\n").encode(),
+        )
 
     else:
-        err, result = 4, b'\n'
+        err, result = 4, b"\n"
 
     # double check that newline has been placed on string
-    if not result.decode('utf-8').endswith("\n"):
+    if not result.decode("utf-8").endswith("\n"):
         print("string does not end with new line")
-        to_encode = result.decode('utf-8') + "\n"
+        to_encode = result.decode("utf-8") + "\n"
         result = to_encode.encode()
 
-    results = [err, result]
+    results = (err, result)
     queue.put(results)
 
 
@@ -485,12 +513,12 @@ def connect_to_server(sock: socket.socket, hostname: str, port: int) -> bool:
     except ConnectionRefusedError:
         print(f"Connection refused by {hostname}:{port}")
     except socket.gaierror as e:
-        print(f"DNS/addr error for "
-              f"{hostname}:{port}: {e}")  # bad host / not resolvable
+        print(
+            f"DNS/addr error for " f"{hostname}:{port}: {e}"
+        )  # bad host / not resolvable
     except ssl.SSLCertVerificationError as e:
         # hostname mismatch, expired, unknown CA, etc.
-        print(f"Certificate verification failed for"
-              f" {hostname}:{port}: {e}")
+        print(f"Certificate verification failed for" f" {hostname}:{port}: {e}")
     except ssl.SSLError as e:
         # other TLS/handshake issues (protocol mismatch, bad
         # record, etc.)
@@ -500,8 +528,7 @@ def connect_to_server(sock: socket.socket, hostname: str, port: int) -> bool:
         if e.errno == errno.EHOSTUNREACH:
             print(f"Host unreachable: {hostname}:{port}")
         elif e.errno == errno.ENETUNREACH:
-            print(f"Network unreachable when connecting to "
-                  f"{hostname}:{port}")
+            print(f"Network unreachable when connecting to " f"{hostname}:{port}")
         else:
             print(f"OS error connecting to {hostname}:{port}: {e}")
     finally:
@@ -511,14 +538,16 @@ def connect_to_server(sock: socket.socket, hostname: str, port: int) -> bool:
 
 
 def _receive_and_decipher_message(
-        secure_sock: socket.socket, valid_messages: list, all_timeout: float,
+    secure_sock: socket.socket,
+    valid_messages: set[str],
+    all_timeout: float,
 ) -> tuple[int, list[str]]:
     """Receive and decode message from server and return a tuple
     with error code and arguments containing message."""
     while True:
         message = secure_sock.recv(1024)
 
-        if message == b'':
+        if message == b"":
             print(f"Received empty message.  Waiting {all_timeout} continuing.")
             time.sleep(all_timeout)
             continue
@@ -550,12 +579,24 @@ def main() -> int:
     client_cert_path = DEFAULT_CLIENT_CERT_PATH
 
     valid_messages = {
-        "HELLO", "WORK", "ERROR", "DONE", "FULL_NAME", "MAILNUM", "EMAIL1", "EMAIL2",
-        "SOCIAL", "BIRTHDATE", "COUNTRY", "ADDRNUM", "ADDR_LINE1", "ADDR_LINE2"
+        "HELLO",
+        "WORK",
+        "ERROR",
+        "DONE",
+        "FULL_NAME",
+        "MAILNUM",
+        "EMAIL1",
+        "EMAIL2",
+        "SOCIAL",
+        "BIRTHDATE",
+        "COUNTRY",
+        "ADDRNUM",
+        "ADDR_LINE1",
+        "ADDR_LINE2",
     }  # valid first arguments coming from the server
     pow_timeout = DEFAULT_WORK_TIMEOUT  # timeout for pow in seconds
     all_timeout = DEFAULT_ALL_TIMEOUT  # timeout for all function except pow in seconds
-    token = ''  # this will be set with WORK message from server
+    token = ""  # this will be set with WORK message from server
 
     # Create and wrap socket
     secure_sock = tls_connect(client_cert_path, private_key_path, hostname)
@@ -575,13 +616,16 @@ def main() -> int:
     try:
         while True:
 
-            err, args = _receive_and_decipher_message(secure_sock, valid_messages, all_timeout)
+            err, args = _receive_and_decipher_message(
+                secure_sock, valid_messages, all_timeout
+            )
             print(f"Command: {args[0]}")
 
             # If no args are received, continue
             if err or not args or not args[0]:
-                print(f"Problem deciphering message. Error code = {err}."
-                      f" continuing.")
+                print(
+                    f"Problem deciphering message. Error code = {err}." f" continuing."
+                )
                 continue
 
             # Define timeouts
@@ -593,18 +637,24 @@ def main() -> int:
 
             # use multiprocessing for setting timeout.  Only 1 process is
             # launched at this stage
-            queue = multiprocessing.Queue()
+            queue: multiprocessing.Queue = multiprocessing.Queue()
             p = multiprocessing.Process(
                 target=define_response,
-                args=(args, token, valid_messages, queue, responses,
-                      cpp_binary_path),
+                args=(
+                    args,
+                    token,
+                    valid_messages,
+                    queue,
+                    responses,
+                    cpp_binary_path,
+                ),
             )
             p.start()
             p.join(timeout=this_timeout)  # Wait up to 6 or 7200 seconds
             if p.is_alive():
                 p.terminate()  # forcefully stop the process
                 p.join()
-                err, response = 3, b''
+                err, response = 3, b""
                 print(f"{args[0]} Function timed out.")
                 continue
             else:
