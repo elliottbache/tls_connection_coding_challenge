@@ -20,6 +20,7 @@ Functions:
     prepare_socket:
         prepare a socket to be used for sending and receiving.
 """
+
 import hashlib
 import random
 import socket
@@ -76,10 +77,10 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
         string_to_send += "\n"
 
     # encode string
-    bstring_to_send = string_to_send.encode('utf-8')
+    bstring_to_send = string_to_send.encode("utf-8")
 
     # send message
-    print("\nSending " + string_to_send.rstrip('\n'))
+    print("\nSending " + string_to_send.rstrip("\n"))
     try:
         secure_sock.send(bstring_to_send)
         return 0
@@ -131,7 +132,7 @@ def receive_message(secure_sock: socket.socket) -> int | str:
 
     # test received data to make sure it is UTF-8
     try:
-        decoded_string = string_to_receive.decode('utf-8')
+        decoded_string = string_to_receive.decode("utf-8")
         to_return = decoded_string
     except UnicodeDecodeError as e:
         print("string is not valid: ", e)
@@ -148,9 +149,9 @@ def receive_message(secure_sock: socket.socket) -> int | str:
     return to_return
 
 
-def is_succeed_send_and_receive(token: str, to_send: str,
-                                secure_sock: socket.socket) \
-        -> bool:
+def is_succeed_send_and_receive(
+    token: str, to_send: str, secure_sock: socket.socket
+) -> bool:
     """Send message and receive the string from the client.
 
     The messages are checked for validity.  Closes the socket if an error
@@ -179,12 +180,14 @@ def is_succeed_send_and_receive(token: str, to_send: str,
 
         if to_send.startswith("WORK"):
             difficulty = to_send.split(" ")[2]
-            first_zeros = '0' * int(difficulty)
-            suffix = received_message.replace("\n", "")
+            first_zeros = "0" * int(difficulty)
+            suffix = str(received_message).replace("\n", "")
             hash = hashlib.sha256((token + suffix).encode()).hexdigest()  # noqa: S324
-            print(f"WORK suffix from client: {suffix}\n"
-                  f"Authentication data: {token}\n"
-                  f"Hash: {hash}")
+            print(
+                f"WORK suffix from client: {suffix}\n"
+                f"Authentication data: {token}\n"
+                f"Hash: {hash}"
+            )
             if not hash.startswith(first_zeros):
                 print("Invalid suffix returned from client.")
                 return send_error("ERROR from invalid WORK challenge hash.", secure_sock)
@@ -192,16 +195,17 @@ def is_succeed_send_and_receive(token: str, to_send: str,
                 print("Valid suffix returned from client.")
                 return True
 
-        elif not (to_send.startswith("HELLO") or to_send.startswith("ERROR")
-                  or to_send.startswith("DONE")):
-            cksum = received_message.split(" ")[0]
+        elif not (
+            to_send.startswith("HELLO")
+            or to_send.startswith("ERROR")
+            or to_send.startswith("DONE")
+        ):
+            cksum = str(received_message).split(" ")[0]
             random_string = to_send.split(" ")[1]
-            cksum_calc = (
-                hashlib.sha256((token + random_string)  # noqa: S324
-                             .encode()).hexdigest()
-            )
-            print(f"Checksum received: {cksum}\n"
-                  f"Checksum calculated: {cksum_calc}")
+            cksum_calc = hashlib.sha256(  # noqa: S324
+                (token + random_string).encode()
+            ).hexdigest()
+            print(f"Checksum received: {cksum}\n" f"Checksum calculated: {cksum_calc}")
             if cksum == cksum_calc:
                 print("Valid checksum received.")
                 return True
@@ -242,9 +246,13 @@ def send_error(to_send: str, secure_sock: socket.socket) -> bool:
     return False
 
 
-def prepare_socket(hostname: str, port: int, ca_cert_path: str,
-                   server_cert_path: str, server_key_path: str) \
-            -> tuple[socket.socket, ssl.SSLContext]:
+def prepare_socket(
+    hostname: str,
+    port: int,
+    ca_cert_path: str,
+    server_cert_path: str,
+    server_key_path: str,
+) -> tuple[socket.socket, ssl.SSLContext]:
     """Prepare a socket to be used for sending and receiving.
 
     Args:
@@ -260,9 +268,11 @@ def prepare_socket(hostname: str, port: int, ca_cert_path: str,
     """
     # Check that hostname is local, otherwise raise error so that insecure
     # connection isn't mistakenly used
-    if hostname != 'localhost':
-        raise ValueError(f"Refusing insecure TLS to {hostname}. For "
-                         f"non-local hosts, enable certificate verification.")
+    if hostname != "localhost":
+        raise ValueError(
+            f"Refusing insecure TLS to {hostname}. For "
+            f"non-local hosts, enable certificate verification."
+        )
 
     # Define the server address and port
     server_address = (hostname, port)
@@ -288,9 +298,8 @@ def prepare_socket(hostname: str, port: int, ca_cert_path: str,
 
 def main() -> int:
 
-    token = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu' \
-               + 'WROTeTaSmqFCAzuwkwLCRgIIq'
-    random_string = 'LGTk'
+    token = "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu" + "WROTeTaSmqFCAzuwkwLCRgIIq"
+    random_string = "LGTk"
     difficulty = 6
     ca_cert_path = DEFAULT_CA_CERT
     server_cert_path = DEFAULT_SERVER_CERT
@@ -298,25 +307,24 @@ def main() -> int:
     hostname = DEFAULT_HOSTFULL_NAME
     port = DEFAULT_PORT
 
-    server_socket, context = prepare_socket(hostname, port, ca_cert_path,
-                                            server_cert_path, server_key_path)
+    server_socket, context = prepare_socket(
+        hostname, port, ca_cert_path, server_cert_path, server_key_path
+    )
 
     # Wait for a client to connect
     is_error = False
     while True:
         client_socket, client_address = server_socket.accept()
-        with context.wrap_socket(client_socket, server_side=True) \
-                as secure_sock:
+        with context.wrap_socket(client_socket, server_side=True) as secure_sock:
             print(f"Connection from {client_address}")
 
             # handshake
             if not is_succeed_send_and_receive(token, "HELLO", secure_sock):
                 break
-            print(f"Authentication data: {token}\nDifficulty: "
-                  f"{difficulty}")
-            if not is_succeed_send_and_receive(token, "WORK "
-                                               + str(token) + " "
-                                               + str(difficulty), secure_sock):
+            print(f"Authentication data: {token}\nDifficulty: " f"{difficulty}")
+            if not is_succeed_send_and_receive(
+                token, "WORK " + str(token) + " " + str(difficulty), secure_sock
+            ):
                 break
 
             # body
@@ -324,15 +332,22 @@ def main() -> int:
                 # This randomly sends requests to the client.
                 choice = random.choice(  # noqa: S311
                     [
-                        "FULL_NAME", "MAILNUM", "EMAIL1", "EMAIL2",
-                        "SOCIAL", "BIRTHDATE", "COUNTRY",
-                        "ADDRNUM", "ADDR_LINE1", "ADDR_LINE2",
-                        "ERROR internal server error"
+                        "FULL_NAME",
+                        "MAILNUM",
+                        "EMAIL1",
+                        "EMAIL2",
+                        "SOCIAL",
+                        "BIRTHDATE",
+                        "COUNTRY",
+                        "ADDRNUM",
+                        "ADDR_LINE1",
+                        "ADDR_LINE2",
+                        "ERROR internal server error",
                     ]
                 )
-                if not is_succeed_send_and_receive(token, f"{choice} "
-                                                   f"{random_string}",
-                                                   secure_sock):
+                if not is_succeed_send_and_receive(
+                    token, f"{choice} " f"{random_string}", secure_sock
+                ):
                     is_error = True
                     break
                 if choice == "ERROR internal server error":
@@ -349,5 +364,5 @@ def main() -> int:
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,15 +1,59 @@
 [project]
 name = "tls-line-protocol"
 version = "0.1.0"
-dependencies = ["cryptography", "trustme"]  # runtime deps (example)
+dependencies = ["cryptography", "trustme"]
 
 [project.optional-dependencies]
 dev = [
   "pytest",
   "pytest-timeout",
-  "pytest-cov",
-  "flake8",
-  "mypy",
   "sphinx",
-  "sphinxcontrib-mermaid",
+  "sphinx-autodoc-typehints",
+  "pre-commit",
+  "ruff",
+  "black",
+  "isort",
+  "mypy",
+  "codespell",
 ]
+
+# pyproject.toml
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E","F","I","UP","B","SIM","S","PERF","RUF"]
+ignore = ["E203", "E501"]  # let the formatter handle wrapping
+fixable = ["E","UP","SIM","PERF","RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+"src/tests/**" = ["S101"]
+
+[tool.ruff.format]
+quote-style = "double"  # personal taste
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+extend-exclude = "^(migrations|build|dist|.venv)/"
+
+[tool.isort]
+skip = [".venv", "migrations", "build", "dist"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+mypy_path = ["src"]
+
+[[tool.mypy.overrides]]
+module = "src.tests.*"
+ignore_errors = true
+
+[tool.codespell]
+skip = "./docs/_build/*,build,dist,.venv,build-asan,build-tsan,./docs/html/*,old_files"
+ignore-words-list = "teh,nd"  # add project-specific false positives

@@ -16,5 +16,5 @@ TLS line protocol documentation
    cpp_api
 
 The Python API documentation is generated from the docstrings inside the source code and compiled with Sphinx.
-The C++ API documentation is compiled wiht Doxygen.
+The C++ API documentation is compiled with Doxygen.
 
