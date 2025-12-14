@@ -52,7 +52,7 @@ format:
 
 .PHONY: typecheck
 typecheck:
-	$(ACTIVATE); mypy src
+	$(ACTIVATE); mypy
 
 .PHONY: docs
 docs:
