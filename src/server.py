@@ -34,7 +34,7 @@ DEFAULT_SERVER_CERT = "certificates/server-cert.pem"
 DEFAULT_SERVER_KEY = "certificates/server-key.pem"
 
 
-def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
+def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
     """Send string to the client.
 
     This ensures that the string is UTF-8 and ends with a newline
@@ -45,7 +45,10 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
         secure_sock (socket.socket): the secure socket to send to.
 
     Returns:
-        int: 0 if no exception is raised, 1 if the string is invalid.
+        None
+
+    Raises:
+        Exception if error in sending.
 
     Examples:
         Basic usage with an in-process socketpair (no network):
@@ -83,10 +86,11 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> int:
     print("\nSending " + string_to_send.rstrip("\n"))
     try:
         secure_sock.send(bstring_to_send)
-        return 0
     except (TimeoutError, ssl.SSLError, OSError) as e:
-        print(f"Send failed: {e}")
-        return -1
+        string_to_send_no_newline = string_to_send.rstrip("\n")
+        raise Exception(
+            f"Send failed.  Sending {string_to_send_no_newline}." f"  {type(e)} {e}"
+        ) from e
 
 
 def receive_message(secure_sock: socket.socket) -> int | str:
@@ -171,8 +175,7 @@ def is_succeed_send_and_receive(
         if to_send.startswith("ERROR"):
             return send_error(to_send, secure_sock)
 
-        if send_message(to_send, secure_sock):
-            return send_error("ERROR sending " + to_send, secure_sock)
+        send_message(to_send, secure_sock)
 
         received_message = receive_message(secure_sock)
         if received_message == -1:
@@ -218,6 +221,9 @@ def is_succeed_send_and_receive(
 
     except Exception as e:
         print(f"Exception: {e}")
+        if "Send failed." in e.args:
+            return send_error("ERROR sending " + to_send, secure_sock)
+
         return False
 
 
