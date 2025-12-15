@@ -35,6 +35,7 @@ DEFAULT_SERVER_KEY = "certificates/server-key.pem"
 DEFAULT_AUTHDATA = "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq"
 DEFAULT_RANDOM_STRING = "LGTk"
 DEFAULT_DIFFICULTY = 6
+MAX_LINE_LENGTH = 1000
 
 
 def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
@@ -90,7 +91,7 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
 
     # send message
     try:
-        secure_sock.send(bstring_to_send)
+        secure_sock.sendall(bstring_to_send)
     except (TimeoutError, ssl.SSLEOFError, ssl.SSLError, OSError, BrokenPipeError) as e:
         string_to_send_no_newline = string_to_send.rstrip("\n")
         raise Exception(
@@ -124,50 +125,53 @@ def receive_message(secure_sock: socket.socket) -> str:
         ...     s1.close(); s2.close()
         Received hello
     """
-
-    # receive data
+    buf = ""
     try:
-        string_to_receive = secure_sock.recv(1024)
+        while True:
+            chunk = secure_sock.recv(1024)
+
+            # test for empty string
+            if not chunk:
+                raise ValueError("Receive failed.  Received empty string.")
+
+            # ensure it's a bytes-like object
+            if not isinstance(chunk, bytes):
+                raise TypeError(f"Receive failed.  Unexpected type: " f"{type(chunk)}")
+
+            # test received data to make sure it is UTF-8
+            try:
+                decoded_string = chunk.decode("utf-8")
+            except UnicodeDecodeError as e:
+                raise ValueError(f"Receive failed.  Invalid UTF-8: {e}") from e
+
+            buf += decoded_string
+            if len(buf) > MAX_LINE_LENGTH:
+                raise ValueError("Line too long")
+
+            # read until newline
+            if buf.endswith("\n"):
+                break
+
+        return buf.rstrip("\n")
+
     except (TimeoutError, ssl.SSLError, OSError) as e:
         raise Exception(f"Receive failed: {e}") from e
-
-    # test for empty string
-    if not string_to_receive:
-        raise ValueError("Receive failed.  Received empty string.")
-
-    # ensure it's a bytes-like object
-    if not isinstance(string_to_receive, bytes):
-        raise TypeError(
-            f"Receive failed.  Unexpected type: " f"{type(string_to_receive)}"
-        )
-
-    # test received data to make sure it is UTF-8
-    try:
-        decoded_string = string_to_receive.decode("utf-8")
-    except UnicodeDecodeError as e:
-        raise ValueError(f"Receive failed.  Invalid UTF-8: {e}") from e
-
-    # test received data to make sure it ends in newline
-    if not decoded_string.endswith("\n"):
-        raise ValueError("Receive failed. String does not end with new line.")
-
-    return decoded_string.replace("\n", "")
 
 
 def _check_suffix(to_send: str, token: str, received_message: str) -> bool:
     """Check if suffix has enough leading zeros."""
-    difficulty = to_send.split(" ")[2]
+    difficulty = to_send.split(" ", maxsplit=2)[2]
     first_zeros = "0" * int(difficulty)
-    hash = hashlib.sha256(  # noqa: S324
+    this_hash = hashlib.sha256(  # noqa: S324
         (token + received_message).encode()
     ).hexdigest()
-    return hash.startswith(first_zeros)
+    return this_hash.startswith(first_zeros)
 
 
 def _check_cksum(to_send: str, token: str, received_message: str) -> bool:
     """Check if checksum is correct."""
-    cksum = str(received_message).split(" ")[0]
-    random_string = to_send.split(" ")[1]
+    cksum = str(received_message).split(" ", maxsplit=1)[0]
+    random_string = to_send.split(" ", maxsplit=1)[1]
     cksum_calc = hashlib.sha256(  # noqa: S324
         (token + random_string).encode()
     ).hexdigest()
@@ -191,10 +195,9 @@ def send_and_receive(token: str, to_send: str, secure_sock: socket.socket) -> st
     received_message = ""
     try:
         if to_send.startswith("ERROR"):
-            raise Exception(to_send)
+            raise Exception(to_send)  # internal server ERROR
 
         send_message(to_send, secure_sock)
-
         received_message = receive_message(secure_sock)
 
         # check WORK suffix
@@ -202,7 +205,6 @@ def send_and_receive(token: str, to_send: str, secure_sock: socket.socket) -> st
             to_send, token, received_message
         ):
             raise Exception(r"Invalid suffix returned from client.")
-
         # check checksum for rest of possible messages
         elif not (
             to_send.startswith("WORK")
@@ -212,13 +214,15 @@ def send_and_receive(token: str, to_send: str, secure_sock: socket.socket) -> st
         ) and not _check_cksum(to_send, token, received_message):
             raise Exception(r"Invalid checksum received.")
 
-    except Exception as e:
-        #        print(f"Exception: {e.args[0]}")
-        #        print(f"ERROR {e.args[0]}")
-        send_error("ERROR " + e.args[0], secure_sock)
-        raise Exception(str(e.args)) from e
+        return received_message
 
-    return received_message
+    except Exception as e:
+        try:
+            err_msg = str("ERROR " + e.args[0])
+        except Exception:
+            err_msg = "ERROR"
+        send_error(err_msg, secure_sock)
+        raise Exception(err_msg) from e
 
 
 def send_error(to_send: str, secure_sock: socket.socket) -> None:
@@ -236,7 +240,7 @@ def send_error(to_send: str, secure_sock: socket.socket) -> None:
     try:
         send_message(to_send, secure_sock)
     finally:
-        secure_sock.close()
+        pass
 
 
 def prepare_socket(
@@ -320,8 +324,10 @@ def main() -> int:
                 token, "WORK " + str(token) + " " + str(difficulty), secure_sock
             )
             print(f"Received suffix: {msg}")
-            hash = hashlib.sha256((token + msg).encode()).hexdigest()  # noqa: S324
-            print(f"Hash: {hash}")
+            this_hash = hashlib.sha256(  # noqa: S324
+                (token + msg).encode()
+            ).hexdigest()
+            print(f"Hash: {this_hash}")
             print("Valid suffix returned from client.")
 
             # body
@@ -347,7 +353,7 @@ def main() -> int:
                     token, f"{choice} " f"{random_string}", secure_sock
                 )
                 print(f"Received {msg}")
-                print(f"Checksum received: {msg.split(' ')[0]}")
+                print(f"Checksum received: {msg.split(' ', maxsplit=1)[0]}")
                 print("Valid checksum received.")
 
             # end message
