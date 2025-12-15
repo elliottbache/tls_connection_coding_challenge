@@ -375,7 +375,7 @@ class TestDefineResponse:
             responses,
             path_to_pow_benchmark,
         )
-        assert q.get() == (False, b"\n")
+        assert q.get() == (True, b"\n")
 
     def test_define_response_success(
         self, token, random_string, valid_messages, path_to_pow_benchmark
