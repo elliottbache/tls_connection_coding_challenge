@@ -1,3 +1,4 @@
+import hashlib
 import socket
 from collections.abc import Callable
 from typing import Any
@@ -25,12 +26,17 @@ def valid_messages():
 
 @pytest.fixture
 def token():
-    return "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu" + "WROTeTaSmqFCAzuwkwLCRgIIq"
+    return "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq"
 
 
 @pytest.fixture
 def suffix():
     return "2biu"
+
+
+@pytest.fixture
+def pow_hash(token, suffix):
+    return hashlib.sha256((token + suffix).encode()).hexdigest()  # noqa: S324
 
 
 @pytest.fixture
