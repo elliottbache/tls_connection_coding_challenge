@@ -26,6 +26,8 @@ import random
 import socket
 import ssl
 
+from src.protocol import receive_message
+
 # module-level defaults (safe to import, optional)
 DEFAULT_HOSTNAME = "localhost"
 DEFAULT_PORT = 3481
@@ -34,8 +36,7 @@ DEFAULT_SERVER_CERT = "certificates/server-cert.pem"
 DEFAULT_SERVER_KEY = "certificates/server-key.pem"
 DEFAULT_AUTHDATA = "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq"
 DEFAULT_RANDOM_STRING = "LGTk"
-DEFAULT_DIFFICULTY = 6
-MAX_LINE_LENGTH = 1000
+DEFAULT_DIFFICULTY = 4
 
 
 def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
@@ -99,65 +100,6 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
         ) from e
 
 
-def receive_message(secure_sock: socket.socket) -> str:
-    """Receive string from the client.
-
-    This ensures that the string is UTF-8 and ends with a newline
-    character.
-
-    Args:
-        secure_sock (socket.socket): the secure socket to receive from.
-
-    Returns:
-        str: the string without newline if reception is successful.
-
-    Raises:
-        Exception if error in receiving.
-
-    Examples:
-        Basic usage with an in-process socketpair (no network):
-        >>> from src.server import receive_message
-        >>> s1, s2 = socket.socketpair()
-        >>> try:
-        ...     _ = s1.send(b"hello\\n")
-        ...     _ = receive_message(s2)
-        ... finally:
-        ...     s1.close(); s2.close()
-        Received hello
-    """
-    buf = ""
-    try:
-        while True:
-            chunk = secure_sock.recv(1024)
-
-            # test for empty string
-            if not chunk:
-                raise ValueError("Receive failed.  Received empty string.")
-
-            # ensure it's a bytes-like object
-            if not isinstance(chunk, bytes):
-                raise TypeError(f"Receive failed.  Unexpected type: " f"{type(chunk)}")
-
-            # test received data to make sure it is UTF-8
-            try:
-                decoded_string = chunk.decode("utf-8")
-            except UnicodeDecodeError as e:
-                raise ValueError(f"Receive failed.  Invalid UTF-8: {e}") from e
-
-            buf += decoded_string
-            if len(buf) > MAX_LINE_LENGTH:
-                raise ValueError("Line too long")
-
-            # read until newline
-            if buf.endswith("\n"):
-                break
-
-        return buf.rstrip("\n")
-
-    except (TimeoutError, ssl.SSLError, OSError) as e:
-        raise Exception(f"Receive failed: {e}") from e
-
-
 def _check_suffix(to_send: str, authdata: str, received_message: str) -> bool:
     """Check if suffix has enough leading zeros."""
     difficulty = to_send.split(" ", maxsplit=2)[2]
@@ -175,6 +117,10 @@ def _check_cksum(to_send: str, authdata: str, received_message: str) -> bool:
     cksum_calc = hashlib.sha1(  # noqa: S324
         (authdata + random_string).encode()
     ).hexdigest()
+    print(f"\ncksum: {cksum}")
+    print(f"received_message: {received_message}")
+    print(f"random_string: {random_string}")
+    print(f"cksum_calc: {cksum_calc}")
     return cksum == cksum_calc
 
 
