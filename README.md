@@ -2,10 +2,10 @@
 # TLS Connection Coding Challenge
 
 [![CI](https://github.com/elliottbache/tls_connection_coding_challenge/actions/workflows/ci.yml/badge.svg)](https://github.com/elliottbache/tls_connection_coding_challenge/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-—-blue.svg)](#) 
+<!-- [![Coverage](https://img.shields.io/badge/coverage-—-blue.svg)](#) --> 
 [![Docs](https://img.shields.io/badge/docs-Read%20the%20Docs-brightgreen)](https://tls-connection-coding-challenge.readthedocs.io/en/latest/?badge=latest)
 [![Release](https://img.shields.io/github/v/release/elliottbache/tls_connection_coding_challenge)](https://github.com/elliottbache/tls_connection_coding_challenge/releases)
-[![License: GPL-3.0](https://img.shields.io/badge/license-%20%20GNU%20GPLv3%20-green?style=plastic)](LICENSE)
+[![License: GPL-3.0](https://img.shields.io/badge/license-%20%20GNU%20GPLv3%20-green?style=plastic)](https://github.com/elliottbache/tls_connection_coding_challenge/blob/main/LICENSE)
 
 > **60-second summary**
 > - Minimal client/server that perform a TLS handshake, then a **HELO → POW → info requests → END** flow.
