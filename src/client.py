@@ -630,7 +630,6 @@ def main() -> int:
     # Create and wrap socket
     print("Client cert exists:", os.path.exists(client_cert_path))
     print("Private key exists:", os.path.exists(private_key_path))
-    secure_sock = tls_connect(client_cert_path, private_key_path, hostname)
 
     # Connect to the server using TLS
     # Cycle through possible ports, trying to connect to each until success
@@ -638,6 +637,7 @@ def main() -> int:
     for port in ports:
         if not is_connected:
             try:
+                secure_sock = tls_connect(client_cert_path, private_key_path, hostname)
                 is_connected = connect_to_server(secure_sock, hostname, port)
             except Exception as e:
                 print(f"Error connecting to {hostname}:{port}: {e}")
