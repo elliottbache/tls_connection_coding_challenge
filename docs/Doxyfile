@@ -2,7 +2,7 @@
 PROJECT_NAME           = "TLS Coding Challenge"
 
 # ---- Inputs (headers only) ----
-INPUT                  = ../src
+INPUT                  = src
 RECURSIVE              = YES
 FILE_PATTERNS          = *.h *.hpp *.hh *.hxx *.ipp
 EXCLUDE_PATTERNS       = */build/* */.venv/* */.tox/* */tests/_build/*
@@ -12,6 +12,6 @@ EXTRACT_ALL            = YES
 
 # ---- Output for Breathe ----
 GENERATE_XML           = YES
-OUTPUT_DIRECTORY       = _build/doxygen
+OUTPUT_DIRECTORY       = docs/_build/doxygen
 XML_OUTPUT             = xml
-WARN_LOGFILE           = _build/doxygen/warnings.txt
+WARN_LOGFILE           = docs/_build/doxygen/warnings.txt
