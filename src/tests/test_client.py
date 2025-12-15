@@ -138,11 +138,10 @@ class TestDecipherMessage:
     @pytest.mark.parametrize(
         "message, is_err, expected, err_type, err_message",
         [
-            (b"MAILNUM LGTk\n", False, ["MAILNUM", "LGTk"], None, ""),
-            ("MAILNUM LGTk\n", True, [], TypeError, "string is not valid:"),
-            (b"", True, [], ValueError, "No args in the response"),
-            (b"INCORRECT LGTk\n", True, [], ValueError, "This response is not valid:"),
-            (b"MAILNUM\n", False, ["MAILNUM", ""], None, ""),
+            ("MAILNUM LGTk\n", False, ["MAILNUM", "LGTk"], None, ""),
+            ("", True, [], ValueError, "No args in the response"),
+            ("INCORRECT LGTk\n", True, [], ValueError, "This response is not valid:"),
+            ("MAILNUM\n", False, ["MAILNUM", ""], None, ""),
         ],
     )
     def test_decipher_message_cases(
@@ -316,7 +315,7 @@ class TestHandlePowCpp:
 
         suffix_output = client.handle_pow_cpp(authdata, difficulty, str(fake_bin))
 
-        assert suffix_output == (suffix + "\n").encode()
+        assert suffix_output == suffix + "\n"
 
     def test_handle_pow_cpp_no_executable(
         self, authdata, difficulty, timeout, path_to_pow_benchmark
@@ -347,7 +346,7 @@ class TestDefineResponse:
         client.define_response(
             ["HELO"], authdata, valid_messages, q, responses, path_to_pow_benchmark
         )
-        assert q.get() == (False, b"EHLO\n")
+        assert q.get() == (False, "EHLO\n")
 
         out = readout()
         assert out == ""
@@ -360,7 +359,7 @@ class TestDefineResponse:
         client.define_response(
             ["END"], authdata, valid_messages, q, responses, path_to_pow_benchmark
         )
-        assert q.get() == (False, b"OK\n")
+        assert q.get() == (False, "OK\n")
 
     def test_define_response_success_error(
         self, authdata, valid_messages, path_to_pow_benchmark
@@ -375,7 +374,7 @@ class TestDefineResponse:
             responses,
             path_to_pow_benchmark,
         )
-        assert q.get() == (True, b"\n")
+        assert q.get() == (True, "\n")
 
     def test_define_response_success(
         self, authdata, random_string, valid_messages, path_to_pow_benchmark
@@ -393,7 +392,7 @@ class TestDefineResponse:
             + responses[args[0]]
             + "\n"
         )
-        assert q.get() == (False, out_string.encode())
+        assert q.get() == (False, out_string)
 
     def test_define_response_success_pow(
         self,
@@ -410,14 +409,14 @@ class TestDefineResponse:
         args = ["POW", authdata, difficulty]
 
         def fake_handle_pow_cpp(*args, **kwargs):
-            return (suffix + "\n").encode()
+            return suffix + "\n"
 
         monkeypatch.setattr(client, "handle_pow_cpp", fake_handle_pow_cpp)
 
         client.define_response(
             args, authdata, valid_messages, q, responses, path_to_pow_benchmark
         )
-        assert q.get() == (False, (suffix + "\n").encode())
+        assert q.get() == (False, suffix + "\n")
 
     def test_define_response_success_invalid(
         self, authdata, valid_messages, path_to_pow_benchmark
@@ -427,7 +426,7 @@ class TestDefineResponse:
         client.define_response(
             ["HELOP"], authdata, valid_messages, q, responses, path_to_pow_benchmark
         )
-        assert q.get() == (True, b"\n")
+        assert q.get() == (True, "\n")
 
     def test_define_response_result_no_newline(
         self,
@@ -444,14 +443,14 @@ class TestDefineResponse:
         args = ["POW", authdata, difficulty]
 
         def fake_handle_pow_cpp(*args, **kwargs):
-            return suffix.encode()
+            return suffix
 
         monkeypatch.setattr(client, "handle_pow_cpp", fake_handle_pow_cpp)
 
         client.define_response(
             args, authdata, valid_messages, q, responses, path_to_pow_benchmark
         )
-        assert q.get() == (False, (suffix + "\n").encode())
+        assert q.get() == (False, suffix)
 
 
 class TestConnectToServer:
