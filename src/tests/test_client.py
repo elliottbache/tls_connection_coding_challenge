@@ -72,6 +72,7 @@ def fake_bin(tmp_path):
     new_bin = new_path / "pow_benchmark"
     new_bin.touch()
     new_bin.chmod(new_bin.stat().st_mode & ~stat.S_IWOTH)
+    new_bin.chmod(new_bin.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     return new_bin
 
 
@@ -253,9 +254,18 @@ class TestRunPowBinary:
     def test_run_pow_binary_writable_linux_executable(
         self, token, difficulty, fake_bin
     ):
-
         fake_bin.chmod(0o777)
         with pytest.raises(PermissionError, match="Insecure permissions on"):
+            client.run_pow_binary(fake_bin, token, difficulty)
+
+    @pytest.mark.skipif(
+        sys.platform.startswith("win"), reason="POSIX chmod not supported on Windows"
+    )
+    def test_run_pow_binary_linux_non_executable(self, token, difficulty, fake_bin):
+        fake_bin.chmod(
+            fake_bin.stat().st_mode & ~stat.S_IXUSR & ~stat.S_IXGRP & ~stat.S_IXOTH
+        )
+        with pytest.raises(PermissionError, match=r"is not executable."):
             client.run_pow_binary(fake_bin, token, difficulty)
 
     def test_run_pow_binary_error(
@@ -466,7 +476,7 @@ class TestConnectToServer:
             def close(self):
                 return None
 
-        # call connect_to_server(sock: socket.socket, hostname: str, port: int)
+        # call connect_to_server(sock: socket.socket, server_host: str, port: int)
         assert client.connect_to_server(FakeSocket(), "localhost", 1234)
         assert calls["addr"] == ("localhost", 1234)
 

@@ -75,7 +75,7 @@ DEFAULT_VALID_MESSAGES = {
     "ADDR_LINE1",
     "ADDR_LINE2",
 }
-DEFAULT_HOSTFULL_NAME = os.getenv("HOSTFULL_NAME", "localhost")
+DEFAULT_SERVER_HOST = os.getenv("SERVER_HOST", "localhost")
 DEFAULT_PORTS = [int(p) for p in os.getenv("PORTS", "1234").split(",")]
 DEFAULT_PRIVATE_KEY_PATH = "certificates/ec_private_key.pem"
 DEFAULT_CLIENT_CERT_PATH = "certificates/client_cert.pem"
@@ -84,7 +84,7 @@ DEFAULT_WORK_TIMEOUT = 7200
 
 
 def tls_connect(
-    client_cert_path: str, private_key_path: str, hostname: str
+    client_cert_path: str, private_key_path: str, server_host: str
 ) -> socket.socket:
     """
     Create a connection to the remote server.
@@ -92,16 +92,16 @@ def tls_connect(
     Args:
         client_cert_path (str): The path to the client certificate.
         private_key_path (str): The path to the private key file.
-        hostname (str): The hostname to connect to.
+        server_host (str): The server_host to connect to.
 
     Returns:
         socket.socket: The socket object.
     """
-    # Check that hostname is local, otherwise raise error so that insecure
+    # Check that server_host is local, otherwise raise error so that insecure
     # connection isn't mistakenly used
-    if hostname != "localhost":
+    if server_host != "localhost":
         raise ValueError(
-            f"Refusing insecure TLS to {hostname}. For "
+            f"Refusing insecure TLS to {server_host}. For "
             f"non-local hosts, enable certificate verification."
         )
 
@@ -118,7 +118,7 @@ def tls_connect(
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
 
-    return context.wrap_socket(client_socket, server_hostname=hostname)
+    return context.wrap_socket(client_socket, server_hostname=server_host)
 
 
 def hasher(token: str, input_string: str) -> str:
@@ -235,14 +235,16 @@ def _validate_path(bin_path: Path) -> None:
         raise PermissionError(f"Refusing to execute symlink: {bin_path}")
     # check if it's executable
     if os.name == "posix" and not os.access(bin_path, os.X_OK):
+        """if not executable, change mode to executable
         try:
             bin_path.chmod(
                 bin_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
             )
         except Exception as e:
             raise PermissionError(
-                f"WORK binary at {bin_path} is not executable; chmod failed: {e}"
-            ) from e
+                f"WORK binary at {bin_path} is not executable. chmod failed: {e}"
+            ) from e"""
+        raise PermissionError(f"WORK binary at {bin_path} is not executable.")
     # check if it's world writable
     if _is_world_writable(bin_path) or _is_world_writable(bin_path.parent):
         raise PermissionError(f"Insecure permissions on {bin_path} or its directory")
@@ -468,12 +470,12 @@ def define_response(
     queue.put(results)
 
 
-def connect_to_server(sock: socket.socket, hostname: str, port: int) -> bool:
+def connect_to_server(sock: socket.socket, server_host: str, port: int) -> bool:
     """Connect to server and return True if connection was successful.
 
     Args:
         sock (socket.socket): The socket to connect to.
-        hostname (str): The hostname to connect to.
+        server_host (str): The server_host to connect to.
         port (int): The port to connect to.
 
     Returns:
@@ -481,41 +483,46 @@ def connect_to_server(sock: socket.socket, hostname: str, port: int) -> bool:
     """
     exc: Exception | None = None
     try:
-        sock.connect((hostname, int(port)))
+        sock.connect((server_host, int(port)))
         return True
     except TimeoutError as e:
         exc = e
-        raise TimeoutError(f"Connect timeout to {hostname}:{port}") from e
+        raise TimeoutError(f"Connect timeout to {server_host}:{port}") from e
     except ConnectionRefusedError as e:
         exc = e
-        raise ConnectionRefusedError(f"Connection refused by {hostname}:{port}") from e
+        raise ConnectionRefusedError(
+            f"Connection refused by {server_host}:{port}"
+        ) from e
     except socket.gaierror as e:
         exc = e
         raise socket.gaierror(
-            f"DNS/addr error for {hostname}:{port}: {e}"
+            f"DNS/addr error for {server_host}:{port}: {e}"
         ) from e  # bad host / not resolvable
     except ssl.SSLCertVerificationError as e:
         exc = e
-        # hostname mismatch, expired, unknown CA, etc.
+        # server_host mismatch, expired, unknown CA, etc.
         raise ssl.SSLCertVerificationError(
-            f"Certificate verification failed " f"for {hostname}:{port}: {e}"
+            f"Certificate verification failed " f"for {server_host}:{port}: {e}"
         ) from e
     except ssl.SSLError as e:
         exc = e
         # other TLS/handshake issues (protocol mismatch, bad
         # record, etc.)
-        raise ssl.SSLError(f"TLS error during connect to {hostname}:{port}: {e}") from e
+        raise ssl.SSLError(
+            f"TLS error during connect to {server_host}:{port}: {e}"
+        ) from e
     except OSError as e:
         exc = e
         # catch-all for OS-level socket errors
         if e.errno == errno.EHOSTUNREACH:
-            raise OSError(f"OSError. Host unreachable: {hostname}:{port}") from e
+            raise OSError(f"OSError. Host unreachable: {server_host}:{port}") from e
         elif e.errno == errno.ENETUNREACH:
             raise OSError(
-                f"OSError. Network unreachable when " f"connecting to {hostname}:{port}"
+                f"OSError. Network unreachable when "
+                f"connecting to {server_host}:{port}"
             ) from e
         else:
-            raise OSError(f"OSError connecting to {hostname}:{port}: {e}") from e
+            raise OSError(f"OSError connecting to {server_host}:{port}: {e}") from e
     finally:
         if exc is not None:
             sock.close()
@@ -598,7 +605,7 @@ def main() -> int:
 
     cpp_binary_path = DEFAULT_CPP_BINARY_PATH
     responses = DEFAULT_RESPONSES
-    hostname = DEFAULT_HOSTFULL_NAME
+    server_host = DEFAULT_SERVER_HOST
     ports = DEFAULT_PORTS
     private_key_path = DEFAULT_PRIVATE_KEY_PATH
     client_cert_path = DEFAULT_CLIENT_CERT_PATH
@@ -617,10 +624,12 @@ def main() -> int:
     for port in ports:
         if not is_connected:
             try:
-                secure_sock = tls_connect(client_cert_path, private_key_path, hostname)
-                is_connected = connect_to_server(secure_sock, hostname, port)
+                secure_sock = tls_connect(
+                    client_cert_path, private_key_path, server_host
+                )
+                is_connected = connect_to_server(secure_sock, server_host, port)
             except Exception as e:
-                print(f"Error connecting to {hostname}:{port}: {e}")
+                print(f"Error connecting to {server_host}:{port}: {e}")
 
     if not is_connected:
         print("Not able to connect to any port.  Exiting")
