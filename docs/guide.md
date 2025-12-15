@@ -60,7 +60,12 @@ sequenceDiagram
     - For ``WORK``, call binary → return suffix.
     - For info commands, compute checksum and reply.
 
----
+The following should be taken into account:
+- Multiline messages are not supported since this was not part of the coding
+challenge.  Each command sent by the server was meant to be answered with 
+a single-line.  Any more lines would fall outside the scope of the proper
+functioning of this program and should thus be treated as an exception.
+
 
 ## Protocol
 - **Transport**: TLS.
