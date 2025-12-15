@@ -2,10 +2,10 @@
 # TLS Line Protocol
 
 [![CI](https://github.com/elliottbache/tls_line_protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/elliottbache/tls_line_protocol/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-—-blue.svg)](#) 
+<!-- [![Coverage](https://img.shields.io/badge/coverage-—-blue.svg)](#) --> 
 [![Docs](https://img.shields.io/badge/docs-Read%20the%20Docs-brightgreen)](https://tls-line-protocol.readthedocs.io/en/latest/?badge=latest)
 [![Release](https://img.shields.io/github/v/release/elliottbache/tls_line_protocol)](https://github.com/elliottbache/tls_line_protocol/releases)
-[![License: GPL-3.0](https://img.shields.io/badge/license-%20%20GNU%20GPLv3%20-green?style=plastic)](LICENSE)
+[![License: GPL-3.0](https://img.shields.io/badge/license-%20%20GNU%20GPLv3%20-green?style=plastic)](https://github.com/elliottbache/tls_line_protocol/blob/main/LICENSE)
 
 > **60-second summary**
 > - Minimal client/server that perform a TLS handshake, then a **HELLO → WORK → info requests → DONE** flow.
