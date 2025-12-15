@@ -35,7 +35,7 @@ install-dev: venv
 
 .PHONY: test
 test:
-	$(ACTIVATE); pytest -q src/tests
+	$(ACTIVATE); pytest -q
 
 .PHONY: lint
 lint:
