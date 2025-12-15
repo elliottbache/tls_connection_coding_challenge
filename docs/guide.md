@@ -65,6 +65,9 @@ The following should be taken into account:
 challenge.  Each command sent by the server was meant to be answered with 
 a single-line.  Any more lines would fall outside the scope of the proper
 functioning of this program and should thus be treated as an exception.
+- Multiprocessing is used to take into account the imposed timeouts.  All 
+commands have a timeout of 6 seconds except the POW challenge, which has a
+2-hour timeout.
 
 
 ## Protocol
