@@ -26,7 +26,7 @@ import random
 import socket
 import ssl
 
-from src.protocol import receive_message
+from src.protocol import receive_message, send_message
 
 # module-level defaults (safe to import, optional)
 DEFAULT_HOSTFULL_NAME = "localhost"
@@ -37,67 +37,6 @@ DEFAULT_SERVER_KEY = "certificates/server-key.pem"
 DEFAULT_AUTHDATA = "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq"
 DEFAULT_RANDOM_STRING = "LGTk"
 DEFAULT_DIFFICULTY = 4
-
-
-def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
-    """Send string to the client.
-
-    This ensures that the string is UTF-8 and ends with a newline
-    character.
-
-    Args:
-        string_to_send (str): the string to send.
-        secure_sock (socket.socket): the secure socket to send to.
-
-    Returns:
-        None
-
-    Raises:
-        Exception if error in sending.
-
-    Examples:
-        Basic usage with an in-process socketpair (no network):
-        >>> from src.server import send_message
-        >>> s1, s2 = socket.socketpair()
-        >>> try:
-        ...     _ = send_message("hello\\n", s1)   # returns 0 on success
-        ...     s2.recv(1024)
-        ... finally:
-        ...     s1.close(); s2.close()
-        <BLANKLINE>
-        Sending hello
-        b'hello\\n'
-
-        Newline is added if missing:
-        >>> a, b = socket.socketpair()
-        >>> try:
-        ...     _ = send_message("OK", a)
-        ...     b.recv(3)
-        ... finally:
-        ...     a.close(); b.close()
-        <BLANKLINE>
-        Sending OK
-        b'OK\\n'
-    """
-    # ensure it's a string object
-    if not isinstance(string_to_send, str):
-        raise TypeError(f"Send failed.  Unexpected type: " f"{type(string_to_send)}")
-
-    # ensure that the string ends with endline
-    if not string_to_send.endswith("\n"):
-        string_to_send += "\n"
-
-    # encode string
-    bstring_to_send = string_to_send.encode("utf-8")
-
-    # send message
-    try:
-        secure_sock.sendall(bstring_to_send)
-    except (TimeoutError, ssl.SSLEOFError, ssl.SSLError, OSError, BrokenPipeError) as e:
-        string_to_send_no_newline = string_to_send.rstrip("\n")
-        raise Exception(
-            f"Send failed.  Sending {string_to_send_no_newline}." f"  {type(e)} {e}"
-        ) from e
 
 
 def _check_suffix(to_send: str, token: str, received_message: str) -> bool:
@@ -117,10 +56,6 @@ def _check_cksum(to_send: str, token: str, received_message: str) -> bool:
     cksum_calc = hashlib.sha256(  # noqa: S324
         (token + random_string).encode()
     ).hexdigest()
-    print(f"\ncksum: {cksum}")
-    print(f"received_message: {received_message}")
-    print(f"random_string: {random_string}")
-    print(f"cksum_calc: {cksum_calc}")
     return cksum == cksum_calc
 
 

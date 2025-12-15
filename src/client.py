@@ -44,6 +44,8 @@ import sys
 import time
 from pathlib import Path
 
+from src.protocol import receive_message, send_message
+
 DEFAULT_CPP_BINARY_PATH = "build/pow_benchmark"  # path to c++ executable
 DEFAULT_RESPONSES = {
     "FULL_NAME": "Elliott Bache",
@@ -145,7 +147,7 @@ def hasher(token: str, input_string: str) -> str:
     return cksum_in_hex
 
 
-def decipher_message(message: bytes, valid_messages: set[str]) -> list[str]:
+def decipher_message(message: str, valid_messages: set[str]) -> list[str]:
     """Read message and do error checking.
 
     Args:
@@ -169,25 +171,16 @@ def decipher_message(message: bytes, valid_messages: set[str]) -> list[str]:
         Received MAILNUM LGTk
         (0, ['MAILNUM', 'LGTk'])
     """
-
-    # check that we have a UTF-8 message
-    try:
-        smessage = message.decode("utf-8").replace("\n", "")
-    except Exception as e:
-        raise TypeError(
-            f"string is not valid: {e}. String is probably not UTF-8"
-        ) from e
-
-    args = smessage.split()
+    args = message.split()
 
     # check that the message has arguments
     if not args:
-        raise ValueError(f"No args in the response: {smessage}")
+        raise ValueError(f"No args in the response: {message}")
 
     # check that message belongs to list of possible messages
     if args[0] not in valid_messages:
         raise ValueError(
-            f"This response is not valid: {smessage}. "
+            f"This response is not valid: {message}. "
             f"Valid messages: {valid_messages}"
         )
 
@@ -345,7 +338,7 @@ def handle_pow_cpp(
     difficulty: str,
     cpp_binary_path: str = DEFAULT_CPP_BINARY_PATH,
     timeout: int = 7200,
-) -> bytes:
+) -> str:
     """Find a hash with the given number of leading zeros.
 
     Takes the token and difficulty and find a suffix that will
@@ -358,7 +351,7 @@ def handle_pow_cpp(
             the WORK challenge.
 
     Returns:
-        bytes: the encoded suffix that solves the WORK challenge.
+        str: the suffix that solves the WORK challenge.
 
     Examples:
         >>> import subprocess
@@ -385,7 +378,7 @@ def handle_pow_cpp(
                 break
 
         if suffix:
-            return (suffix + "\n").encode()
+            return suffix + "\n"
         else:
             raise ValueError("No RESULT found in WORK output.")
 
@@ -451,11 +444,11 @@ def define_response(
             [[0, b'HELLOBACK\\n']]
     """
     if args[0] == "HELLO":
-        is_err, result = False, b"HELLOBACK\n"
+        is_err, result = False, "HELLOBACK\n"
     elif args[0] == "DONE":
-        is_err, result = False, b"OK\n"
+        is_err, result = False, "OK\n"
     elif args[0] == "ERROR":
-        is_err, result = True, b""
+        is_err, result = True, "\n"
     elif args[0] == "WORK":
         difficulty = args[2]
 
@@ -465,16 +458,11 @@ def define_response(
     elif args[0] in valid_messages:
         is_err, result = (
             False,
-            (hasher(token, args[1]) + " " + responses[args[0]] + "\n").encode(),
+            hasher(token, args[1]) + " " + responses[args[0]] + "\n",
         )
 
     else:
-        is_err, result = True, b"\n"
-
-    # double check that newline has been placed on string
-    if not result.decode("utf-8").endswith("\n"):
-        to_encode = result.decode("utf-8") + "\n"
-        result = to_encode.encode()
+        is_err, result = True, "\n"
 
     results = (is_err, result)
     queue.put(results)
@@ -540,11 +528,7 @@ def _receive_and_decipher_message(
 ) -> list[str]:
     """Receive and decode message from server and return containing message."""
     while True:
-        message = secure_sock.recv(1024)
-        if message == b"":
-            print(f"Received empty message.  Waiting {all_timeout} continuing.")
-            time.sleep(all_timeout)
-            continue
+        message = receive_message(secure_sock)
 
         # Error check message and create list from message
         try:
@@ -561,14 +545,10 @@ def _process_message_with_timeout(
     cpp_binary_path: str = DEFAULT_CPP_BINARY_PATH,
     pow_timeout: float = DEFAULT_WORK_TIMEOUT,
     all_timeout: float = DEFAULT_ALL_TIMEOUT,
-) -> bytes:
+) -> str:
     """Process message received from server and return response, respecting timeout"""
     # Define timeouts and extract token
-    if args and args[0] and args[0] == "WORK":
-        this_timeout = pow_timeout
-        token = args[1]
-    else:
-        this_timeout = all_timeout
+    this_timeout = pow_timeout if args and args[0] and args[0] == "WORK" else all_timeout
 
     # use multiprocessing for setting timeout.  Only 1 process is used
     queue: multiprocessing.Queue = multiprocessing.Queue()
@@ -592,7 +572,7 @@ def _process_message_with_timeout(
     else:
         is_err, msg = queue.get()
         if is_err:
-            to_send = msg.decode().rstrip("\n")
+            to_send = msg.rstrip("\n")
             if args[0] == "ERROR":
                 raise Exception("Internal server error.")
             else:
@@ -662,6 +642,9 @@ def main() -> int:
                 print("Problem deciphering message. Continuing.")
                 continue
 
+            if args[0] == "WORK":
+                token = args[1]
+
             start = time.time()
             response = _process_message_with_timeout(
                 args,
@@ -676,13 +659,13 @@ def main() -> int:
             print("The time of execution is :", (end - start), "s")
 
             if args[0] == "WORK":
-                hash = hashlib.sha256(  # noqa: S324
-                    (token + response.decode()).encode()
+                this_hash = hashlib.sha256(  # noqa: S324
+                    (args[1] + response.rstrip("\n")).encode()
                 ).hexdigest()
                 print(
                     f"WORK difficulty: {args[2]}"
-                    f"\nAuthdata: {token}\nValid WORK Suffix: {response.decode()}"
-                    f"Hash: {hash}"
+                    f"\nAuthdata: {args[1]}\nValid WORK Suffix: {response}"
+                    f"Hash: {this_hash}"
                 )
 
             """# if correctly handled message (1 for DONE and 0 for all other
@@ -691,8 +674,8 @@ def main() -> int:
                 # Send the response
                 print(f"Sending to server = {response.decode()}")
                 secure_sock.send(response)"""
-            print(f"Sending to server = {response.decode()}")
-            secure_sock.send(response)
+            print(f"Sending to server = {response}")
+            send_message(response, secure_sock)
 
             if args[0] == "DONE":
                 break
