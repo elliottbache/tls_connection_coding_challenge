@@ -35,7 +35,7 @@ install-dev: venv
 
 .PHONY: test
 test:
-	$(ACTIVATE); pytest -q
+	$(ACTIVATE); pytest -q src/tests
 
 .PHONY: lint
 lint:
@@ -66,11 +66,14 @@ run-server:
 run-client:
 	$(ACTIVATE); python -m src.client
 
+SHELL := /bin/bash
+.ONESHELL:
 .PHONY: bench
 bench:
 	$(ACTIVATE)
 	python - <<'PY'
-	import time, subprocess
+	import time
+	import subprocess
 	t0=time.time()
 	subprocess.run(["build/pow_benchmark","testauth","4","2"], check=True)
 	print("Elapsed:", time.time()-t0, "s")
