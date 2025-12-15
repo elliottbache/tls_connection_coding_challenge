@@ -29,7 +29,7 @@ import ssl
 from src.protocol import receive_message, send_message
 
 # module-level defaults (safe to import, optional)
-DEFAULT_HOSTFULL_NAME = "localhost"
+DEFAULT_SERVER_HOST = "localhost"
 DEFAULT_PORT = 1234
 DEFAULT_CA_CERT = "certificates/ca_cert.pem"
 DEFAULT_SERVER_CERT = "certificates/server-cert.pem"
@@ -125,7 +125,7 @@ def send_error(to_send: str, secure_sock: socket.socket) -> None:
 
 
 def prepare_socket(
-    hostname: str,
+    server_host: str,
     port: int,
     ca_cert_path: str,
     server_cert_path: str,
@@ -134,7 +134,7 @@ def prepare_socket(
     """Prepare a socket to be used for sending and receiving.
 
     Args:
-        hostname (str): the hostname to connect to.
+        server_host (str): the server_host to connect to.
         port (int): the port to connect to.
         ca_cert_path (str): path to the CA certificate file.
         server_cert_path (str): path to the server certificate file.
@@ -144,16 +144,16 @@ def prepare_socket(
         socket.socket: the socket to be used for sending and receiving.
         ssl.SSLContext: the ssl context to be used for sending and receiving.
     """
-    # Check that hostname is local, otherwise raise error so that insecure
+    # Check that server_host is local, otherwise raise error so that insecure
     # connection isn't mistakenly used
-    if hostname != "localhost":
+    if server_host != "localhost":
         raise ValueError(
-            f"Refusing insecure TLS to {hostname}. For "
+            f"Refusing insecure TLS to {server_host}. For "
             f"non-local hosts, enable certificate verification."
         )
 
     # Define the server address and port
-    server_address = (hostname, port)
+    server_address = (server_host, port)
 
     # Create the server socket
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -180,13 +180,13 @@ def main() -> int:
     ca_cert_path = DEFAULT_CA_CERT
     server_cert_path = DEFAULT_SERVER_CERT
     server_key_path = DEFAULT_SERVER_KEY
-    hostname = DEFAULT_HOSTFULL_NAME
+    server_host = DEFAULT_SERVER_HOST
     port = DEFAULT_PORT
 
     server_socket, context = prepare_socket(
-        hostname, port, ca_cert_path, server_cert_path, server_key_path
+        server_host, port, ca_cert_path, server_cert_path, server_key_path
     )
-    print(f"Server listening on https://{hostname}:{port}")
+    print(f"Server listening on https://{server_host}:{port}")
 
     # Wait for a client to connect
     while True:
