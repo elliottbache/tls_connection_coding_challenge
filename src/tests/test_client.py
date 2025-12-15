@@ -158,11 +158,6 @@ class TestDecipherMessage:
                 assert arg == expect
 
 
-@pytest.fixture(scope="class", autouse=True)
-def pow_hash():
-    return "000000dbb98b6c3a3bdc5a9ab0346633247d0ab9"
-
-
 class TestRunPowBinary:
     def test_run_pow_binary_success(
         self,

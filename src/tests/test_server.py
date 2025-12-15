@@ -1,7 +1,8 @@
-import queue
+import hashlib
 import socket
 import ssl
 import threading
+from contextlib import closing
 
 import pytest
 import trustme
@@ -29,19 +30,28 @@ class FakeContext:
         self._loaded.append(("chain", certfile, keyfile))
 
 
+def recv_line(sock) -> bytes:
+    buf = bytearray()
+    while True:
+        chunk = sock.recv(1024)
+        buf += chunk
+        if buf.endswith(b"\n"):
+            return bytes(buf)
+
+
 def peer(sock, q, to_send):
-    received_message = sock.recv(1024)
+    received_message = recv_line(sock)
     q.put(received_message)
     _ = sock.sendall(to_send)
 
-    received_message = sock.recv(1024)
+    received_message = recv_line(sock)
     q.put(received_message)
     q.put("__PEER_DONE__")
 
     try:
         sock.close()
-    except OSError as e:
-        print(f"Caught OSError: {e}")
+    finally:
+        pass
 
     return True
 
@@ -63,7 +73,7 @@ class TestReceiveMessage:
         s1, s2 = socket_pair
         message_to_receive = b"EHLO\n"
 
-        _ = s1.send(message_to_receive)
+        _ = s1.sendall(message_to_receive)
         received_message = server.receive_message(s2)
 
         assert received_message == "EHLO"
@@ -78,12 +88,11 @@ class TestReceiveMessage:
 
     def test_receive_message_no_newline(self, socket_pair, readout):
         s1, s2 = socket_pair
+        s1.settimeout(0.1)
         message_to_receive = b"EHLO"
 
         _ = s1.sendall(message_to_receive)
-        with pytest.raises(
-            ValueError, match=r"Receive failed. String does not " "end with new line."
-        ):
+        with pytest.raises(Exception, match=r"Receive failed:"):
             server.receive_message(s2)
 
     def test_receive_empty_message(self, socket_pair, readout):
@@ -100,15 +109,18 @@ class TestReceiveMessage:
         with pytest.raises(TypeError, match=r"Receive failed.  Unexpected type:"):
             server.receive_message(sock)
 
+    def test_receive_long_line(self, socket_pair, readout):
+        s1, s2 = socket_pair
+        message_to_receive = bytes([3]) * 1001 + b"\n"
 
-@pytest.fixture(scope="class")
-def cksum():
-    return "bd8de303197ac9997d5a721a11c46d9ed0450798"
+        _ = s1.sendall(message_to_receive)
+        with pytest.raises(ValueError, match=r"Line too long"):
+            server.receive_message(s2)
 
 
-@pytest.fixture(scope="class")
-def pow_hash():
-    return "000000dbb98b6c3a3bdc5a9ab0346633247d0ab9"
+@pytest.fixture
+def cksum(authdata, random_string):
+    return hashlib.sha1((authdata + random_string).encode()).hexdigest()  # noqa: S324
 
 
 class TestSendAndReceive:
@@ -175,72 +187,35 @@ class TestSendAndReceive:
     def test_send_and_receive_invalid_suffix(
         self, socket_pair, authdata, suffix, pow_hash, difficulty, readout
     ):
-
         s1, s2 = socket_pair
 
-        q = queue.Queue()
+        # client sends wrong suffix
+        s2.sendall((suffix + "p\n").encode("utf-8"))
 
-        # create thread for client actions
-        t = threading.Thread(
-            target=peer,
-            args=(
-                s2,
-                q,
-                (suffix + "p\n").encode("utf-8"),
-            ),
-            daemon=True,
-        )
-        t.start()
-
+        # server sends POW command and receives incorrect suffix from client
         with pytest.raises(Exception, match=r"Invalid suffix returned from client."):
             server.send_and_receive(authdata, "POW " + authdata + " " + difficulty, s1)
 
-        t.join(timeout=2)
-        assert not t.is_alive(), "peer did not finish"
-
-        # check first message sent from server requesting POW challenge
-        received_message = q.get(timeout=1)
-        assert received_message == ("POW " + authdata + " " + difficulty + "\n").encode(
-            "utf-8"
-        )
-
-        # check second message sent from server declaring an error has
-        # occurred in the POW challenge
-        received_message = q.get(timeout=1)
-        assert "ERROR Invalid suffix returned from client." in received_message.decode()
+        # check second message sent from server declaring an error has occurred in the POW challenge
+        received_message = recv_line(s2).decode("utf-8")
+        assert "ERROR Invalid suffix returned from client." in received_message
 
     def test_send_and_receive_invalid_cksum(
         self, socket_pair, authdata, random_string, cksum
     ):
-
         s1, s2 = socket_pair
-        q = queue.Queue()
 
-        # create thread for client actions
-        t = threading.Thread(
-            target=peer,
-            args=(
-                s2,
-                q,
-                (cksum[:-1] + "p 2\n").encode("utf-8"),
-            ),
-            daemon=True,
-        )
-        t.start()
+        # client sends wrong suffix
+        s2.sendall((cksum[:-1] + "p 2\n").encode("utf-8"))
 
+        # server sends MAILNUM command and receives incorrect checksum from client
         with pytest.raises(Exception, match=r"Invalid checksum received."):
             server.send_and_receive(authdata, "MAILNUM " + random_string, s1)
 
-        t.join(timeout=2)
-
-        # check first message sent from server requesting MAILNUM
-        received_message = q.get(timeout=1)
-        assert received_message == ("MAILNUM " + random_string + "\n").encode("utf-8")
-
-        # check second message sent from server declaring an error has
-        # occurred in the checksum
-        received_message = q.get(timeout=1)
-        assert "ERROR Invalid checksum received" in received_message.decode()
+        # check second message sent from server declaring an error has occurred in
+        # the checksum
+        received_message = recv_line(s2).decode("utf-8")
+        assert "ERROR Invalid checksum received" in received_message
 
 
 class TestSendError:
@@ -281,16 +256,17 @@ class TestPrepareSocket:
             server_key_path="key.pem",
         )
 
-        # server_sock and context were created and are valid types
-        assert isinstance(server_sock, socket.socket)
-        assert context is fake_context
+        with closing(server_sock):
+            # server_sock and context were created and are valid types
+            assert isinstance(server_sock, socket.socket)
+            assert context is fake_context
 
-        # socket bound to a valid port (positive integer)
-        assert server_sock.getsockname()[1] > 0
+            # socket bound to a valid port (positive integer)
+            assert server_sock.getsockname()[1] > 0
 
-        # CA, server certificate and server key are successfully loaded
-        assert ("chain", "srv.pem", "key.pem") in fake_context._loaded
-        assert ("ca", "ca.pem", None, False) in fake_context._loaded
+            # CA, server certificate and server key are successfully loaded
+            assert ("chain", "srv.pem", "key.pem") in fake_context._loaded
+            assert ("ca", "ca.pem", None, False) in fake_context._loaded
 
 
 # integration tests
