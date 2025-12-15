@@ -76,7 +76,7 @@ def send_and_receive(token: str, to_send: str, secure_sock: socket.socket) -> st
     received_message = ""
     try:
         if to_send.startswith("ERROR"):
-            raise Exception(to_send)  # internal server ERROR
+            raise Exception(to_send.split(" ", maxsplit=1)[1])  # internal server ERROR
 
         send_message(to_send, secure_sock)
         received_message = receive_message(secure_sock)
