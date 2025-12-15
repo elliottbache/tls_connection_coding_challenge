@@ -40,7 +40,7 @@ class TestReceiveMessage:
         s1.close()
 
         with pytest.raises(
-            ValueError, match=r"Receive failed.  Received empty string."
+            protocol.TransportError, match=r"Receive failed.  Received empty string."
         ):
             protocol.receive_message(s2)
 
