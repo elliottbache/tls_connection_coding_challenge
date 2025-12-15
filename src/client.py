@@ -455,8 +455,7 @@ def define_response(
     elif args[0] == "END":
         is_err, result = False, b"OK\n"
     elif args[0] == "ERROR":
-        #        print("Server error: " + " ".join(args[1:]))
-        is_err, result = False, b"\n"
+        is_err, result = True, b""
     elif args[0] == "POW":
         difficulty = args[2]
 
@@ -539,8 +538,7 @@ def _receive_and_decipher_message(
     valid_messages: set[str],
     all_timeout: float,
 ) -> list[str]:
-    """Receive and decode message from server and return a tuple
-    with error code and arguments containing message."""
+    """Receive and decode message from server and return containing message."""
     while True:
         message = secure_sock.recv(1024)
         if message == b"":
@@ -594,7 +592,11 @@ def _process_message_with_timeout(
     else:
         is_err, msg = queue.get()
         if is_err:
-            raise Exception(f"{args[0]} failed: {msg.decode()}.")
+            to_send = msg.decode().rstrip("\n")
+            if args[0] == "ERROR":
+                raise Exception("Internal server error.")
+            else:
+                raise Exception(f"{args[0]} failed: {to_send}.")
         else:
             return msg
 
@@ -679,8 +681,8 @@ def main() -> int:
                 ).hexdigest()
                 print(
                     f"POW difficulty: {args[2]}"
-                    f"\nAuthdata: {authdata}\nValid POW Suffix: {response.decode()}\n"
-                    f"\nHash: {hash}"
+                    f"\nAuthdata: {authdata}\nValid POW Suffix: {response.decode()}"
+                    f"Hash: {hash}"
                 )
 
             """# if correctly handled message (1 for END and 0 for all other
@@ -705,12 +707,11 @@ def main() -> int:
 
     finally:
         secure_sock.close()
-        print("connection closed")
+        print("Connection closed.")
 
     return 0
 
 
 if __name__ == "__main__":
-    print(f"\nsys: {sys.platform}")
 
     main()
