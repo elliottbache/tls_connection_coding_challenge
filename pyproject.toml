@@ -15,6 +15,9 @@ dev = [
   "isort",
   "mypy",
   "codespell",
+  "myst-parser>=3.0",
+  "breathe",
+
 ]
 
 # pyproject.toml
@@ -60,3 +63,6 @@ ignore_errors = true
 [tool.codespell]
 skip = "./docs/_build/*,build,dist,.venv,build-asan,build-tsan,./docs/html/*,old_files"
 ignore-words-list = "teh,nd"  # add project-specific false positives
+
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
