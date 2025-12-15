@@ -1,4 +1,3 @@
-import errno
 import hashlib
 import os
 import queue
@@ -79,7 +78,7 @@ def fake_bin(tmp_path):
 # unit tests
 class TestTlsConnect:
 
-    def test_tls_connect(self, readout, monkeypatch):
+    def test_tls_connect(self, monkeypatch):
         fake_context = FakeContext()
 
         def fake_create_default_context():
@@ -110,10 +109,6 @@ class TestTlsConnect:
         assert isinstance(call["sock"], socket.socket)
         assert call["server_hostname"] == "localhost"
 
-        out = readout()
-        assert "Client cert exists: True" in out
-        assert "Private key exists: True" in out
-
     def test_tls_connect_non_local_host(self, monkeypatch):
 
         fake_context = FakeContext()
@@ -141,22 +136,26 @@ class TestHasher:
 
 class TestDecipherMessage:
     @pytest.mark.parametrize(
-        "message, err, expected",
+        "message, is_err, expected, err_type, err_message",
         [
-            (b"MAILNUM LGTk\n", 0, "Received MAILNUM LGTk"),
-            ("MAILNUM LGTk\n", 1, "string is not valid:"),
-            (b"", 2, "No args in the response"),
-            (b"INCORRECT LGTk\n", 2, "This response is not valid:"),
-            (b"MAILNUM\n", 0, "Received MAILNUM"),
+            (b"MAILNUM LGTk\n", False, ["MAILNUM", "LGTk"], None, ""),
+            ("MAILNUM LGTk\n", True, [], TypeError, "string is not valid:"),
+            (b"", True, [], ValueError, "No args in the response"),
+            (b"INCORRECT LGTk\n", True, [], ValueError, "This response is not valid:"),
+            (b"MAILNUM\n", False, ["MAILNUM", ""], None, ""),
         ],
     )
     def test_decipher_message_cases(
-        self, valid_messages, message, err, expected, readout
+        self, valid_messages, message, is_err, expected, err_type, err_message
     ):
-        e, _ = client.decipher_message(message, valid_messages)
-        assert e == err
-        out = readout()
-        assert expected in out
+        if is_err:
+            with pytest.raises(err_type, match=err_message):
+                client.decipher_message(message, valid_messages)
+        else:
+            args = client.decipher_message(message, valid_messages)
+            assert len(args) > 1
+            for arg, expect in zip(args, expected, strict=True):
+                assert arg == expect
 
 
 @pytest.fixture(scope="class", autouse=True)
@@ -280,6 +279,24 @@ class TestRunPowBinary:
         with pytest.raises(subprocess.CalledProcessError):
             client.run_pow_binary(fake_bin, token, difficulty)
 
+    def test_run_pow_binary_timeout(
+        self, token, difficulty, suffix, fake_bin, monkeypatch
+    ):
+        timeout = 1
+
+        def fake_subprocess_run(*a, **k):
+            raise subprocess.TimeoutExpired(
+                timeout=timeout,
+                output="",
+                stderr="",
+                cmd="pow_benchmark gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFC"
+                + "AzuwkwLCRgIIq 6",
+            )
+
+        monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
+        with pytest.raises(subprocess.TimeoutExpired):
+            client.run_pow_binary(fake_bin, token, difficulty)
+
 
 class TestHandlePowCpp:
     def test_handle_pow_cpp_success(
@@ -302,15 +319,9 @@ class TestHandlePowCpp:
 
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
 
-        err, suffix_output = client.handle_pow_cpp(token, difficulty, str(fake_bin))
+        suffix_output = client.handle_pow_cpp(token, difficulty, str(fake_bin))
 
-        assert (err, suffix_output) == (0, (suffix + "\n").encode())
-
-        out = readout()
-        assert (
-            f"Authdata: {token}\nValid WORK Suffix: {suffix}\n"
-            f"Hash: {pow_hash}" in out
-        )
+        assert suffix_output == (suffix + "\n").encode()
 
     def test_handle_pow_cpp_no_executable(
         self, token, difficulty, timeout, path_to_pow_benchmark
@@ -341,7 +352,7 @@ class TestDefineResponse:
         client.define_response(
             ["HELLO"], token, valid_messages, q, responses, path_to_pow_benchmark
         )
-        assert q.get() == [0, b"HELLOBACK\n"]
+        assert q.get() == (False, b"HELLOBACK\n")
 
         out = readout()
         assert out == ""
@@ -354,13 +365,10 @@ class TestDefineResponse:
         client.define_response(
             ["DONE"], token, valid_messages, q, responses, path_to_pow_benchmark
         )
-        assert q.get() == [1, b"OK\n"]
-
-        out = readout()
-        assert out == ""
+        assert q.get() == (False, b"OK\n")
 
     def test_define_response_success_error(
-        self, token, valid_messages, path_to_pow_benchmark, readout
+        self, token, valid_messages, path_to_pow_benchmark
     ):
         q = queue.Queue()
         responses = {}
@@ -372,13 +380,10 @@ class TestDefineResponse:
             responses,
             path_to_pow_benchmark,
         )
-        assert q.get() == [2, b"\n"]
-
-        out = readout()
-        assert out == "Server error: test args"
+        assert q.get() == (False, b"\n")
 
     def test_define_response_success(
-        self, token, random_string, valid_messages, path_to_pow_benchmark, readout
+        self, token, random_string, valid_messages, path_to_pow_benchmark
     ):
         q = queue.Queue()
         responses = {"MAILNUM": "2"}
@@ -393,13 +398,7 @@ class TestDefineResponse:
             + responses[args[0]]
             + "\n"
         )
-        assert q.get() == [0, out_string.encode()]
-
-        out = readout()
-        assert (
-            "Extra arguments = " + args[1] + "\nAuthentication data = " + token
-            in out
-        )
+        assert q.get() == (False, out_string.encode())
 
     def test_define_response_success_pow(
         self,
@@ -409,7 +408,6 @@ class TestDefineResponse:
         suffix,
         valid_messages,
         path_to_pow_benchmark,
-        readout,
         monkeypatch,
     ):
         q = queue.Queue()
@@ -417,17 +415,14 @@ class TestDefineResponse:
         args = ["WORK", token, difficulty]
 
         def fake_handle_pow_cpp(*args, **kwargs):
-            return [0, (suffix + "\n").encode()]
+            return (suffix + "\n").encode()
 
         monkeypatch.setattr(client, "handle_pow_cpp", fake_handle_pow_cpp)
 
         client.define_response(
             args, token, valid_messages, q, responses, path_to_pow_benchmark
         )
-        assert q.get() == [0, (suffix + "\n").encode()]
-
-        out = readout()
-        assert "The time of execution of WORK challenge is :" in out
+        assert q.get() == (False, (suffix + "\n").encode())
 
     def test_define_response_success_invalid(
         self, token, valid_messages, path_to_pow_benchmark
@@ -437,7 +432,7 @@ class TestDefineResponse:
         client.define_response(
             ["HELLOP"], token, valid_messages, q, responses, path_to_pow_benchmark
         )
-        assert q.get() == [4, b"\n"]
+        assert q.get() == (True, b"\n")
 
     def test_define_response_result_no_newline(
         self,
@@ -447,7 +442,6 @@ class TestDefineResponse:
         suffix,
         valid_messages,
         path_to_pow_benchmark,
-        readout,
         monkeypatch,
     ):
         q = queue.Queue()
@@ -455,21 +449,18 @@ class TestDefineResponse:
         args = ["WORK", token, difficulty]
 
         def fake_handle_pow_cpp(*args, **kwargs):
-            return [0, suffix.encode()]
+            return suffix.encode()
 
         monkeypatch.setattr(client, "handle_pow_cpp", fake_handle_pow_cpp)
 
         client.define_response(
             args, token, valid_messages, q, responses, path_to_pow_benchmark
         )
-        assert q.get() == [0, (suffix + "\n").encode()]
-
-        out = readout()
-        assert "string does not end with new line" in out
+        assert q.get() == (False, (suffix + "\n").encode())
 
 
 class TestConnectToServer:
-    def test_connect_to_server_success(self, readout):
+    def test_connect_to_server_success(self):
         calls = {}
 
         # create socket-like object
@@ -485,42 +476,30 @@ class TestConnectToServer:
         assert client.connect_to_server(FakeSocket(), "localhost", 1234)
         assert calls["addr"] == ("localhost", 1234)
 
-        # check that "Connected to {port}\n" was printed
-        out = readout()
-        assert "Connected to 1234" in out
-
     @pytest.mark.parametrize(
         "exc, expected",
         [
-            (lambda: TimeoutError(), "Connect timeout to localhost:1234"),
-            (lambda: ConnectionRefusedError(), "Connection refused by localhost:1234"),
+            (TimeoutError, "Connect timeout to localhost:1234"),
+            (ConnectionRefusedError, "Connection refused by localhost:1234"),
             (
-                lambda: socket.gaierror(8, "hostname not found"),
+                socket.gaierror,
                 "DNS/addr error for localhost:1234",
             ),
             (
-                lambda: ssl.SSLCertVerificationError("bad cert"),
+                ssl.SSLCertVerificationError,
                 "Certificate verification failed for localhost:1234",
             ),
             (
-                lambda: ssl.SSLError("proto"),
+                ssl.SSLError,
                 "TLS error during connect to localhost:1234",
             ),
             (
-                lambda: OSError(errno.EHOSTUNREACH, "no route"),
-                "Host unreachable: localhost:1234",
-            ),
-            (
-                lambda: OSError(errno.ENETUNREACH, "net down"),
-                "Network unreachable when connecting to localhost:1234",
-            ),
-            (
-                lambda: OSError(123, "weird"),
-                "OS error connecting to localhost:1234:",
+                OSError,
+                "OSError",
             ),
         ],
     )
-    def test_connect_to_server_exception(self, readout, monkeypatch, exc, expected):
+    def test_connect_to_server_exception(self, monkeypatch, exc, expected):
         # create socket-like object
         class FakeSocket:
             def connect(self, addr):
@@ -530,12 +509,10 @@ class TestConnectToServer:
                 return None
 
         def fake_connect(*a, **k):
-            raise exc()
+            raise exc
 
         sock = FakeSocket()
         monkeypatch.setattr(sock, "connect", fake_connect)
 
-        assert not client.connect_to_server(sock, "localhost", 1234)
-
-        out = readout()
-        assert expected in out
+        with pytest.raises(exc, match=expected):
+            client.connect_to_server(sock, "localhost", 1234)
