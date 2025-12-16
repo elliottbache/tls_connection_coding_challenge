@@ -66,6 +66,7 @@ def test_tls_handshake_connect_insecure():
 
     # build client context that trusts the CA
     client_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    client_context.minimum_version = ssl.TLSVersion.TLSv1_2
     ca.configure_trust(client_context)
     client_context.check_hostname = False  # we're connecting by IP
 
