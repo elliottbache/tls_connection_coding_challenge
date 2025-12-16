@@ -11,7 +11,6 @@ using ::testing::Values;
 #include <span>
 #include <cstring>
 
-// size_t determine_suffix_length(uint8_t difficulty);
 TEST(DetermineSuffixLength, NormalDifficulty_ValidSuffixLength)
 {
     EXPECT_EQ(3, pow_internal::determine_suffix_length(4));
@@ -32,15 +31,6 @@ TEST(DetermineSuffixLength, MonotonicIncreasingLength)
         previous_difficulty = difficulty;
     }
 }
-
-/*
-TEST(DetermineSuffixLength, SolutionSpace)
-{
-    size_t length = 3;
-    uint8_t difficulty = 4;
-    EXPECT_GE(std::pow(pow_internal::charset_size, length), std::pow(2, 4 * difficulty));
-}
-*/
 
 TEST(DetermineSuffixLength, SolutionSpaceSatisfiesInequality)
 {
