@@ -20,6 +20,8 @@ class TransportError(RuntimeError):
 
 
 MAX_LINE_LENGTH = 1000
+DEFAULT_IS_SECURE = True  # if we connect from localhost to localhost, this is False
+DEFAULT_CA_CERT = "certificates/ca_cert.pem"
 
 
 def send_message(string_to_send: str, secure_sock: socket.socket) -> None:

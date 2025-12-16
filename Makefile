@@ -40,8 +40,8 @@ test:
 .PHONY: lint
 lint:
 	$(ACTIVATE); ruff check .
-	$(ACTIVATE); isort --check-only src
 	$(ACTIVATE); black --check --diff .
+	$(ACTIVATE); isort --check-only src
 	$(ACTIVATE); codespell
 
 .PHONY: format
