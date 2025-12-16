@@ -4,17 +4,17 @@ repos:
     hooks:
       - id: ruff          # no --fix => does not rewrite
 
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--check-only", "--profile", "black", "--filter-files"]  # check-only, no rewrite
+
   - repo: https://github.com/psf/black
     rev: 24.10.0
     hooks:
       - id: black
         args: ["--check"]  # check-only, no rewrite
-
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        args: ["--check-only"]  # check-only, no rewrite
 
   - repo: https://github.com/codespell-project/codespell
     rev: v2.3.0
