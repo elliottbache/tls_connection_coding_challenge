@@ -206,3 +206,142 @@ class TestPrepareSocket:
 
             # CA, server certificate and server key are successfully loaded
             assert ("chain", "srv.pem", "key.pem") in fake_context._loaded
+
+
+class FakeWrappedSock:
+    """Context-manager object returned by FakeSSLContext.wrap_socket()."""
+
+    def __init__(self) -> None:
+        self.exited = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.exited = True
+        return False
+
+    def getpeername(self):
+        return "Awesome socket"
+
+
+class FakeSSLContext:
+    """Enough of ssl.SSLContext for server.main() to run."""
+
+    def __init__(self) -> None:
+        self.wrap_calls = []
+        self.wrapped = FakeWrappedSock()
+
+    def wrap_socket(self, client_socket, server_side: bool = False):
+        self.wrap_calls.append((client_socket, server_side))
+        return self.wrapped
+
+
+class FakeListenSocket:
+    """Enough of a listening socket for server.main() to accept once."""
+
+    def __init__(self) -> None:
+        self.accept_calls = 0
+
+    def accept(self):
+        self.accept_calls += 1
+        return object(), ("127.0.0.1", 54321)
+
+
+class TestMain:
+    def test_main_runs_one_session(
+        self, authdata, random_string, cksum, suffix, monkeypatch
+    ):
+        fake_server_sock = FakeListenSocket()
+        fake_context = FakeSSLContext()
+
+        prepare_calls = []
+
+        def fake_prepare_socket(
+            server_host,
+            port,
+            ca_cert_path,
+            server_cert_path,
+            server_key_path,
+            is_secure=True,
+        ):
+            prepare_calls.append(
+                (server_host, port, ca_cert_path, server_cert_path, server_key_path)
+            )
+            return fake_server_sock, fake_context
+
+        monkeypatch.setattr(server, "prepare_socket", fake_prepare_socket)
+
+        # avoid ERROR choice
+        monkeypatch.setattr(server.random, "choice", lambda seq: "MAILNUM")
+
+        calls = []
+
+        def fake_send_and_receive(this_authdata, to_send, secure_sock):
+            calls.append((this_authdata, to_send))
+            if to_send == "HELO":
+                return "EHLO"
+            if to_send.startswith("POW "):
+                return suffix
+            if to_send == "END":
+                return "OK"
+            # info commands
+            return f"{cksum} 2"
+
+        monkeypatch.setattr(server, "send_and_receive", fake_send_and_receive)
+
+        rc = server.main()
+        assert rc == 0
+
+        # prepare_socket called with defaults
+        assert prepare_calls == [
+            (
+                server.DEFAULT_SERVER_HOST,
+                server.DEFAULT_PORT,
+                server.DEFAULT_CA_CERT,
+                server.DEFAULT_SERVER_CERT,
+                server.DEFAULT_SERVER_KEY,
+            )
+        ]
+
+        # accepted exactly once
+        assert fake_server_sock.accept_calls == 1
+
+        # TLS context wrap called with server_side=True
+        assert len(fake_context.wrap_calls) == 1
+        _, server_side = fake_context.wrap_calls[0]
+        assert server_side is True
+
+        # send_and_receive called expected number of times:
+        # HELO + POW + 20 body requests + END = 23
+        assert len(calls) == 23
+        assert calls[0][1] == "HELO"
+        assert calls[1][1] == f"POW {authdata} {server.DEFAULT_DIFFICULTY}"
+        assert calls[-1][1] == "END"
+        # body messages: "choice <random_string>"
+        for _, to_send in calls[2:-1]:
+            assert to_send == f"MAILNUM {random_string}"
+
+    def test_main_closes_wrapped_socket_on_exception(self, monkeypatch, readout):
+        fake_server_sock = FakeListenSocket()
+        fake_context = FakeSSLContext()
+
+        monkeypatch.setattr(
+            server,
+            "prepare_socket",
+            lambda *a, **k: (fake_server_sock, fake_context),
+        )
+
+        def problem(*args, **kwargs):
+            raise Exception("Error!")
+
+        monkeypatch.setattr(server, "send_and_receive", problem)
+
+        server.main()
+
+        # catch error and print
+        out = readout()
+        assert "Exception: Error!" in out
+
+        # even on exception, __exit__ should run
+        assert fake_context.wrapped.exited is True

@@ -253,3 +253,7 @@ CMakeCache.txt
 CTestTestfile.cmake
 
 analysis.sarif
+
+htmlcov
+_deps
+
