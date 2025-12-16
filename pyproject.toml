@@ -41,7 +41,7 @@ quote-style = "double"  # personal taste
 [tool.black]
 line-length = 88
 target-version = ["py311"]
-extend-exclude = "^(migrations|build|dist|.venv)/"
+extend-exclude = "^(migrations|build|dist|.venv|_deps)/"
 
 [tool.isort]
 skip = [".venv", "migrations", "build", "dist"]
@@ -63,7 +63,7 @@ module = "src.tests.*"
 ignore_errors = true
 
 [tool.codespell]
-skip = "./docs/_build/*,build,dist,.venv,build-asan,build-tsan,./docs/html/*,old_files"
+skip = "./docs/_build/*,build,dist,.venv,build-asan,build-tsan,./docs/html/*,old_files,_deps,htmlcov"
 ignore-words-list = "teh,nd"  # add project-specific false positives
 
 [tool.pytest.ini_options]
