@@ -79,7 +79,40 @@ def fake_bin(tmp_path):
 # unit tests
 class TestTlsConnect:
 
-    def test_tls_connect(self, monkeypatch):
+    def test_tls_connect_secure(self, monkeypatch):
+        fake_context = FakeContext()
+
+        def fake_create_default_context(*args, **kwargs):
+            return fake_context
+
+        monkeypatch.setattr(
+            client.ssl, "create_default_context", fake_create_default_context
+        )
+
+        # make os.path.exists deterministic for prints
+        monkeypatch.setattr(client.os.path, "exists", lambda p: True)
+
+        wrapped_sock = client.tls_connect(
+            "ca.pem", "cert.pem", "key.pem", "localhost", True
+        )
+
+        # client_sock was created and is valid types
+        assert isinstance(wrapped_sock, FakeWrappedSock)
+
+        # certificate and key are successfully loaded
+        assert ("chain", "cert.pem", "key.pem") in fake_context._loaded
+
+        # check context parameters
+        assert fake_context.check_hostname
+        assert fake_context.verify_mode == ssl.CERT_REQUIRED
+
+        # check wrapped calls
+        assert len(fake_context.wrap_calls) == 1
+        call = fake_context.wrap_calls[0]
+        assert isinstance(call["sock"], socket.socket)
+        assert call["server_hostname"] == "localhost"
+
+    def test_tls_connect_insecure(self, monkeypatch):
         fake_context = FakeContext()
 
         def fake_create_default_context():
@@ -92,13 +125,15 @@ class TestTlsConnect:
         # make os.path.exists deterministic for prints
         monkeypatch.setattr(client.os.path, "exists", lambda p: True)
 
-        wrapped_sock = client.tls_connect("cert.pem", "key.pem", "localhost")
+        wrapped_sock = client.tls_connect(
+            "ca.pem", "cert.pem", "key.pem", "localhost", False
+        )
 
         # client_sock was created and is valid types
         assert isinstance(wrapped_sock, FakeWrappedSock)
 
         # certificate and key are successfully loaded
-        assert ("chain", "cert.pem", "key.pem") in fake_context._loaded
+        assert len(fake_context._loaded) == 0
 
         # check context parameters
         assert not fake_context.check_hostname
@@ -110,7 +145,7 @@ class TestTlsConnect:
         assert isinstance(call["sock"], socket.socket)
         assert call["server_hostname"] == "localhost"
 
-    def test_tls_connect_non_local_host(self, monkeypatch):
+    def test_tls_connect_non_local_host_insecure(self, monkeypatch):
 
         fake_context = FakeContext()
 
@@ -125,7 +160,7 @@ class TestTlsConnect:
         monkeypatch.setattr(client.os.path, "exists", lambda p: True)
 
         with pytest.raises(ValueError, match="Refusing insecure TLS to"):
-            client.tls_connect("cert.pem", "key.pem", "example.com")
+            client.tls_connect("ca.pem", "cert.pem", "key.pem", "example.com", False)
 
 
 class TestHasher:

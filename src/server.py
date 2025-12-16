@@ -26,12 +26,16 @@ import random
 import socket
 import ssl
 
-from src.protocol import receive_message, send_message
+from src.protocol import (
+    DEFAULT_CA_CERT,
+    DEFAULT_IS_SECURE,
+    receive_message,
+    send_message,
+)
 
 # module-level defaults (safe to import, optional)
 DEFAULT_SERVER_HOST = "localhost"
 DEFAULT_PORT = 3481
-DEFAULT_CA_CERT = "certificates/ca_cert.pem"
 DEFAULT_SERVER_CERT = "certificates/server-cert.pem"
 DEFAULT_SERVER_KEY = "certificates/server-key.pem"
 DEFAULT_AUTHDATA = "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq"
@@ -130,6 +134,7 @@ def prepare_socket(
     ca_cert_path: str,
     server_cert_path: str,
     server_key_path: str,
+    is_secure: bool = False,
 ) -> tuple[socket.socket, ssl.SSLContext]:
     """Prepare a socket to be used for sending and receiving.
 
@@ -139,6 +144,7 @@ def prepare_socket(
         ca_cert_path (str): path to the CA certificate file.
         server_cert_path (str): path to the server certificate file.
         server_key_path (str): path to the server key file.
+        is_secure (bool): True if the socket is secure.
 
     Returns:
         socket.socket: the socket to be used for sending and receiving.
@@ -161,12 +167,23 @@ def prepare_socket(
     server_socket.bind(server_address)
     server_socket.listen(1)
 
-    # Wrap the socket with SSL
-    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    if is_secure:
+        # wrap the socket with SSL
+        #        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
-    # Load the CA certificate (for client certificate verification)
-    context.load_verify_locations(cafile=ca_cert_path)
-    context.verify_mode = ssl.CERT_REQUIRED
+        # load the CA certificate (for client certificate verification)
+        context.load_verify_locations(cafile=ca_cert_path)
+        context.verify_mode = ssl.CERT_REQUIRED
+
+    else:
+        # wrap the socket with SSL
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+
+        # don't load CA certificate
+        context.verify_mode = ssl.CERT_NONE
+
+    # load server certificate and key
     context.load_cert_chain(certfile=server_cert_path, keyfile=server_key_path)
 
     return server_socket, context
@@ -182,9 +199,10 @@ def main() -> int:
     server_key_path = DEFAULT_SERVER_KEY
     server_host = DEFAULT_SERVER_HOST
     port = DEFAULT_PORT
+    is_secure = DEFAULT_IS_SECURE
 
     server_socket, context = prepare_socket(
-        server_host, port, ca_cert_path, server_cert_path, server_key_path
+        server_host, port, ca_cert_path, server_cert_path, server_key_path, is_secure
     )
     print(f"Server listening on https://{server_host}:{port}")
 
@@ -192,6 +210,8 @@ def main() -> int:
     while True:
         client_socket, client_address = server_socket.accept()
         with context.wrap_socket(client_socket, server_side=True) as secure_sock:
+            if not secure_sock.getpeername():
+                raise RuntimeError("No client certificate presented.")
             print(f"Connection from {client_address}")
 
             # handshake

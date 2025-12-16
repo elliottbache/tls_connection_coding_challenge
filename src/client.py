@@ -44,7 +44,12 @@ import sys
 import time
 from pathlib import Path
 
-from src.protocol import receive_message, send_message
+from src.protocol import (
+    DEFAULT_CA_CERT,
+    DEFAULT_IS_SECURE,
+    receive_message,
+    send_message,
+)
 
 DEFAULT_CPP_BINARY_PATH = "build/pow_benchmark"  # path to c++ executable
 DEFAULT_RESPONSES = {
@@ -84,15 +89,21 @@ DEFAULT_POW_TIMEOUT = 7200
 
 
 def tls_connect(
-    client_cert_path: str, private_key_path: str, server_host: str
+    ca_cert_path: str,
+    client_cert_path: str,
+    private_key_path: str,
+    server_host: str,
+    is_secure: bool = False,
 ) -> socket.socket:
     """
     Create a connection to the remote server.
 
     Args:
+        ca_cert_path (str): The path to the CA certificate.
         client_cert_path (str): The path to the client certificate.
         private_key_path (str): The path to the private key file.
         server_host (str): The server_host to connect to.
+        is_secure (bool, optional): Whether the server is secure or not.
 
     Returns:
         socket.socket: The socket object.
@@ -105,18 +116,29 @@ def tls_connect(
             f"non-local hosts, enable certificate verification."
         )
 
-    # Create the client socket
+    # create the client socket
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.settimeout(DEFAULT_ALL_TIMEOUT)
 
-    # Create an SSL context
-    context = ssl.create_default_context()
+    if is_secure:
+        # create an SSL context, loading CA certificate
+        context = ssl.create_default_context(
+            ssl.Purpose.SERVER_AUTH, cafile=ca_cert_path
+        )
 
-    # Load the client's private key and certificate
-    context.load_cert_chain(certfile=client_cert_path, keyfile=private_key_path)
+        # load the client's private key and certificate
+        context.load_cert_chain(certfile=client_cert_path, keyfile=private_key_path)
 
-    # Disable server certificate verification (not recommended for production)
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
+        context.check_hostname = True
+        context.verify_mode = ssl.CERT_REQUIRED
+
+    else:
+        # create an SSL context
+        context = ssl.create_default_context()
+
+        # disable server certificate verification (not recommended for production)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
 
     return context.wrap_socket(client_socket, server_hostname=server_host)
 
@@ -390,6 +412,8 @@ def handle_pow_cpp(
         ) from e
 
     except subprocess.CalledProcessError as e:
+        _validate_authdata(authdata)
+        _validate_difficulty(difficulty)
         raise subprocess.CalledProcessError(
             1,
             cmd="pow_benchmark" + authdata + difficulty,
@@ -458,6 +482,7 @@ def define_response(
         is_err = False
 
     elif args[0] in valid_messages:
+        _validate_authdata(authdata)
         is_err, result = (
             False,
             hasher(authdata, args[1]) + " " + responses[args[0]] + "\n",
@@ -607,11 +632,13 @@ def main() -> int:
     responses = DEFAULT_RESPONSES
     server_host = DEFAULT_SERVER_HOST
     ports = DEFAULT_PORTS
+    ca_cert_path = DEFAULT_CA_CERT
     private_key_path = DEFAULT_PRIVATE_KEY_PATH
     client_cert_path = DEFAULT_CLIENT_CERT_PATH
     valid_messages = DEFAULT_VALID_MESSAGES  # valid messages from the server
     pow_timeout = DEFAULT_POW_TIMEOUT  # timeout for pow in seconds
     all_timeout = DEFAULT_ALL_TIMEOUT  # timeout for all function except pow in seconds
+    is_secure = DEFAULT_IS_SECURE
     authdata = ""  # this will be set with POW message from server
 
     # Create and wrap socket
@@ -625,7 +652,11 @@ def main() -> int:
         if not is_connected:
             try:
                 secure_sock = tls_connect(
-                    client_cert_path, private_key_path, server_host
+                    ca_cert_path,
+                    client_cert_path,
+                    private_key_path,
+                    server_host,
+                    is_secure,
                 )
                 is_connected = connect_to_server(secure_sock, server_host, port)
             except Exception as e:

@@ -110,16 +110,32 @@ error and close.
 
 ## TLS Setup
 
-You can run **insecure local** (disabled verification) for development, or **mutual TLS** 
-in stricter environments.
+You can run **insecure** (disabled verification) for development purposes and 
+**mutual TLS (mTLS)**  for production. Basic TLS can be set by making 
+``DEFAULT_IS_SECURE = False`` in "src/protocol.py" or by changing from 
+``is_secure = DEFAULT_IS_SECURE`` to ``is_secure = False`` in "src/server.py"
+and "src/client.py".
 
-### Local (insecure) for quick testing
+
+### Basic TLS for quick testing
 - Client: ``verify_mode = ssl.CERT_NONE``, ``check_hostname = False``.
 - Server: ``verify_mode = ssl.CERT_NONE``.
 - Use **only** for local tests!
 
-### Proper test chain (self-signed CA)
-See [Installation](https://github.com/elliottbache/tls_connection_coding_challenge/blob/master/README.md). 
+### mTLS for production testing
+- Client: ``verify_mode = ssl.CERT_REQUIRED``, ``check_hostname = True``, ``cafile=ca_cert_path``.
+- Server: ``verify_mode = ssl.CERT_REQUIRED``, ``cafile=ca_cert_path``.
+
+### What’s tested (and why it matters)
+
+The test suite can validate the key security properties:
+
+- **Server authentication**: the client trusts a local CA and verifies the server certificate
+  (including hostname/SAN).
+- **Client authentication (mTLS)**: the server requires a client certificate and rejects clients
+  that don’t present one.
+- **Ephemeral certs in tests**: integration tests can generate short-lived CA/server/client certs
+  at runtime (e.g., with `trustme`), keeping the repo free of committed keys.
 
 ---
 
@@ -178,7 +194,7 @@ def test_handle_pow_cpp_success(monkeypatch):
 - Start a **real TLS server** on an ephemeral port (use ``trustme`` for throwaway certs).
 - Patch client defaults to point at your server and **fake POW binary** (a tiny Python 
 script that prints ``RESULT:testsuffix``).
-- Run client ``main()`` and assert the session transcript.
+- TODO!!! Run client ``main()`` and assert the session transcript.
 
 ### Sphinx doctests
 - Use ``# doctest: +ELLIPSIS`` for variable output.
@@ -187,9 +203,10 @@ script that prints ``RESULT:testsuffix``).
 ---
 
 ## Security Notes
-- **Don’t** disable verification in production. Use CERT_REQUIRED and verify hostnames.
-- Keep keys/PEMs with restricted file permissions.
-- Treat **all server input** as untrusted; never eval or exec remote data.
+- In production:
+  - **Don’t** disable verification in production. Use CERT_REQUIRED and verify hostnames.
+  - Keep keys/PEMs with restricted file permissions.
+  - Treat **all server input** as untrusted; never eval or exec remote data.
 - The POW solver uses only deterministic hashing—no code execution.
 
 ---

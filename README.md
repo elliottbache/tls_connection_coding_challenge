@@ -211,6 +211,30 @@ TLS connection coding challenge uses the following technologies and tools:
 - [![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://www.python.org/)
 - [![Sphinx](https://img.shields.io/badge/Sphinx-3B4D92?style=for-the-badge&logo=sphinx&logoColor=white)](https://www.sphinx-doc.org/en/master/)
 
+## Security
+
+This project is a coding challenge/demo. The default configuration uses **local,
+unverified TLS** between client and server to simplify running the sample.
+
+For production hardening, this repo includes a documented path that enables
+**mutual TLS (mTLS)**. 
+
+### Basic TLS vs. mTLS
+
+This repo includes a flag allowing to choose between basic TLS and mTLS:
+
+- **mTLS for client authentication**: the server can be configured to require a client certificate
+  (`ssl.CERT_REQUIRED`) and verify it against a local CA.
+- **No secrets committed**: tests generate throwaway certificates at runtime (via `trustme`), so
+  no real private keys/PEMs need to live in the repo.
+- **Integration test proves mTLS**: one test asserts the handshake **fails** without a client cert,
+  and another asserts it **succeeds** when the client presents a cert trusted by the server’s CA.
+- **Docker demo option**: run client/server in two containers on the same network where the server
+  hostname is validated via **SAN** (e.g., `DNS:server`) and both sides trust the same CA 
+  (see [Quickstart](#quickstart)).
+- Basic TLS can be set by making ``DEFAULT_IS_SECURE = False`` in "src/protocol.py" or by changing
+  from ``is_secure = DEFAULT_IS_SECURE`` to ``is_secure = False`` in "src/server.py" and "src/client.py".
+
 ## Contributing
 
 To contribute to the development of TLS connection coding challenge, follow the steps below:

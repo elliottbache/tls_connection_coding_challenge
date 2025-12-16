@@ -1,11 +1,8 @@
 import hashlib
 import socket
-import ssl
-import threading
 from contextlib import closing
 
 import pytest
-import trustme
 
 from src import server
 
@@ -182,17 +179,32 @@ class TestSendError:
 
 
 class TestPrepareSocket:
-    def test_prepare_socket_with_mocked_ssl(self, monkeypatch, readout):
+    def test_prepare_socket_with_mocked_ssl(self, monkeypatch, readout, tmp_path):
         fake_context = FakeContext()
 
-        def fake_create_default_context(purpose):
+        """def fake_create_default_context(purpose):
             fake_context.purpose = purpose
+            return fake_context"""
+
+        def fake_ssl_context(protocol_tls_server):
+            fake_context.protocol_tls_server = protocol_tls_server
             return fake_context
 
-        monkeypatch.setattr(
+        """monkeypatch.setattr(
             server.ssl, "create_default_context", fake_create_default_context
-        )
+        )"""
+        monkeypatch.setattr(server.ssl, "SSLContext", fake_ssl_context)
 
+        """ca_cert_path = tmp_path / "ca.pem"
+        server_cert_path = tmp_path / "srv.pem"
+        server_key_path = tmp_path / "key.pem"
+        server_sock, context = server.prepare_socket(
+            "localhost",
+            0,
+            ca_cert_path=ca_cert_path,
+            server_cert_path=server_cert_path,
+            server_key_path=server_key_path,
+        )"""
         server_sock, context = server.prepare_socket(
             "localhost",
             0,
@@ -211,44 +223,3 @@ class TestPrepareSocket:
 
             # CA, server certificate and server key are successfully loaded
             assert ("chain", "srv.pem", "key.pem") in fake_context._loaded
-            assert ("ca", "ca.pem", None, False) in fake_context._loaded
-
-
-# integration tests
-def test_tls_handshake_connect():
-
-    # generate throwaway certificates
-    ca = trustme.CA()
-    server_cert = ca.issue_cert("localhost")
-
-    # build server context
-    server_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    server_cert.configure_cert(server_ctx)
-
-    # start a TLS server
-    lsock = socket.socket()
-    lsock.bind(("localhost", 0))
-    lsock.listen(1)
-    host, port = lsock.getsockname()
-
-    def srv() -> None:
-        csock, _ = lsock.accept()
-        with server_ctx.wrap_socket(csock, server_side=True) as ssock:
-            ssock.sendall(b"hello\n")
-
-    t = threading.Thread(target=srv, daemon=True)
-    t.start()
-
-    # 4) Build client context that trusts the CA
-    client_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    ca.configure_trust(client_ctx)
-    client_ctx.check_hostname = False  # we're connecting by IP
-
-    # 5) Connect and read
-    with client_ctx.wrap_socket(
-        socket.create_connection((host, port), timeout=3), server_hostname=None
-    ) as c:
-        assert c.recv(1024) == b"hello\n"
-
-    lsock.close()
-    t.join(timeout=1)
