@@ -42,16 +42,21 @@ jobs:
           if [ -f pyproject.toml ]; then pip install .[dev] || true; fi
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
+          build-mode: none
           languages: ${{ matrix.language }}
           queries: security-extended,security-and-quality
+          config-file: .github/codeql/codeql-config.yaml
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
 
       # For C/C++, CodeQL tries to build automatically. If it fails, replace
       # the autobuild step with manual build commands (cmake/make).
       - name: Autobuild
         if: matrix.language == 'cpp'
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@v4
 
       # Example manual build (uncomment and customize if Autobuild fails)
       # - name: Manual build
@@ -63,6 +68,6 @@ jobs:
       #     cmake --build build --config Release -j2
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"

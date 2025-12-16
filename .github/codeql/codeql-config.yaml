@@ -1,0 +1,9 @@
+paths:
+  - src
+
+paths-ignore:
+  - build
+  - _codeql_build_dir
+  - "**/_deps/**"
+  - "**/third_party/**"
+  - "**/vendor/**"
