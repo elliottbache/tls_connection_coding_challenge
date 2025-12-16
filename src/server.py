@@ -182,6 +182,8 @@ def prepare_socket(
         # don't load CA certificate
         context.verify_mode = ssl.CERT_NONE
 
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+
     # load server certificate and key
     context.load_cert_chain(certfile=server_cert_path, keyfile=server_key_path)
 
