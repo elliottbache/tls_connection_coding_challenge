@@ -214,55 +214,65 @@ def main() -> int:
                 raise RuntimeError("No client certificate presented.")
             print(f"Connection from {client_address}")
 
-            # handshake
-            print("\nSending HELLO")
-            msg = send_and_receive(token, "HELLO", secure_sock)
-            print(f"Received {msg}")
-
-            print(f"\nAuthentication data: {token}\nDifficulty: " f"{difficulty}")
-            print(f"Sending WORK {token} {difficulty}")
-            msg = send_and_receive(
-                token, "WORK " + str(token) + " " + str(difficulty), secure_sock
-            )
-            print(f"Received suffix: {msg}")
-            this_hash = hashlib.sha256(  # noqa: S324
-                (token + msg).encode()
-            ).hexdigest()
-            print(f"Hash: {this_hash}")
-            print("Valid suffix returned from client.")
-
-            # body
-            for _ in range(20):
-                # This randomly sends requests to the client.
-                choice = random.choice(  # noqa: S311
-                    [
-                        "FULL_NAME",
-                        "MAILNUM",
-                        "EMAIL1",
-                        "EMAIL2",
-                        "SOCIAL",
-                        "BIRTHDATE",
-                        "COUNTRY",
-                        "ADDRNUM",
-                        "ADDR_LINE1",
-                        "ADDR_LINE2",
-                        "ERROR internal server error",
-                    ]
-                )
-                print(f"\nSending {choice} {random_string}")
-                msg = send_and_receive(
-                    token, f"{choice} " f"{random_string}", secure_sock
-                )
+            try:
+                # handshake
+                print("\nSending HELLO")
+                msg = send_and_receive(token, "HELLO", secure_sock)
                 print(f"Received {msg}")
-                print(f"Checksum received: {msg.split(' ', maxsplit=1)[0]}")
-                print("Valid checksum received.")
 
-            # end message
-            print("\nSending DONE")
-            msg = send_and_receive(token, "DONE", secure_sock)
-            print(f"Received {msg}")
-            print("\nConnection closed")
+                print(
+                    f"\nAuthentication data: {token}\nDifficulty: " f"{difficulty}"
+                )
+                print(f"Sending WORK {token} {difficulty}")
+                msg = send_and_receive(
+                    token,
+                    "WORK " + str(token) + " " + str(difficulty),
+                    secure_sock,
+                )
+                print(f"Received suffix: {msg}")
+                this_hash = hashlib.sha256(  # noqa: S324
+                    (token + msg).encode()
+                ).hexdigest()
+                print(f"Hash: {this_hash}")
+                print("Valid suffix returned from client.")
+
+                # body
+                for _ in range(20):
+                    # This randomly sends requests to the client.
+                    choice = random.choice(  # noqa: S311
+                        [
+                            "FULL_NAME",
+                            "MAILNUM",
+                            "EMAIL1",
+                            "EMAIL2",
+                            "SOCIAL",
+                            "BIRTHDATE",
+                            "COUNTRY",
+                            "ADDRNUM",
+                            "ADDR_LINE1",
+                            "ADDR_LINE2",
+                            "ERROR internal server error",
+                        ]
+                    )
+                    print(f"\nSending {choice} {random_string}")
+                    msg = send_and_receive(
+                        token, f"{choice} " f"{random_string}", secure_sock
+                    )
+                    print(f"Received {msg}")
+                    print(f"Checksum received: {msg.split(' ', maxsplit=1)[0]}")
+                    print("Valid checksum received.")
+
+                # end message
+                print("\nSending DONE")
+                msg = send_and_receive(token, "DONE", secure_sock)
+                print(f"Received {msg}")
+
+            except Exception as e:
+                print(f"Exception: {e}")
+
             break
+
+    print("\nConnection closed")
 
     return 0
 
