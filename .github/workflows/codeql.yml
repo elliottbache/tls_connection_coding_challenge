@@ -1,0 +1,68 @@
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    - cron: "0 3 * * 1"   # weekly Monday 03:00 UTC
+
+permissions:
+  contents: read
+  security-events: write   # required to upload results
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze (CodeQL)
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ "python", "cpp" ]   # python AND C/C++
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # (Optional) If you need Python deps installed for better analysis (type stubs, etc.)
+      - name: Set up Python
+        if: matrix.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python deps (optional)
+        if: matrix.language == 'python'
+        run: |
+          python -m pip install -U pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt || true; fi
+          if [ -f pyproject.toml ]; then pip install .[dev] || true; fi
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended,security-and-quality
+
+      # For C/C++, CodeQL tries to build automatically. If it fails, replace
+      # the autobuild step with manual build commands (cmake/make).
+      - name: Autobuild
+        if: matrix.language == 'cpp'
+        uses: github/codeql-action/autobuild@v3
+
+      # Example manual build (uncomment and customize if Autobuild fails)
+      # - name: Manual build
+      #   if: matrix.language == 'cpp'
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y build-essential cmake
+      #     cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      #     cmake --build build --config Release -j2
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
