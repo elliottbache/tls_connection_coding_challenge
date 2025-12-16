@@ -245,3 +245,11 @@ certificates
 perf.data*
 
 .vscode
+
+_deps
+
+CMakeFiles
+CMakeCache.txt
+CTestTestfile.cmake
+
+analysis.sarif

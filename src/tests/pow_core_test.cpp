@@ -69,6 +69,14 @@ class GenerateTest : public ::testing::TestWithParam<Case>
 {
 };
 
+INSTANTIATE_TEST_SUITE_P(
+    Table,
+    GenerateTest,
+    Values(
+        Case{0, 4, (const unsigned char *)"AAAA"},
+        Case{1, 4, (const unsigned char *)"AAAB"},
+        Case{64, 4, (const unsigned char *)"AABA"}));
+
 TEST_P(GenerateTest, ExpectedOutputs)
 {
     auto [counter, length, expected_output] = GetParam();
@@ -79,18 +87,6 @@ TEST_P(GenerateTest, ExpectedOutputs)
 
     EXPECT_EQ(actual, std::vector<unsigned char>(expected_output, expected_output + length));
 }
-
-const unsigned char expected_output1[5] = "AAAA";
-const unsigned char expected_output2[5] = "AAAB";
-const unsigned char expected_output3[5] = "AABA";
-
-INSTANTIATE_TEST_SUITE_P(
-    Table,
-    GenerateTest,
-    Values(
-        Case{0, 4, expected_output1},
-        Case{1, 4, expected_output2},
-        Case{64, 4, expected_output3}));
 
 TEST(GenerateCounterString, AllCharactersBelongToSet)
 {
@@ -103,7 +99,6 @@ TEST(GenerateCounterString, AllCharactersBelongToSet)
         pow_internal::generate_counter_string(counter, output, 4);
         for (const unsigned char this_char : output)
         {
-            //            std::cout << "Considering " << this_char << "\n";
             EXPECT_NE(possibleChars.find(this_char), possibleChars.end());
         }
     }
@@ -140,7 +135,6 @@ TEST(RunPow, NoAuth_Success)
     int difficulty = 4;
     PowResult result = run_pow(authdata, difficulty);
     EXPECT_TRUE(result.found);
-    //    std::cout << result.suffix << "\n";
 }
 
 TEST(RunPow, NormalAuthZeroDifficulty_Success)
