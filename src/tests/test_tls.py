@@ -101,6 +101,7 @@ def test_tls_handshake_connect_secure():
     client_cert.configure_cert(client_context)  # <-- client presents cert to server
     client_context.check_hostname = True  # we're connecting by IP
     client_context.verify_mode = ssl.CERT_REQUIRED
+    client_context.minimum_version = ssl.TLSVersion.TLSv1_2
 
     # connect and read
     with client_context.wrap_socket(
@@ -137,6 +138,7 @@ def test_tls_handshake_connect_secure_no_cert():
     ca.configure_trust(client_context)
     client_context.check_hostname = True  # we're connecting by IP
     client_context.verify_mode = ssl.CERT_REQUIRED
+    client_context.minimum_version = ssl.TLSVersion.TLSv1_2
 
     # connect and read
     with (
