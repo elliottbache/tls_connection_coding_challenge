@@ -140,6 +140,8 @@ def tls_connect(
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
 
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+
     return context.wrap_socket(client_socket, server_hostname=server_host)
 
 
