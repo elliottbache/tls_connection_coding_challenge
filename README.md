@@ -204,6 +204,15 @@ field, and select the docs/_build folder in the "Output:" field.  If the docs or
 exist, they will perhaps need to be created.  The Sphinx documentation can now be created by going to Run > Run... and
 selecting the Sphinx task name.
 
+### Testing
+#### C++ code
+To run the C++ tests, you must run from the root directory:
+```bash
+cmake -S . -B build 
+cmake --build build --config Release
+ctest ./build/pow_core_test <token> <difficulty>
+```
+
 ## Technologies
 
 TLS line protocol uses the following technologies and tools:
