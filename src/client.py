@@ -708,20 +708,12 @@ def main() -> int:
                     f"Hash: {this_hash}"
                 )
 
-            """# if correctly handled message (1 for DONE and 0 for all other
-            # correctly handled)
-            if err == 0 or err == 1:
-                # Send the response
-                print(f"Sending to server = {response.decode()}")
-                secure_sock.send(response)"""
             print(f"Sending to server = {response}")
             send_message(response, secure_sock)
 
             if args[0] == "DONE":
                 break
-            """# If DONE, ERROR, or invalid message received from server, break
-            if err == 1 or err == 2 or err == 4:
-                break"""
+
     except TimeoutError as e:
         print(e)
 

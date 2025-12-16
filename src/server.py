@@ -169,7 +169,6 @@ def prepare_socket(
 
     if is_secure:
         # wrap the socket with SSL
-        #        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
         # load the CA certificate (for client certificate verification)
