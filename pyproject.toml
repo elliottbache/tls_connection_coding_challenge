@@ -17,6 +17,7 @@ dev = [
   "codespell",
   "myst-parser>=3.0",
   "breathe",
+  "pytest-cov",
 
 ]
 
@@ -67,3 +68,10 @@ ignore-words-list = "teh,nd"  # add project-specific false positives
 
 [tool.pytest.ini_options]
 testpaths = ["src/tests"]
+addopts = [
+  "-q",
+  "--cov=src",
+  "--cov-report=term-missing",
+  "--cov-report=xml:coverage.xml",
+  "--cov-report=html:htmlcov",
+]
