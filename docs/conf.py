@@ -59,10 +59,8 @@ html_static_path = ["_static"]
 
 # add C++ documentation
 # Sphinx (docs/conf.py)
-breathe_projects = {"tls-line-protocol": "_build/doxygen/xml"}
 breathe_default_project = "tls-line-protocol"
 
 DOCS = pathlib.Path(__file__).parent
 BREATHE_XML = DOCS / "_build" / "doxygen" / "xml"
-
 breathe_projects = {"tls-line-protocol": str(BREATHE_XML)}

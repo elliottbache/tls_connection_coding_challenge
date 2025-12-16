@@ -182,29 +182,12 @@ class TestPrepareSocket:
     def test_prepare_socket_with_mocked_ssl(self, monkeypatch, readout, tmp_path):
         fake_context = FakeContext()
 
-        """def fake_create_default_context(purpose):
-            fake_context.purpose = purpose
-            return fake_context"""
-
         def fake_ssl_context(protocol_tls_server):
             fake_context.protocol_tls_server = protocol_tls_server
             return fake_context
 
-        """monkeypatch.setattr(
-            server.ssl, "create_default_context", fake_create_default_context
-        )"""
         monkeypatch.setattr(server.ssl, "SSLContext", fake_ssl_context)
 
-        """ca_cert_path = tmp_path / "ca.pem"
-        server_cert_path = tmp_path / "srv.pem"
-        server_key_path = tmp_path / "key.pem"
-        server_sock, context = server.prepare_socket(
-            "localhost",
-            0,
-            ca_cert_path=ca_cert_path,
-            server_cert_path=server_cert_path,
-            server_key_path=server_key_path,
-        )"""
         server_sock, context = server.prepare_socket(
             "localhost",
             0,
