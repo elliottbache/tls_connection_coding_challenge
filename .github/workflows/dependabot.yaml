@@ -1,0 +1,33 @@
+version: 2
+updates:
+  # Python (pip/pyproject)
+  - package-ecosystem: "pip"
+    directory: "/"                # root; change if your requirements live elsewhere
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      all-pip:
+        patterns: ["*"]           # group all pip bumps together
+    ignore:
+      - dependency-name: "numpy"  # example (remove or customize)
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      gha:
+        patterns: ["*"]
+
+  # Docker (if you have Dockerfiles)
+  - package-ecosystem: "docker"
+    directory: "/"                # or "/docker" if that’s where your Dockerfiles are
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      docker:
+        patterns: ["*"]
