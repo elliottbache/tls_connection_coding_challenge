@@ -5,21 +5,13 @@ from contextlib import closing
 import pytest
 
 from src import server
+from src.tests.helpers import FakeContext, FakeSocket, FakeSSLContext
 
 
 # helpers
-class FakeContext:
-    def __init__(self):
-        self.purpose = None
-        self.verify_mode = None
-        self._loaded = []
-
-    def load_verify_locations(self, cafile=None, capath=None, cadata=None):
-        # record parameters for assertion if desired
-        self._loaded.append(("ca", cafile, capath, bool(cadata)))
-
-    def load_cert_chain(self, certfile=None, keyfile=None):
-        self._loaded.append(("chain", certfile, keyfile))
+@pytest.fixture
+def cksum(token, random_string):
+    return hashlib.sha256((token + random_string).encode()).hexdigest()  # noqa: S324
 
 
 def recv_line(sock) -> bytes:
@@ -58,11 +50,6 @@ class TestSendMessage:
         err = server.send_message(payload, s1)
         _ = s2.recv(1024)
         assert err is None
-
-
-@pytest.fixture
-def cksum(token, random_string):
-    return hashlib.sha256((token + random_string).encode()).hexdigest()  # noqa: S324
 
 
 class TestSendAndReceive:
@@ -208,51 +195,11 @@ class TestPrepareSocket:
             assert ("chain", "srv.pem", "key.pem") in fake_context._loaded
 
 
-class FakeWrappedSock:
-    """Context-manager object returned by FakeSSLContext.wrap_socket()."""
-
-    def __init__(self) -> None:
-        self.exited = False
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb) -> None:
-        self.exited = True
-        return False
-
-    def getpeername(self):
-        return "Awesome socket"
-
-
-class FakeSSLContext:
-    """Enough of ssl.SSLContext for server.main() to run."""
-
-    def __init__(self) -> None:
-        self.wrap_calls = []
-        self.wrapped = FakeWrappedSock()
-
-    def wrap_socket(self, client_socket, server_side: bool = False):
-        self.wrap_calls.append((client_socket, server_side))
-        return self.wrapped
-
-
-class FakeListenSocket:
-    """Enough of a listening socket for server.main() to accept once."""
-
-    def __init__(self) -> None:
-        self.accept_calls = 0
-
-    def accept(self):
-        self.accept_calls += 1
-        return object(), ("127.0.0.1", 54321)
-
-
 class TestMain:
     def test_main_runs_one_session(
         self, token, random_string, cksum, suffix, monkeypatch
     ):
-        fake_server_sock = FakeListenSocket()
+        fake_server_sock = FakeSocket()
         fake_context = FakeSSLContext()
 
         prepare_calls = []
@@ -323,7 +270,7 @@ class TestMain:
             assert to_send == f"MAILNUM {random_string}"
 
     def test_main_closes_wrapped_socket_on_exception(self, monkeypatch, readout):
-        fake_server_sock = FakeListenSocket()
+        fake_server_sock = FakeSocket()
         fake_context = FakeSSLContext()
 
         monkeypatch.setattr(
