@@ -239,7 +239,7 @@ class TestMain:
 
         monkeypatch.setattr(server, "send_and_receive", fake_send_and_receive)
 
-        rc = server.main()
+        rc = server.main([])
         assert rc == 0
 
         # prepare_server_socket called with defaults
@@ -286,7 +286,7 @@ class TestMain:
 
         monkeypatch.setattr(server, "send_and_receive", problem)
 
-        server.main()
+        server.main([])
 
         # catch error and print
         out = readout()

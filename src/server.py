@@ -21,14 +21,16 @@ Functions:
         prepare a socket to be used for sending and receiving.
 """
 
+import argparse
 import hashlib
 import random
 import socket
 import ssl
+from collections.abc import Sequence
+from dataclasses import dataclass
 
 from src.protocol import (
     DEFAULT_CA_CERT,
-    DEFAULT_IS_SECURE,
     DEFAULT_OTHER_TIMEOUT,
     DEFAULT_WORK_TIMEOUT,
     DEFAULT_SERVER_HOST,
@@ -43,6 +45,136 @@ DEFAULT_SERVER_KEY = "certificates/server-key.pem"
 DEFAULT_AUTHDATA = "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq"
 DEFAULT_RANDOM_STRING = "LGTk"
 DEFAULT_DIFFICULTY = 4
+
+
+@dataclass
+class ServerConfig:
+    server_host: str
+    port: int
+    server_cert: str
+    server_key: str
+    ca_cert: str
+    pow_timeout: int
+    other_timeout: int
+    insecure: bool
+    token: str
+    random_string: str
+    difficulty: int
+
+
+def port(s: str) -> int:
+    try:
+        p = int(s)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError("port must be an integer") from e
+    if not (0 < p < 65536):
+        raise argparse.ArgumentTypeError("port out of range (1..65535)")
+    return p
+
+
+def positive_int(s: str) -> int:
+    try:
+        n = int(s)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError("must be an integer") from e
+    if n <= 0:
+        raise argparse.ArgumentTypeError("must be > 0")
+    return n
+
+
+def build_client_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="tls-client", description="TLS client for the toy protocol demo."
+    )
+
+    p.add_argument(
+        "--host",
+        default=DEFAULT_SERVER_HOST,
+        help=f"server hostname (default: {DEFAULT_SERVER_HOST})",
+    )
+
+    p.add_argument(
+        "--port",
+        default=DEFAULT_PORT,
+        type=int,
+        help="comma-separated list of ports (e.g. 1234,8235)",
+    )
+
+    p.add_argument(
+        "--server-cert",
+        default=DEFAULT_SERVER_CERT,
+        type=str,
+        help="path to server certificate (PEM)",
+    )
+    p.add_argument(
+        "--server-key",
+        default=DEFAULT_SERVER_KEY,
+        type=str,
+        help="path to server private key (PEM)",
+    )
+    p.add_argument(
+        "--ca-cert",
+        default=DEFAULT_CA_CERT,
+        type=str,
+        help="path to client CA certificate (PEM)",
+    )
+
+    p.add_argument(
+        "--pow-timeout",
+        default=DEFAULT_WORK_TIMEOUT,
+        type=positive_int,
+        help=f"timeout (s) for WORK (default: {DEFAULT_WORK_TIMEOUT})",
+    )
+    p.add_argument(
+        "--other-timeout",
+        default=DEFAULT_OTHER_TIMEOUT,
+        type=positive_int,
+        help=f"timeout (s) for non-WORK steps (default: {DEFAULT_OTHER_TIMEOUT})",
+    )
+
+    p.add_argument(
+        "--insecure",
+        action="store_true",
+        help="skip server cert verification (ONLY for localhost dev)",
+    )
+
+    p.add_argument(
+        "--token",
+        default=DEFAULT_AUTHDATA,
+        type=str,
+        help="authentication data for hashing",
+    )
+
+    p.add_argument(
+        "--random-string",
+        default=DEFAULT_RANDOM_STRING,
+        type=str,
+        help="random string for body messages checksums",
+    )
+
+    p.add_argument(
+        "--difficulty",
+        default=DEFAULT_DIFFICULTY,
+        type=int,
+        help="WORK challenge difficulty",
+    )
+    return p
+
+
+def args_to_server_config(ns: argparse.Namespace) -> ServerConfig:
+    return ServerConfig(
+        server_host=ns.host,
+        port=ns.port,
+        server_cert=ns.server_cert,
+        server_key=ns.server_key,
+        ca_cert=ns.ca_cert,
+        pow_timeout=ns.pow_timeout,
+        other_timeout=ns.other_timeout,
+        insecure=ns.insecure,
+        token=ns.token,
+        random_string=ns.random_string,
+        difficulty=ns.difficulty,
+    )
 
 
 def _check_suffix(to_send: str, token: str, received_message: str) -> bool:
@@ -205,24 +337,22 @@ def prepare_server_socket(
     return server_socket, context
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
 
-    token = DEFAULT_AUTHDATA
-    random_string = DEFAULT_RANDOM_STRING
-    difficulty = DEFAULT_DIFFICULTY
-    ca_cert_path = DEFAULT_CA_CERT
-    server_cert_path = DEFAULT_SERVER_CERT
-    server_key_path = DEFAULT_SERVER_KEY
-    server_host = DEFAULT_SERVER_HOST
-    port = DEFAULT_PORT
-    is_secure = DEFAULT_IS_SECURE
-    pow_timeout = DEFAULT_WORK_TIMEOUT
-    other_timeout = DEFAULT_OTHER_TIMEOUT
+    parser = build_client_parser()
+    ns = parser.parse_args(argv)
+    cfg = args_to_server_config(ns)
+    is_secure = not cfg.insecure
 
     server_socket, context = prepare_server_socket(
-        server_host, port, ca_cert_path, server_cert_path, server_key_path, is_secure
+        cfg.server_host,
+        cfg.port,
+        cfg.ca_cert,
+        cfg.server_cert,
+        cfg.server_key,
+        is_secure,
     )
-    print(f"Server listening on https://{server_host}:{port}")
+    print(f"Server listening on https://{cfg.server_host}:{cfg.port}")
 
     # Wait for a client to connect
     while True:
@@ -235,22 +365,25 @@ def main() -> int:
             try:
                 # handshake
                 print("\nSending HELLO")
-                msg = send_and_receive(token, "HELLO", secure_sock, other_timeout)
+                msg = send_and_receive(
+                    cfg.token, "HELLO", secure_sock, cfg.other_timeout
+                )
                 print(f"Received {msg}")
 
                 print(
-                    f"\nAuthentication data: {token}\nDifficulty: " f"{difficulty}"
+                    f"\nAuthentication data: {cfg.token}\nDifficulty: "
+                    f"{cfg.difficulty}"
                 )
-                print(f"Sending WORK {token} {difficulty}")
+                print(f"Sending WORK {cfg.token} {cfg.difficulty}")
                 msg = send_and_receive(
-                    token,
-                    "WORK " + str(token) + " " + str(difficulty),
+                    cfg.token,
+                    "WORK " + str(cfg.token) + " " + str(cfg.difficulty),
                     secure_sock,
-                    pow_timeout,
+                    cfg.pow_timeout,
                 )
                 print(f"Received suffix: {msg}")
                 this_hash = hashlib.sha256(  # noqa: S324
-                    (token + msg).encode()
+                    (cfg.token + msg).encode()
                 ).hexdigest()
                 print(f"Hash: {this_hash}")
                 print("Valid suffix returned from client.")
@@ -273,12 +406,12 @@ def main() -> int:
                             "ERROR internal server error",
                         ]
                     )
-                    print(f"\nSending {choice} {random_string}")
+                    print(f"\nSending {choice} {cfg.random_string}")
                     msg = send_and_receive(
-                        token,
-                        f"{choice} " f"{random_string}",
+                        cfg.token,
+                        f"{choice} " f"{cfg.random_string}",
                         secure_sock,
-                        other_timeout,
+                        cfg.other_timeout,
                     )
                     print(f"Received {msg}")
                     print(f"Checksum received: {msg.split(' ', maxsplit=1)[0]}")
@@ -286,7 +419,9 @@ def main() -> int:
 
                 # end message
                 print("\nSending DONE")
-                msg = send_and_receive(token, "DONE", secure_sock, other_timeout)
+                msg = send_and_receive(
+                    cfg.token, "DONE", secure_sock, cfg.other_timeout
+                )
                 print(f"Received {msg}")
 
             except Exception as e:
