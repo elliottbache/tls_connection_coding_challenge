@@ -258,6 +258,8 @@ To contribute to the development of TLS connection coding challenge, follow the 
 5. Push to the branch (`git push origin feature-new`)
 6. Create a new pull request
 
+More in-depth information can be found in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Contributors
 
 Here's the list of people who have contributed to TLS connection coding challenge:
