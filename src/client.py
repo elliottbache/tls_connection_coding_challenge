@@ -558,7 +558,6 @@ def connect_to_server(sock: socket.socket, server_host: str, port: int) -> bool:
 def _receive_and_decipher_message(
     secure_sock: socket.socket,
     valid_messages: set[str],
-    all_timeout: float,
 ) -> list[str]:
     """Receive and decode message from server and return containing message."""
     while True:
@@ -674,9 +673,7 @@ def main() -> int:
     try:
         while True:
 
-            args = _receive_and_decipher_message(
-                secure_sock, valid_messages, all_timeout
-            )
+            args = _receive_and_decipher_message(secure_sock, valid_messages)
             print(f"Received {' '.join(args)}")
 
             # If no args are received, continue
