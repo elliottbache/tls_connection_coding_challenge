@@ -258,6 +258,8 @@ To contribute to the development of TLS line protocol, follow the steps below:
 5. Push to the branch (`git push origin feature-new`)
 6. Create a new pull request
 
+More in-depth information can be found in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Contributors
 
 Here's the list of people who have contributed to TLS line protocol:
