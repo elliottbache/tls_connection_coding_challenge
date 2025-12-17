@@ -10,7 +10,7 @@ resolved by a C++ code called pow_benchmark.cpp.  Multithreading is
 used when calling this C++ code.
 
 Functions:
-    tls_connect:
+    prepare_client_socket:
         Create a connection to the remote server.
 
     hasher:
@@ -47,7 +47,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.protocol import DEFAULT_CA_CERT, receive_message, send_message
+from src.protocol import (
+    DEFAULT_CA_CERT,
+    DEFAULT_OTHER_TIMEOUT,
+    DEFAULT_WORK_TIMEOUT,
+    DEFAULT_SERVER_HOST,
+    receive_message,
+    send_message,
+)
 
 DEFAULT_CPP_BINARY_PATH = "build/pow_benchmark"  # path to c++ executable
 DEFAULT_RESPONSES = {
@@ -78,12 +85,9 @@ DEFAULT_VALID_MESSAGES = {
     "ADDR_LINE1",
     "ADDR_LINE2",
 }
-DEFAULT_SERVER_HOST = os.getenv("SERVER_HOST", "localhost")
-DEFAULT_PORTS = [int(p) for p in os.getenv("PORTS", "1234").split(",")]
+DEFAULT_PORTS = [3115, 7883, 8235, 38154, 1234, 55532]
 DEFAULT_PRIVATE_KEY_PATH = "certificates/ec_private_key.pem"
 DEFAULT_CLIENT_CERT_PATH = "certificates/client_cert.pem"
-DEFAULT_OTHER_TIMEOUT = 6
-DEFAULT_WORK_TIMEOUT = 7200
 
 
 @dataclass
@@ -206,7 +210,7 @@ def args_to_client_config(ns: argparse.Namespace) -> ClientConfig:
     )
 
 
-def tls_connect(
+def prepare_client_socket(
     ca_cert_path: str,
     client_cert_path: str,
     private_key_path: str,
@@ -214,7 +218,7 @@ def tls_connect(
     is_secure: bool = False,
 ) -> socket.socket:
     """
-    Create a connection to the remote server.
+    Prepare a socket for connecting to the server.
 
     Args:
         ca_cert_path (str): The path to the CA certificate.
@@ -239,8 +243,6 @@ def tls_connect(
     client_socket.settimeout(DEFAULT_OTHER_TIMEOUT)
 
     if is_secure:
-        print("\fis_secure: {is_secure}")
-        print(f"ca_cert_path: {ca_cert_path}")
         # create an SSL context, loading CA certificate
         context = ssl.create_default_context(
             ssl.Purpose.SERVER_AUTH, cafile=ca_cert_path
@@ -749,11 +751,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     print("Windows ACLs not checked.  Skipping world-writable test.")
 
     parser = build_client_parser()
-    print("parsed3", argv)
-
-    print("parsed3", parser)
     ns = parser.parse_args(argv)
-    print("parsed3", parser)
     cfg = args_to_client_config(ns)
     is_secure = not cfg.insecure
 
@@ -771,7 +769,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     for port in cfg.ports:
         if not is_connected:
             try:
-                secure_sock = tls_connect(
+                secure_sock = prepare_client_socket(
                     cfg.ca_cert,
                     cfg.client_cert,
                     cfg.private_key,
@@ -779,6 +777,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     is_secure,
                 )
                 is_connected = connect_to_server(secure_sock, cfg.server_host, port)
+                break
             except Exception as e:
                 print(f"Error connecting to {cfg.server_host}:{port}: {e}")
 
