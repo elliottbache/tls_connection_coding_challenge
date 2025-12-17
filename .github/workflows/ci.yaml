@@ -34,7 +34,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          pytest -q --cov --cov-branch --cov-report=xml
+          pytest -q --cov --cov-branch --cov-report=xml --cov-fail-under=85
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5

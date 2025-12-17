@@ -74,4 +74,5 @@ addopts = [
   "--cov-report=term-missing",
   "--cov-report=xml:coverage.xml",
   "--cov-report=html:htmlcov",
+  "--cov-fail-under=85"
 ]
