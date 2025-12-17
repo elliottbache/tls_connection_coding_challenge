@@ -1,7 +1,7 @@
 name: Deploy Website to GitHub Pages
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
 permissions:
   contents: write
 jobs:
