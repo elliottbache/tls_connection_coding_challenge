@@ -8,7 +8,7 @@ repos:
     rev: 5.13.2
     hooks:
       - id: isort
-        args: ["--profile", "black", "--filter-files"]  # check-only, no rewrite
+        args: ["--check-only", "--profile", "black", "--filter-files"]  # check-only, no rewrite
 
   - repo: https://github.com/psf/black
     rev: 24.10.0
