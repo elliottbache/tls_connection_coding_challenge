@@ -8,7 +8,7 @@
 [![License: GPL-3.0](https://img.shields.io/badge/license-%20%20GNU%20GPLv3%20-green?style=plastic)](https://github.com/elliottbache/tls_connection_coding_challenge/blob/main/LICENSE)
 
 > **60-second summary**
-> - Minimal client/server that perform a TLS handshake, then a **HELO → POW → info requests → END** flow.
+> - Linux/WSL-based minimal client/server that perform a TLS handshake, then a **HELO → POW → info requests → END** flow.
 > - POW solved by a fast C++ helper (multi-threaded) invoked from Python.
 > - Fully testable: unit tests for parsing & hashing; integration test creates a throwaway TLS server and exercises the full round-trip.
 
@@ -169,7 +169,15 @@ To run TLS connection coding challenge, fire up a terminal window and run the fo
 ```sh
 $ python server.py
 ```
-
+Various flags are available for running in CLI.  e.g.
+```bash
+# Run demo server on localhost:3481 with difficulty 6
+python -m src.server --host 127.0.0.1 --port 3481 \
+  --ca-cert certificates/ca_cert.pem \
+  --server-cert certificates/server-cert.pem \
+  --server-key certificates/server-key.pem \
+  --difficulty 6
+```
 Depending on the creation of certificates process, this step may require a password that was defined when creating
 the certificates.
 
@@ -177,6 +185,14 @@ Once the server is running, the client can be launched.  This is done by enterin
 ```sh
 $ python client.py
 ```
+Various flags are available for running in CLI.  e.g.
+```sh
+# Connect to same host/port, using local pow_benchmark
+python -m src.client --host localhost --ports 3481 \
+  --pow-bin build/pow_benchmark --insecure
+
+```
+
 The client will connect to the server and answer the various commands sent by the server.  The server will first send a
 a handshake set of commands (HELO and POW).  Once the POW challenge is solved by the client under 2 hours, the correct
 suffix will be sent to the server and a further 20 random commands will be sent.  If ERROR is randomly selected, the

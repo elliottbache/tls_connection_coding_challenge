@@ -815,3 +815,16 @@ class TestMain:
         with pytest.raises(SystemExit) as e:
             client.main([])
         assert e.value.code == 1
+
+
+class TestBuildClientParser:
+    def test_build_client_parser_defaults(self):
+        p = client.build_client_parser()
+        ns = p.parse_args([])
+        assert ns.host == "localhost"
+        assert isinstance(ns.ports, list)
+
+    def test_build_client_parser_custom_ports(self):
+        p = client.build_client_parser()
+        ns = p.parse_args(["--ports", "3481,8083,8446"])
+        assert ns.ports == [3481, 8083, 8446]

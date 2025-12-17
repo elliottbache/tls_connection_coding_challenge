@@ -136,6 +136,7 @@ def build_client_parser() -> argparse.ArgumentParser:
 
     p.add_argument(
         "--ports",
+        default=DEFAULT_PORTS,
         type=lambda s: [port(x) for x in s.split(",")],
         help="comma-separated list of ports (e.g. 3481,8446)",
     )
@@ -832,15 +833,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             send_message(response, secure_sock)
 
             if args[0] == "END":
-                print("\nbreaking")
                 break
 
     except TimeoutError as e:
-        print("\nTimeouterror")
         print(e)
 
     except Exception as e:
-        print("\nException")
         print(e)
 
     finally:
