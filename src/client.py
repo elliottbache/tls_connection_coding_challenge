@@ -119,13 +119,6 @@ def positive_int(s: str) -> int:
     return n
 
 
-def existing_file(p: str) -> str:
-    path = Path(p)
-    if not path.exists():
-        raise argparse.ArgumentTypeError(f"file not found: {p}")
-    return p
-
-
 def build_client_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tls-client", description="TLS client for the toy protocol demo."
