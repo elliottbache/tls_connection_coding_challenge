@@ -31,6 +31,7 @@ Functions:
 
 """
 
+import argparse
 import errno
 import hashlib
 import multiprocessing
@@ -42,14 +43,11 @@ import stat
 import subprocess
 import sys
 import time
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
-from src.protocol import (
-    DEFAULT_CA_CERT,
-    DEFAULT_IS_SECURE,
-    receive_message,
-    send_message,
-)
+from src.protocol import DEFAULT_CA_CERT, receive_message, send_message
 
 DEFAULT_CPP_BINARY_PATH = "build/pow_benchmark"  # path to c++ executable
 DEFAULT_RESPONSES = {
@@ -84,8 +82,135 @@ DEFAULT_SERVER_HOST = os.getenv("SERVER_HOST", "localhost")
 DEFAULT_PORTS = [int(p) for p in os.getenv("PORTS", "1234").split(",")]
 DEFAULT_PRIVATE_KEY_PATH = "certificates/ec_private_key.pem"
 DEFAULT_CLIENT_CERT_PATH = "certificates/client_cert.pem"
-DEFAULT_ALL_TIMEOUT = 6
+DEFAULT_OTHER_TIMEOUT = 6
 DEFAULT_WORK_TIMEOUT = 7200
+
+
+@dataclass
+class ClientConfig:
+    server_host: str
+    ports: list[int]
+    client_cert: str
+    private_key: str
+    ca_cert: str
+    pow_binary: str
+    pow_timeout: int
+    other_timeout: int
+    insecure: bool
+
+
+def port(s: str) -> int:
+    try:
+        p = int(s)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError("port must be an integer") from e
+    if not (0 < p < 65536):
+        raise argparse.ArgumentTypeError("port out of range (1..65535)")
+    return p
+
+
+def positive_int(s: str) -> int:
+    try:
+        n = int(s)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError("must be an integer") from e
+    if n <= 0:
+        raise argparse.ArgumentTypeError("must be > 0")
+    return n
+
+
+def existing_file(p: str) -> str:
+    path = Path(p)
+    if not path.exists():
+        raise argparse.ArgumentTypeError(f"file not found: {p}")
+    return p
+
+
+def build_client_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="tls-client", description="TLS client for the toy protocol demo."
+    )
+
+    p.add_argument(
+        "--host",
+        default=DEFAULT_SERVER_HOST,
+        help=f"server hostname (default: {DEFAULT_SERVER_HOST})",
+    )
+
+    p.add_argument(
+        "--ports",
+        type=lambda s: [port(x) for x in s.split(",")],
+        help="comma-separated list of ports (e.g. 1234,8235)",
+    )
+
+    p.add_argument(
+        "--client-cert",
+        default=DEFAULT_CLIENT_CERT_PATH,
+        type=str,
+        help="path to client certificate (PEM)",
+    )
+    p.add_argument(
+        "--private-key",
+        default=DEFAULT_PRIVATE_KEY_PATH,
+        type=str,
+        help="path to client private key (PEM)",
+    )
+    p.add_argument(
+        "--ca-cert",
+        default=DEFAULT_CA_CERT,
+        type=str,
+        help="path to client CA certificate (PEM)",
+    )
+
+    p.add_argument(
+        "--pow-binary",
+        default=DEFAULT_CPP_BINARY_PATH,
+        type=str,
+        help="path to pow_benchmark executable",
+    )
+
+    p.add_argument(
+        "--pow-timeout",
+        default=DEFAULT_WORK_TIMEOUT,
+        type=positive_int,
+        help=f"timeout (s) for WORK (default: {DEFAULT_WORK_TIMEOUT})",
+    )
+    p.add_argument(
+        "--other-timeout",
+        default=DEFAULT_OTHER_TIMEOUT,
+        type=positive_int,
+        help=f"timeout (s) for non-WORK steps (default: {DEFAULT_OTHER_TIMEOUT})",
+    )
+
+    p.add_argument(
+        "--insecure",
+        action="store_true",
+        help="skip server cert verification (ONLY for localhost dev)",
+    )
+
+    return p
+
+
+def _merge_ports(ns: argparse.Namespace) -> list[int]:
+    """Take both flags (ports and port) and combine."""
+    if ns.ports:
+        return ns.ports
+    else:
+        return DEFAULT_PORTS
+
+
+def args_to_client_config(ns: argparse.Namespace) -> ClientConfig:
+    return ClientConfig(
+        server_host=ns.host,
+        ports=_merge_ports(ns),
+        client_cert=ns.client_cert,
+        private_key=ns.private_key,
+        ca_cert=ns.ca_cert,
+        pow_binary=ns.pow_binary,
+        pow_timeout=ns.pow_timeout,
+        other_timeout=ns.other_timeout,
+        insecure=ns.insecure,
+    )
 
 
 def tls_connect(
@@ -118,9 +243,11 @@ def tls_connect(
 
     # create the client socket
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.settimeout(DEFAULT_ALL_TIMEOUT)
+    client_socket.settimeout(DEFAULT_OTHER_TIMEOUT)
 
     if is_secure:
+        print("\fis_secure: {is_secure}")
+        print(f"ca_cert_path: {ca_cert_path}")
         # create an SSL context, loading CA certificate
         context = ssl.create_default_context(
             ssl.Purpose.SERVER_AUTH, cafile=ca_cert_path
@@ -476,7 +603,7 @@ def define_response(
     elif args[0] == "DONE":
         is_err, result = False, "OK\n"
     elif args[0] == "ERROR":
-        is_err, result = True, "\n"
+        is_err, result = False, "\n"
     elif args[0] == "WORK":
         difficulty = args[2]
 
@@ -577,11 +704,13 @@ def _process_message_with_timeout(
     responses: dict[str, str] = DEFAULT_RESPONSES,
     cpp_binary_path: str = DEFAULT_CPP_BINARY_PATH,
     pow_timeout: float = DEFAULT_WORK_TIMEOUT,
-    all_timeout: float = DEFAULT_ALL_TIMEOUT,
+    other_timeout: float = DEFAULT_OTHER_TIMEOUT,
 ) -> str:
     """Process message received from server and return response, respecting timeout"""
     # Define timeouts and extract token
-    this_timeout = pow_timeout if args and args[0] and args[0] == "WORK" else all_timeout
+    this_timeout = (
+        pow_timeout if args and args[0] and args[0] == "WORK" else other_timeout
+    )
 
     # use multiprocessing for setting timeout.  Only 1 process is used
     queue: multiprocessing.Queue = multiprocessing.Queue()
@@ -606,15 +735,12 @@ def _process_message_with_timeout(
         is_err, msg = queue.get()
         if is_err:
             to_send = msg.rstrip("\n")
-            if args[0] == "ERROR":
-                raise Exception("Internal server error.")
-            else:
-                raise Exception(f"{args[0]} failed: {to_send}.")
+            raise Exception(f"{args[0]} failed: {to_send}.")
         else:
             return msg
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     """
     Entry point for the CLI.
 
@@ -629,39 +755,39 @@ def main() -> int:
     """
     print("Windows ACLs not checked.  Skipping world-writable test.")
 
-    cpp_binary_path = DEFAULT_CPP_BINARY_PATH
+    parser = build_client_parser()
+    print("parsed3", argv)
+
+    print("parsed3", parser)
+    ns = parser.parse_args(argv)
+    print("parsed3", parser)
+    cfg = args_to_client_config(ns)
+    is_secure = not cfg.insecure
+
     responses = DEFAULT_RESPONSES
-    server_host = DEFAULT_SERVER_HOST
-    ports = DEFAULT_PORTS
-    ca_cert_path = DEFAULT_CA_CERT
-    private_key_path = DEFAULT_PRIVATE_KEY_PATH
-    client_cert_path = DEFAULT_CLIENT_CERT_PATH
     valid_messages = DEFAULT_VALID_MESSAGES  # valid messages from the server
-    pow_timeout = DEFAULT_WORK_TIMEOUT  # timeout for pow in seconds
-    all_timeout = DEFAULT_ALL_TIMEOUT  # timeout for all function except pow in seconds
-    is_secure = DEFAULT_IS_SECURE
     token = ""  # this will be set with WORK message from server
 
     # Create and wrap socket
-    print("Client cert exists:", os.path.exists(client_cert_path))
-    print("Private key exists:", os.path.exists(private_key_path))
+    print("Client cert exists:", os.path.exists(cfg.client_cert))
+    print("Private key exists:", os.path.exists(cfg.private_key))
 
     # Connect to the server using TLS
     # Cycle through possible ports, trying to connect to each until success
     is_connected = False
-    for port in ports:
+    for port in cfg.ports:
         if not is_connected:
             try:
                 secure_sock = tls_connect(
-                    ca_cert_path,
-                    client_cert_path,
-                    private_key_path,
-                    server_host,
+                    cfg.ca_cert,
+                    cfg.client_cert,
+                    cfg.private_key,
+                    cfg.server_host,
                     is_secure,
                 )
-                is_connected = connect_to_server(secure_sock, server_host, port)
+                is_connected = connect_to_server(secure_sock, cfg.server_host, port)
             except Exception as e:
-                print(f"Error connecting to {server_host}:{port}: {e}")
+                print(f"Error connecting to {cfg.server_host}:{port}: {e}")
 
     if not is_connected:
         print("Not able to connect to any port.  Exiting")
@@ -681,6 +807,9 @@ def main() -> int:
                 print("Problem deciphering message. Continuing.")
                 continue
 
+            if args[0] == "ERROR":
+                break
+
             if args[0] == "WORK":
                 token = args[1]
 
@@ -690,9 +819,9 @@ def main() -> int:
                 token,
                 valid_messages,
                 responses,
-                cpp_binary_path,
-                pow_timeout,
-                all_timeout,
+                cfg.pow_binary,
+                cfg.pow_timeout,
+                cfg.other_timeout,
             )
             end = time.time()
             print("The time of execution is :", (end - start), "s")
@@ -711,12 +840,15 @@ def main() -> int:
             send_message(response, secure_sock)
 
             if args[0] == "DONE":
+                print("\nbreaking")
                 break
 
     except TimeoutError as e:
+        print("\nTimeouterror")
         print(e)
 
     except Exception as e:
+        print("\nException")
         print(e)
 
     finally:
@@ -727,5 +859,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-
-    main()
+    raise SystemExit(main())

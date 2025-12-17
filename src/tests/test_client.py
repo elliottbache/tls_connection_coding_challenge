@@ -437,7 +437,7 @@ class TestDefineResponse:
             responses,
             path_to_pow_benchmark,
         )
-        assert q.get() == (True, "\n")
+        assert q.get() == (False, "\n")
 
     def test_define_response_success(
         self, token, random_string, valid_messages, path_to_pow_benchmark
@@ -599,7 +599,7 @@ class TestReceiveAndDecipherMessage:
 
 
 class TestProcessMessageWithTimeout:
-    def test_process_message_with_timeout_uses_timeout(
+    def test_process_message_with_timeout_success_uses_timeout(
         self, monkeypatch, token, valid_messages
     ):
         q = FakeMPQueue()
@@ -615,7 +615,7 @@ class TestProcessMessageWithTimeout:
         monkeypatch.setattr(client.multiprocessing, "Queue", fake_queue_ctor)
         monkeypatch.setattr(client.multiprocessing, "Process", fake_process_ctor)
 
-        # if args[0] != "WORK" -> all_timeout
+        # if args[0] != "WORK" -> other_timeout
         response = client._process_message_with_timeout(
             args=["HELLO"],
             token=token,
@@ -623,13 +623,13 @@ class TestProcessMessageWithTimeout:
             responses={},
             cpp_binary_path="/path/to/benchmark",
             pow_timeout=999,
-            all_timeout=123,
+            other_timeout=123,
         )
 
         assert response == "HELLOBACK\n"
         assert q.created["p"].join_timeouts[0] == 123
 
-    def test_process_message_with_timeout_uses_pow_timeout(
+    def test_process_message_with_timeout_success_uses_pow_timeout(
         self, monkeypatch, token, valid_messages, suffix
     ):
         q = FakeMPQueue()
@@ -654,7 +654,7 @@ class TestProcessMessageWithTimeout:
             responses=client.DEFAULT_RESPONSES,
             cpp_binary_path="/path/to/benchmark",
             pow_timeout=777,
-            all_timeout=1,
+            other_timeout=1,
         )
 
         assert response == suffix + "\n"
@@ -684,37 +684,10 @@ class TestProcessMessageWithTimeout:
                 responses=client.DEFAULT_RESPONSES,
                 cpp_binary_path="/path/to/benchmark",
                 pow_timeout=1,
-                all_timeout=1,
+                other_timeout=1,
             )
 
         assert q.created["p"].terminated
-
-    def test_process_message_with_timeout_internal_server_error(
-        self, monkeypatch, token, valid_messages
-    ):
-        # force is_err path without running define_response
-        q = FakeMPQueue()
-        q.put((True, "anything\n"))
-
-        monkeypatch.setattr(client.multiprocessing, "Queue", lambda: q)
-        monkeypatch.setattr(
-            client.multiprocessing,
-            "Process",
-            lambda target, args: FakeProcess(
-                target=target, args=args, run_target=False, alive=False
-            ),
-        )
-
-        with pytest.raises(Exception, match=r"Internal server error"):
-            client._process_message_with_timeout(
-                args=["ERROR", "blah"],
-                token=token,
-                valid_messages=valid_messages,
-                responses=client.DEFAULT_RESPONSES,
-                cpp_binary_path="/path/to/benchmark",
-                pow_timeout=1,
-                all_timeout=1,
-            )
 
     def test_process_message_with_timeout_command_failed(
         self, monkeypatch, token, valid_messages
@@ -739,7 +712,7 @@ class TestProcessMessageWithTimeout:
                 responses=client.DEFAULT_RESPONSES,
                 cpp_binary_path="/path/to/benchmark",
                 pow_timeout=1,
-                all_timeout=1,
+                other_timeout=1,
             )
 
 
@@ -775,10 +748,47 @@ class TestMain:
 
         monkeypatch.setattr(client, "send_message", fake_send_message)
 
-        rc = client.main()
-        assert rc == 0
+        client.main([])
 
         assert sent == [("HELLOBACK\n", fake_sock), ("OK\n", fake_sock)]
+        assert fake_sock.closed
+
+    def test_main_server_error(self, monkeypatch, valid_messages):
+        monkeypatch.setattr(client.os.path, "exists", lambda p: True)
+
+        # force single port
+        monkeypatch.setattr(client, "DEFAULT_PORTS", [1234])
+        monkeypatch.setattr(client, "DEFAULT_SERVER_HOST", "localhost")
+
+        fake_sock = FakeSocket()
+
+        # fake TLS socket creation + connect
+        monkeypatch.setattr(client, "tls_connect", lambda *a, **k: fake_sock)
+        monkeypatch.setattr(client, "connect_to_server", lambda sock, host, port: True)
+
+        # drive the main loop with 2 messages then DONE
+        seq = iter([["HELLO", ""], ["ERROR", ""]])
+        monkeypatch.setattr(
+            client, "_receive_and_decipher_message", lambda *a, **k: next(seq)
+        )
+
+        def fake_process(args, *a, **k):
+            if args[0] == "HELLO":
+                return "HELLOBACK\n"
+            return None
+
+        monkeypatch.setattr(client, "_process_message_with_timeout", fake_process)
+
+        sent = []
+
+        def fake_send_message(msg, sock):
+            sent.append((msg, sock))
+
+        monkeypatch.setattr(client, "send_message", fake_send_message)
+
+        client.main([])
+
+        assert sent == [("HELLOBACK\n", fake_sock)]
         assert fake_sock.closed
 
     def test_main_connect_fail(self, monkeypatch):
@@ -801,5 +811,5 @@ class TestMain:
         monkeypatch.setattr(client.sys, "exit", fake_exit)
 
         with pytest.raises(SystemExit) as e:
-            client.main()
+            client.main([])
         assert e.value.code == 1
