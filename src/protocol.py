@@ -22,6 +22,9 @@ class TransportError(RuntimeError):
 MAX_LINE_LENGTH = 1000
 DEFAULT_IS_SECURE = True  # if we connect from localhost to localhost, this is False
 DEFAULT_CA_CERT = "certificates/ca_cert.pem"
+DEFAULT_OTHER_TIMEOUT = 6
+DEFAULT_WORK_TIMEOUT = 7200
+DEFAULT_SERVER_HOST = "localhost"
 
 
 def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
@@ -142,5 +145,8 @@ def receive_message(secure_sock: socket.socket) -> str:
 
         return buf.decode().rstrip("\n")
 
-    except (TimeoutError, ssl.SSLError, OSError) as e:
+    except TimeoutError as e:
+        raise TimeoutError("Receive timeout") from e
+
+    except (ssl.SSLError, OSError) as e:
         raise TransportError(f"Receive failed: {e}") from e

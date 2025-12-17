@@ -76,7 +76,7 @@ class TestSendAndReceive:
         s1, s2 = socket_pair
         s2.settimeout(0)
 
-        with pytest.raises(Exception, match=r"Receive failed."):
+        with pytest.raises(Exception, match=r"Client timed out"):
             server.send_and_receive(token, random_string, s1)
 
     def test_send_and_receive_helo(self, socket_pair, token):
@@ -166,7 +166,9 @@ class TestSendError:
 
 
 class TestPrepareSocket:
-    def test_prepare_socket_with_mocked_ssl(self, monkeypatch, readout, tmp_path):
+    def test_prepare_server_socket_with_mocked_ssl(
+        self, monkeypatch, readout, tmp_path
+    ):
         fake_context = FakeContext()
 
         def fake_ssl_context(protocol_tls_server):
@@ -175,7 +177,7 @@ class TestPrepareSocket:
 
         monkeypatch.setattr(server.ssl, "SSLContext", fake_ssl_context)
 
-        server_sock, context = server.prepare_socket(
+        server_sock, context = server.prepare_server_socket(
             "localhost",
             0,
             ca_cert_path="ca.pem",
@@ -204,7 +206,7 @@ class TestMain:
 
         prepare_calls = []
 
-        def fake_prepare_socket(
+        def fake_prepare_server_socket(
             server_host,
             port,
             ca_cert_path,
@@ -217,14 +219,14 @@ class TestMain:
             )
             return fake_server_sock, fake_context
 
-        monkeypatch.setattr(server, "prepare_socket", fake_prepare_socket)
+        monkeypatch.setattr(server, "prepare_server_socket", fake_prepare_server_socket)
 
         # avoid ERROR choice
         monkeypatch.setattr(server.random, "choice", lambda seq: "MAILNUM")
 
         calls = []
 
-        def fake_send_and_receive(this_token, to_send, secure_sock):
+        def fake_send_and_receive(this_token, to_send, secure_sock, timeout):
             calls.append((this_token, to_send))
             if to_send == "HELLO":
                 return "HELLOBACK"
@@ -240,7 +242,7 @@ class TestMain:
         rc = server.main()
         assert rc == 0
 
-        # prepare_socket called with defaults
+        # prepare_server_socket called with defaults
         assert prepare_calls == [
             (
                 server.DEFAULT_SERVER_HOST,
@@ -275,7 +277,7 @@ class TestMain:
 
         monkeypatch.setattr(
             server,
-            "prepare_socket",
+            "prepare_server_socket",
             lambda *a, **k: (fake_server_sock, fake_context),
         )
 

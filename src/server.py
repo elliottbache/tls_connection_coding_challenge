@@ -17,7 +17,7 @@ Functions:
     is_succeed_send_and_receive:
         send message and receive the string from the client.
 
-    prepare_socket:
+    prepare_server_socket:
         prepare a socket to be used for sending and receiving.
 """
 
@@ -29,12 +29,14 @@ import ssl
 from src.protocol import (
     DEFAULT_CA_CERT,
     DEFAULT_IS_SECURE,
+    DEFAULT_OTHER_TIMEOUT,
+    DEFAULT_WORK_TIMEOUT,
+    DEFAULT_SERVER_HOST,
     receive_message,
     send_message,
 )
 
 # module-level defaults (safe to import, optional)
-DEFAULT_SERVER_HOST = "localhost"
 DEFAULT_PORT = 1234
 DEFAULT_SERVER_CERT = "certificates/server-cert.pem"
 DEFAULT_SERVER_KEY = "certificates/server-key.pem"
@@ -63,7 +65,9 @@ def _check_cksum(to_send: str, token: str, received_message: str) -> bool:
     return cksum == cksum_calc
 
 
-def send_and_receive(token: str, to_send: str, secure_sock: socket.socket) -> str:
+def send_and_receive(
+    token: str, to_send: str, secure_sock: socket.socket, timeout: float = 6.0
+) -> str:
     """Send message and receive the string from the client.
 
     The sent and received messages are checked for format validity and the received
@@ -73,6 +77,7 @@ def send_and_receive(token: str, to_send: str, secure_sock: socket.socket) -> st
         token (str): the authorization data.
         to_send (str): the string to send (with or without newline character).
         secure_sock (socket.socket): the secure socket to receive from.
+        timeout (float): the timeout for receiving.
 
     Returns:
         str: the string received.
@@ -83,7 +88,13 @@ def send_and_receive(token: str, to_send: str, secure_sock: socket.socket) -> st
             raise Exception(to_send.split(" ", maxsplit=1)[1])  # internal server ERROR
 
         send_message(to_send, secure_sock)
-        received_message = receive_message(secure_sock)
+
+        secure_sock.settimeout(timeout)
+        try:
+            received_message = receive_message(secure_sock)
+        except TimeoutError as e:
+            raise TimeoutError("Client timeout") from e
+        secure_sock.settimeout(None)
 
         # check WORK suffix
         if to_send.startswith("WORK") and not _check_suffix(
@@ -100,6 +111,10 @@ def send_and_receive(token: str, to_send: str, secure_sock: socket.socket) -> st
             raise Exception(r"Invalid checksum received.")
 
         return received_message
+
+    except TimeoutError as e:
+        send_error("ERROR Client timeout.", secure_sock)
+        raise TimeoutError("Client timed out") from e
 
     except Exception as e:
         try:
@@ -128,7 +143,7 @@ def send_error(to_send: str, secure_sock: socket.socket) -> None:
         pass
 
 
-def prepare_socket(
+def prepare_server_socket(
     server_host: str,
     port: int,
     ca_cert_path: str,
@@ -201,8 +216,10 @@ def main() -> int:
     server_host = DEFAULT_SERVER_HOST
     port = DEFAULT_PORT
     is_secure = DEFAULT_IS_SECURE
+    pow_timeout = DEFAULT_WORK_TIMEOUT
+    other_timeout = DEFAULT_OTHER_TIMEOUT
 
-    server_socket, context = prepare_socket(
+    server_socket, context = prepare_server_socket(
         server_host, port, ca_cert_path, server_cert_path, server_key_path, is_secure
     )
     print(f"Server listening on https://{server_host}:{port}")
@@ -218,7 +235,7 @@ def main() -> int:
             try:
                 # handshake
                 print("\nSending HELLO")
-                msg = send_and_receive(token, "HELLO", secure_sock)
+                msg = send_and_receive(token, "HELLO", secure_sock, other_timeout)
                 print(f"Received {msg}")
 
                 print(
@@ -229,6 +246,7 @@ def main() -> int:
                     token,
                     "WORK " + str(token) + " " + str(difficulty),
                     secure_sock,
+                    pow_timeout,
                 )
                 print(f"Received suffix: {msg}")
                 this_hash = hashlib.sha256(  # noqa: S324
@@ -257,7 +275,10 @@ def main() -> int:
                     )
                     print(f"\nSending {choice} {random_string}")
                     msg = send_and_receive(
-                        token, f"{choice} " f"{random_string}", secure_sock
+                        token,
+                        f"{choice} " f"{random_string}",
+                        secure_sock,
+                        other_timeout,
                     )
                     print(f"Received {msg}")
                     print(f"Checksum received: {msg.split(' ', maxsplit=1)[0]}")
@@ -265,7 +286,7 @@ def main() -> int:
 
                 # end message
                 print("\nSending DONE")
-                msg = send_and_receive(token, "DONE", secure_sock)
+                msg = send_and_receive(token, "DONE", secure_sock, other_timeout)
                 print(f"Received {msg}")
 
             except Exception as e:

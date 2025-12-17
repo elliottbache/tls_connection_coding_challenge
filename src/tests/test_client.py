@@ -97,7 +97,7 @@ def fake_bin(tmp_path):
 # unit tests
 class TestTlsConnect:
 
-    def test_tls_connect_secure(self, monkeypatch):
+    def test_prepare_client_socket_secure(self, monkeypatch):
         fake_context = FakeContext()
 
         def fake_create_default_context(*args, **kwargs):
@@ -110,7 +110,7 @@ class TestTlsConnect:
         # make os.path.exists deterministic for prints
         monkeypatch.setattr(client.os.path, "exists", lambda p: True)
 
-        wrapped_sock = client.tls_connect(
+        wrapped_sock = client.prepare_client_socket(
             "ca.pem", "cert.pem", "key.pem", "localhost", True
         )
 
@@ -130,7 +130,7 @@ class TestTlsConnect:
         assert isinstance(call["sock"], socket.socket)
         assert call["server_hostname"] == "localhost"
 
-    def test_tls_connect_insecure(self, monkeypatch):
+    def test_prepare_client_socket_insecure(self, monkeypatch):
         fake_context = FakeContext()
 
         def fake_create_default_context():
@@ -143,7 +143,7 @@ class TestTlsConnect:
         # make os.path.exists deterministic for prints
         monkeypatch.setattr(client.os.path, "exists", lambda p: True)
 
-        wrapped_sock = client.tls_connect(
+        wrapped_sock = client.prepare_client_socket(
             "ca.pem", "cert.pem", "key.pem", "localhost", False
         )
 
@@ -163,7 +163,7 @@ class TestTlsConnect:
         assert isinstance(call["sock"], socket.socket)
         assert call["server_hostname"] == "localhost"
 
-    def test_tls_connect_non_local_host_insecure(self, monkeypatch):
+    def test_prepare_client_socket_non_local_host_insecure(self, monkeypatch):
 
         fake_context = FakeContext()
 
@@ -178,7 +178,9 @@ class TestTlsConnect:
         monkeypatch.setattr(client.os.path, "exists", lambda p: True)
 
         with pytest.raises(ValueError, match="Refusing insecure TLS to"):
-            client.tls_connect("ca.pem", "cert.pem", "key.pem", "example.com", False)
+            client.prepare_client_socket(
+                "ca.pem", "cert.pem", "key.pem", "example.com", False
+            )
 
 
 class TestHasher:
@@ -727,7 +729,7 @@ class TestMain:
         fake_sock = FakeSocket()
 
         # fake TLS socket creation + connect
-        monkeypatch.setattr(client, "tls_connect", lambda *a, **k: fake_sock)
+        monkeypatch.setattr(client, "prepare_client_socket", lambda *a, **k: fake_sock)
         monkeypatch.setattr(client, "connect_to_server", lambda sock, host, port: True)
 
         # drive the main loop with 2 messages then DONE
@@ -763,7 +765,7 @@ class TestMain:
         fake_sock = FakeSocket()
 
         # fake TLS socket creation + connect
-        monkeypatch.setattr(client, "tls_connect", lambda *a, **k: fake_sock)
+        monkeypatch.setattr(client, "prepare_client_socket", lambda *a, **k: fake_sock)
         monkeypatch.setattr(client, "connect_to_server", lambda sock, host, port: True)
 
         # drive the main loop with 2 messages then DONE
@@ -797,7 +799,7 @@ class TestMain:
         monkeypatch.setattr(client, "DEFAULT_SERVER_HOST", "localhost")
 
         fake_sock = FakeSocket()
-        monkeypatch.setattr(client, "tls_connect", lambda *a, **k: fake_sock)
+        monkeypatch.setattr(client, "prepare_client_socket", lambda *a, **k: fake_sock)
 
         def fake_connect(*a, **k):
             raise ConnectionRefusedError("nope")

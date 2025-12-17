@@ -28,11 +28,11 @@ class TestReceiveMessage:
 
     def test_receive_message_no_newline(self, socket_pair, readout):
         s1, s2 = socket_pair
-        s1.settimeout(0.1)
+        s1.settimeout(1)
         message_to_receive = b"HELLOBACK"
 
         _ = s1.sendall(message_to_receive)
-        with pytest.raises(Exception, match=r"Receive failed:"):
+        with pytest.raises(TimeoutError, match=r"Receive timeout"):
             protocol.receive_message(s2)
 
     def test_receive_empty_message(self, socket_pair, readout):
