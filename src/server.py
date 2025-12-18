@@ -215,18 +215,17 @@ def send_and_receive(
         str: the string received.
     """
     received_message = ""
+    secure_sock.settimeout(timeout)
     try:
         if to_send.startswith("ERROR"):
             raise Exception(to_send.split(" ", maxsplit=1)[1])  # internal server ERROR
 
         send_message(to_send, secure_sock)
 
-        secure_sock.settimeout(timeout)
         try:
             received_message = receive_message(secure_sock)
         except TimeoutError as e:
             raise TimeoutError("Client timeout") from e
-        secure_sock.settimeout(None)
 
         # check WORK suffix
         if to_send.startswith("WORK") and not _check_suffix(
@@ -282,6 +281,7 @@ def prepare_server_socket(
     server_cert_path: str,
     server_key_path: str,
     is_secure: bool = False,
+    timeout: int = 6,
 ) -> tuple[socket.socket, ssl.SSLContext]:
     """Prepare a socket to be used for sending and receiving.
 
@@ -313,6 +313,7 @@ def prepare_server_socket(
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(server_address)
     server_socket.listen(1)
+    server_socket.settimeout(timeout)
 
     if is_secure:
         # wrap the socket with SSL

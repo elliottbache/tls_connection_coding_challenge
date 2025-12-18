@@ -219,6 +219,7 @@ def prepare_client_socket(
     private_key_path: str,
     server_host: str,
     is_secure: bool = False,
+    timeout: int = 6,
 ) -> socket.socket:
     """
     Prepare a socket for connecting to the server.
@@ -243,7 +244,7 @@ def prepare_client_socket(
 
     # create the client socket
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.settimeout(DEFAULT_OTHER_TIMEOUT)
+    client_socket.settimeout(timeout)
 
     if is_secure:
         # create an SSL context, loading CA certificate
@@ -780,6 +781,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     cfg.private_key,
                     cfg.server_host,
                     is_secure,
+                    cfg.other_timeout,
                 )
                 is_connected = connect_to_server(secure_sock, cfg.server_host, port)
                 break
