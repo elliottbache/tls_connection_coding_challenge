@@ -243,6 +243,7 @@ class TestRunPowBinary:
             )
 
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
+        monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
         result = client.run_pow_binary(str(fake_bin), token, difficulty)
 
@@ -264,15 +265,18 @@ class TestRunPowBinary:
         assert calls["env"] == {"LC_ALL": "C"}
 
     def test_run_pow_binary_non_str_token(
-        self, fake_bin, difficulty, path_to_pow_challenge
+        self, fake_bin, difficulty, path_to_pow_challenge, monkeypatch
     ):
         wrong_token = 5.3
 
-        with pytest.raises(ValueError, match=r"Tested variable is not a string."):
+        monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
+        with pytest.raises(TypeError, match=r"Tested variable is not a string."):
             client.run_pow_binary(fake_bin, wrong_token, difficulty)
 
-    def test_run_pow_binary_invalid_token(self, difficulty, fake_bin):
+    def test_run_pow_binary_invalid_token(self, difficulty, fake_bin, monkeypatch):
         wrong_token = "poiasfdlkas+/"
+
+        monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
         with pytest.raises(
             ValueError, match="String contains disallowed characters or length"
         ):
@@ -288,13 +292,17 @@ class TestRunPowBinary:
         ):
             client.run_pow_binary(fake_bin, wrong_token, difficulty)
 
-    def test_run_pow_binary_non_int_difficulty(self, token, fake_bin):
+    def test_run_pow_binary_non_int_difficulty(self, token, fake_bin, monkeypatch):
         wrong_difficulty = "five"
+        monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
+
         with pytest.raises(TypeError, match="WORK difficulty is not an integer"):
             client.run_pow_binary(fake_bin, token, wrong_difficulty)
 
-    def test_run_pow_binary_invalid_difficulty(self, token, fake_bin):
+    def test_run_pow_binary_invalid_difficulty(self, token, fake_bin, monkeypatch):
         wrong_difficulty = 65
+        monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
+
         with pytest.raises(ValueError, match="WORK difficulty is out of range"):
             client.run_pow_binary(fake_bin, token, wrong_difficulty)
 
@@ -335,6 +343,7 @@ class TestRunPowBinary:
             )
 
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
+        monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
         with pytest.raises(subprocess.CalledProcessError):
             client.run_pow_binary(fake_bin, token, difficulty)
 
@@ -353,6 +362,7 @@ class TestRunPowBinary:
             )
 
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
+        monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
         with pytest.raises(subprocess.TimeoutExpired):
             client.run_pow_binary(fake_bin, token, difficulty)
 
@@ -377,6 +387,7 @@ class TestHandlePowCpp:
             )
 
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
+        monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
         suffix_output = client.handle_pow_cpp(token, difficulty, str(fake_bin))
 
@@ -397,6 +408,7 @@ class TestHandlePowCpp:
             return FakeCompleted(stdout="RESULT:\n", stderr="", returncode=0)
 
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
+        monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
         with pytest.raises(ValueError, match=r"No RESULT found in WORK output."):
             client.handle_pow_cpp(token, difficulty, fake_bin, timeout)
