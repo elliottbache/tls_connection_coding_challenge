@@ -44,15 +44,15 @@ function(enable_sanitizers target)
   endif()
 endfunction()
 
-add_library(pow_core src/pow_core.cpp src/pow_core.h)
-target_include_directories(pow_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_library(pow_core pow_core.cpp pow_core.h)
+target_include_directories(pow_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(pow_core
   PUBLIC Threads::Threads
   PRIVATE OpenSSL::Crypto
 )
 enable_sanitizers(pow_core)
 
-add_executable(pow_challenge src/pow_challenge.cpp)
+add_executable(pow_challenge pow_challenge.cpp)
 target_link_libraries(pow_challenge
   PRIVATE pow_core OpenSSL::Crypto OpenSSL::SSL
 )
@@ -70,9 +70,9 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 add_executable(pow_core_test
-  src/tests/pow_core_test.cpp
+  tests/pow_core_test.cpp
 )
-target_include_directories(pow_core_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(pow_core_test PRIVATE ${CMAKE_SOURCE_DIR})
 enable_sanitizers(pow_core_test)
 
 include(GoogleTest)
@@ -85,4 +85,8 @@ target_link_libraries(pow_core_test
         OpenSSL::SSL
         OpenSSL::Crypto
         Threads::Threads
+)
+
+install(TARGETS pow_challenge
+  RUNTIME DESTINATION tlslp/_bin
 )

@@ -37,7 +37,7 @@ sequenceDiagram
 ## Architecture
 ### Components
 - **Client** (src/client.py)
-  - ``tls_connect(...)`` – Create SSL context and return a TLS-wrapped socket.
+  - ``prepare_client_socket(...)`` – Create SSL context and return a TLS-wrapped socket.
   - ``connect_to_server(...)`` – Connect + error reporting.
   - ``decipher_message(...)`` – Validate/parse incoming lines.
   - ``hasher(...)`` – ``SHA256(token + payload)``.
@@ -171,6 +171,7 @@ Client reply format:
 - Malformed input, invalid commands, UTF-8 failure, or missing newline → treat as 
 error and close.
 - Command timeouts: ``WORK`` 7200s; others 6s.
+- Socket timeout: 24h.
 
 ---
 
@@ -179,9 +180,9 @@ error and close.
 You can run **insecure** (disabled verification) for development purposes and 
 **mutual TLS (mTLS)**  for production. Basic TLS can be set by:
 - Using the ```--insecure``` flag on the CLI
-- Making ``DEFAULT_IS_SECURE = False`` in "src/protocol.py" or
-- Changing from ``is_secure = DEFAULT_IS_SECURE`` to ``is_secure = False`` in "src/server.py"
-and "src/client.py".
+- Making ``DEFAULT_IS_SECURE = False`` in ```src/protocol.py``` or
+- Changing from ``is_secure = DEFAULT_IS_SECURE`` to ``is_secure = False`` in ```src/server.py```
+and ```src/client.py```.
 
 
 ### Basic TLS for quick testing
@@ -217,7 +218,8 @@ fail closed: treat all network input as untrusted, validate aggressively, and st
 modes predictable.
 
 **How** this is done:
-- Set **Socket timeout** for the whole connection (already done via socket.settimeout(TIMEOUT)).
+- Set **Socket timeout** for the whole connection (done via socket.settimeout(TIMEOUT) where
+TIMEOUT is 24h by default).
 - Enforce **per-operation timeouts**:
   - WORK can be long (e.g., 2h) but still bounded.
   - Everything else should have a short upper bound (e.g., 6s).
@@ -288,7 +290,7 @@ The WORK solver is intentionally an external executable.  It is treated like unt
         - reject world-writable binary or directory (this is not done in Windows)
         - require executable bit
   - Scrub environment:
-      - minimal env {"LC_ALL": "C"}
+      - minimal env ```{"LC_ALL": "C"}```
   - Bound resource usage:
       - ```timeout=...``` (you do this)
   - Parse output defensively:

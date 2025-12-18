@@ -9,8 +9,9 @@ import sys
 
 import pytest
 
-from src import client
-from src.tests.helpers import FakeContext, FakeSocket, FakeWrappedSock
+from tlslp import client
+
+from .helpers import FakeContext, FakeSocket, FakeWrappedSock
 
 
 # helpers
