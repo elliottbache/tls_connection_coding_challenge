@@ -268,13 +268,13 @@ class TestRunPowBinary:
     ):
         wrong_authdata = 5.3
 
-        with pytest.raises(ValueError, match=r"authdata is not a string."):
+        with pytest.raises(ValueError, match=r"Tested variable is not a string."):
             client.run_pow_binary(fake_bin, wrong_authdata, difficulty)
 
     def test_run_pow_binary_invalid_authdata(self, difficulty, fake_bin):
         wrong_authdata = "poiasfdlkas+/"
         with pytest.raises(
-            ValueError, match="authdata contains disallowed characters or length"
+            ValueError, match="String contains disallowed characters or length"
         ):
             client.run_pow_binary(fake_bin, wrong_authdata, difficulty)
 
@@ -284,7 +284,7 @@ class TestRunPowBinary:
             + "asdfdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         )
         with pytest.raises(
-            ValueError, match="authdata contains disallowed characters or length"
+            ValueError, match="String contains disallowed characters or length"
         ):
             client.run_pow_binary(fake_bin, wrong_authdata, difficulty)
 
