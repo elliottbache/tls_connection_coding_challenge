@@ -87,7 +87,7 @@ class FakeProcess:
 def fake_bin(tmp_path):
     new_path = tmp_path
     new_path.chmod(new_path.stat().st_mode & ~stat.S_IWOTH)
-    new_bin = new_path / "pow_benchmark"
+    new_bin = new_path / "pow_challenge"
     new_bin.touch()
     new_bin.chmod(new_bin.stat().st_mode & ~stat.S_IWOTH)
     new_bin.chmod(new_bin.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
@@ -221,7 +221,7 @@ class TestRunPowBinary:
         difficulty,
         suffix,
         pow_hash,
-        path_to_pow_benchmark,
+        path_to_pow_challenge,
         monkeypatch,
         readout,
     ):
@@ -264,7 +264,7 @@ class TestRunPowBinary:
         assert calls["env"] == {"LC_ALL": "C"}
 
     def test_run_pow_binary_non_str_token(
-        self, fake_bin, difficulty, path_to_pow_benchmark
+        self, fake_bin, difficulty, path_to_pow_challenge
     ):
         wrong_token = 5.3
 
@@ -330,7 +330,7 @@ class TestRunPowBinary:
             raise subprocess.CalledProcessError(
                 returncode=1,
                 stderr="Big, bad error",
-                cmd="pow_benchmark gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFC"
+                cmd="pow_challenge gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFC"
                 + "AzuwkwLCRgIIq 6",
             )
 
@@ -348,7 +348,7 @@ class TestRunPowBinary:
                 timeout=timeout,
                 output="",
                 stderr="",
-                cmd="pow_benchmark gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFC"
+                cmd="pow_challenge gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFC"
                 + "AzuwkwLCRgIIq 6",
             )
 
@@ -366,7 +366,7 @@ class TestHandlePowCpp:
         timeout,
         suffix,
         pow_hash,
-        path_to_pow_benchmark,
+        path_to_pow_challenge,
         monkeypatch,
         readout,
     ):
@@ -383,11 +383,11 @@ class TestHandlePowCpp:
         assert suffix_output == suffix + "\n"
 
     def test_handle_pow_cpp_no_executable(
-        self, token, difficulty, timeout, path_to_pow_benchmark
+        self, token, difficulty, timeout, path_to_pow_challenge
     ):
 
         with pytest.raises(FileNotFoundError, match="WORK binary not a regular file"):
-            client.handle_pow_cpp(token, difficulty, path_to_pow_benchmark, timeout)
+            client.handle_pow_cpp(token, difficulty, path_to_pow_challenge, timeout)
 
     def test_handle_pow_cpp_no_result(
         self, token, difficulty, timeout, fake_bin, monkeypatch
@@ -404,12 +404,12 @@ class TestHandlePowCpp:
 
 class TestDefineResponse:
     def test_define_response_success_helo(
-        self, token, valid_messages, path_to_pow_benchmark, readout
+        self, token, valid_messages, path_to_pow_challenge, readout
     ):
         q = queue.Queue()
         responses = {}
         client.define_response(
-            ["HELLO"], token, valid_messages, q, responses, path_to_pow_benchmark
+            ["HELLO"], token, valid_messages, q, responses, path_to_pow_challenge
         )
         assert q.get() == (False, "HELLOBACK\n")
 
@@ -417,17 +417,17 @@ class TestDefineResponse:
         assert out == ""
 
     def test_define_response_success_end(
-        self, token, valid_messages, path_to_pow_benchmark, readout
+        self, token, valid_messages, path_to_pow_challenge, readout
     ):
         q = queue.Queue()
         responses = {}
         client.define_response(
-            ["DONE"], token, valid_messages, q, responses, path_to_pow_benchmark
+            ["DONE"], token, valid_messages, q, responses, path_to_pow_challenge
         )
         assert q.get() == (False, "OK\n")
 
     def test_define_response_success_error(
-        self, token, valid_messages, path_to_pow_benchmark
+        self, token, valid_messages, path_to_pow_challenge
     ):
         q = queue.Queue()
         responses = {}
@@ -437,19 +437,19 @@ class TestDefineResponse:
             valid_messages,
             q,
             responses,
-            path_to_pow_benchmark,
+            path_to_pow_challenge,
         )
         assert q.get() == (False, "\n")
 
     def test_define_response_success(
-        self, token, random_string, valid_messages, path_to_pow_benchmark
+        self, token, random_string, valid_messages, path_to_pow_challenge
     ):
         q = queue.Queue()
         responses = {"MAILNUM": "2"}
         args = ["MAILNUM", random_string]
 
         client.define_response(
-            args, token, valid_messages, q, responses, path_to_pow_benchmark
+            args, token, valid_messages, q, responses, path_to_pow_challenge
         )
         out_string = (
             hashlib.sha256((token + args[1]).encode()).hexdigest()  # noqa: S324
@@ -466,7 +466,7 @@ class TestDefineResponse:
         random_string,
         suffix,
         valid_messages,
-        path_to_pow_benchmark,
+        path_to_pow_challenge,
         monkeypatch,
     ):
         q = queue.Queue()
@@ -479,17 +479,17 @@ class TestDefineResponse:
         monkeypatch.setattr(client, "handle_pow_cpp", fake_handle_pow_cpp)
 
         client.define_response(
-            args, token, valid_messages, q, responses, path_to_pow_benchmark
+            args, token, valid_messages, q, responses, path_to_pow_challenge
         )
         assert q.get() == (False, suffix + "\n")
 
     def test_define_response_success_invalid(
-        self, token, valid_messages, path_to_pow_benchmark
+        self, token, valid_messages, path_to_pow_challenge
     ):
         q = queue.Queue()
         responses = {}
         client.define_response(
-            ["HELLOP"], token, valid_messages, q, responses, path_to_pow_benchmark
+            ["HELLOP"], token, valid_messages, q, responses, path_to_pow_challenge
         )
         assert q.get() == (True, "\n")
 
@@ -500,7 +500,7 @@ class TestDefineResponse:
         random_string,
         suffix,
         valid_messages,
-        path_to_pow_benchmark,
+        path_to_pow_challenge,
         monkeypatch,
     ):
         q = queue.Queue()
@@ -513,7 +513,7 @@ class TestDefineResponse:
         monkeypatch.setattr(client, "handle_pow_cpp", fake_handle_pow_cpp)
 
         client.define_response(
-            args, token, valid_messages, q, responses, path_to_pow_benchmark
+            args, token, valid_messages, q, responses, path_to_pow_challenge
         )
         assert q.get() == (False, suffix)
 
@@ -623,7 +623,7 @@ class TestProcessMessageWithTimeout:
             token=token,
             valid_messages=valid_messages,
             responses={},
-            cpp_binary_path="/path/to/benchmark",
+            cpp_binary_path="/path/to/challenge",
             pow_timeout=999,
             other_timeout=123,
         )
@@ -654,7 +654,7 @@ class TestProcessMessageWithTimeout:
             token=token,
             valid_messages=valid_messages,
             responses=client.DEFAULT_RESPONSES,
-            cpp_binary_path="/path/to/benchmark",
+            cpp_binary_path="/path/to/challenge",
             pow_timeout=777,
             other_timeout=1,
         )
@@ -684,7 +684,7 @@ class TestProcessMessageWithTimeout:
                 token=token,
                 valid_messages=valid_messages,
                 responses=client.DEFAULT_RESPONSES,
-                cpp_binary_path="/path/to/benchmark",
+                cpp_binary_path="/path/to/challenge",
                 pow_timeout=1,
                 other_timeout=1,
             )
@@ -712,7 +712,7 @@ class TestProcessMessageWithTimeout:
                 token=token,
                 valid_messages=valid_messages,
                 responses=client.DEFAULT_RESPONSES,
-                cpp_binary_path="/path/to/benchmark",
+                cpp_binary_path="/path/to/challenge",
                 pow_timeout=1,
                 other_timeout=1,
             )
