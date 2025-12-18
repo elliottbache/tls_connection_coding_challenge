@@ -58,6 +58,7 @@ from src.protocol import (
 )
 
 DEFAULT_CPP_BINARY_PATH = "build/pow_challenge"  # path to c++ executable
+DEFAULT_ALLOWED_ROOT = "build"
 DEFAULT_RESPONSES = {
     "NAME": "Elliott Bache",
     "MAILNUM": "2",
@@ -373,7 +374,7 @@ def _is_world_writable(path: Path) -> bool:
         return True
 
 
-def _validate_path(bin_path: Path) -> None:
+def _validate_path(bin_path: Path, allowed_root: Path | None = None) -> None:
     """Resolve and vet path."""
     # check if file exists
     if not bin_path.is_file():
@@ -383,25 +384,23 @@ def _validate_path(bin_path: Path) -> None:
         raise PermissionError(f"Refusing to execute symlink: {bin_path}")
     # check if it's executable
     if os.name == "posix" and not os.access(bin_path, os.X_OK):
-        """if not executable, change mode to executable
-        try:
-            bin_path.chmod(
-                bin_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
-            )
-        except Exception as e:
-            raise PermissionError(
-                f"POW binary at {bin_path} is not executable. chmod failed: {e}"
-            ) from e"""
         raise PermissionError(f"POW binary at {bin_path} is not executable.")
     # check if it's world writable
     if _is_world_writable(bin_path) or _is_world_writable(bin_path.parent):
         raise PermissionError(f"Insecure permissions on {bin_path} or its directory")
+    # check if it's in an allowed folder
+    if allowed_root is not None:
+        root = allowed_root.resolve(strict=True)
+        if not bin_path.is_relative_to(root):
+            raise PermissionError(
+                f"Insecure directory location {bin_path.parent} for {bin_path}"
+            )
 
 
 def _validate_string(s: str) -> None:
     """Validate string."""
     if not isinstance(s, str):
-        raise ValueError(
+        raise TypeError(
             "Tested variable is not a string.  Exiting since hashing function "
             "will not work correctly"
         )
@@ -424,10 +423,10 @@ def _validate_difficulty(difficulty: str) -> None:
         raise ValueError("POW difficulty is out of range")
 
 
-def _check_inputs(cpp_binary_path: Path, authdata: str, difficulty: str) -> None:
+def _check_inputs(bin_path: Path, authdata: str, difficulty: str) -> None:
 
     # resolve and vet the executable path
-    _validate_path(cpp_binary_path)
+    _validate_path(bin_path, Path(DEFAULT_ALLOWED_ROOT))
 
     # validate authdata
     _validate_string(authdata)
