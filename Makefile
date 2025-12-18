@@ -75,7 +75,7 @@ bench:
 	import time
 	import subprocess
 	t0=time.time()
-	subprocess.run(["build/pow_benchmark","testauth","4","2"], check=True)
+	subprocess.run(["build/pow_challenge","gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq","9"], check=True)
 	print("Elapsed:", time.time()-t0, "s")
 	PY
 

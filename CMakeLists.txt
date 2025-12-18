@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(pow_benchmark LANGUAGES CXX)
+project(pow_challenge LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -52,11 +52,11 @@ target_link_libraries(pow_core
 )
 enable_sanitizers(pow_core)
 
-add_executable(pow_benchmark src/pow_benchmark.cpp)
-target_link_libraries(pow_benchmark
+add_executable(pow_challenge src/pow_challenge.cpp)
+target_link_libraries(pow_challenge
   PRIVATE pow_core OpenSSL::Crypto OpenSSL::SSL
 )
-enable_sanitizers(pow_benchmark)
+enable_sanitizers(pow_challenge)
 
 include(FetchContent)
 FetchContent_Declare(
