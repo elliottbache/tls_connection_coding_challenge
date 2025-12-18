@@ -268,13 +268,13 @@ class TestRunPowBinary:
     ):
         wrong_token = 5.3
 
-        with pytest.raises(ValueError, match=r"token is not a string."):
+        with pytest.raises(ValueError, match=r"Tested variable is not a string."):
             client.run_pow_binary(fake_bin, wrong_token, difficulty)
 
     def test_run_pow_binary_invalid_token(self, difficulty, fake_bin):
         wrong_token = "poiasfdlkas+/"
         with pytest.raises(
-            ValueError, match="token contains disallowed characters or length"
+            ValueError, match="String contains disallowed characters or length"
         ):
             client.run_pow_binary(fake_bin, wrong_token, difficulty)
 
@@ -284,7 +284,7 @@ class TestRunPowBinary:
             + "asdfdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         )
         with pytest.raises(
-            ValueError, match="token contains disallowed characters or length"
+            ValueError, match="String contains disallowed characters or length"
         ):
             client.run_pow_binary(fake_bin, wrong_token, difficulty)
 
