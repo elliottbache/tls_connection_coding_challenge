@@ -29,8 +29,9 @@ import ssl
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from src.protocol import (
+from tlscc.protocol import (
     DEFAULT_CA_CERT,
+    DEFAULT_LONG_TIMEOUT,
     DEFAULT_OTHER_TIMEOUT,
     DEFAULT_POW_TIMEOUT,
     DEFAULT_SERVER_HOST,
@@ -313,7 +314,7 @@ def prepare_server_socket(
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(server_address)
     server_socket.listen(1)
-    server_socket.settimeout(timeout)
+    server_socket.settimeout(DEFAULT_LONG_TIMEOUT)
 
     if is_secure:
         # wrap the socket with SSL

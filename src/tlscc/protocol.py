@@ -24,6 +24,7 @@ DEFAULT_IS_SECURE = True  # if we connect from localhost to localhost, this is F
 DEFAULT_CA_CERT = "certificates/ca_cert.pem"
 DEFAULT_OTHER_TIMEOUT = 6
 DEFAULT_POW_TIMEOUT = 7200
+DEFAULT_LONG_TIMEOUT = 24 * 3600
 DEFAULT_SERVER_HOST = "localhost"
 
 
@@ -45,7 +46,7 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
 
     Examples:
         Basic usage with an in-process socketpair (no network):
-        >>> from src.server import send_message
+        >>> from src import send_message
         >>> s1, s2 = socket.socketpair()
         >>> try:
         ...     _ = send_message("hello\\n", s1)   # returns 0 on success
@@ -105,7 +106,7 @@ def receive_message(secure_sock: socket.socket) -> str:
 
     Examples:
         Basic usage with an in-process socketpair (no network):
-        >>> from src.server import receive_message
+        >>> from src import receive_message
         >>> s1, s2 = socket.socketpair()
         >>> try:
         ...     _ = s1.send(b"hello\\n")

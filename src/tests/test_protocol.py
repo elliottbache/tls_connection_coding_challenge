@@ -1,11 +1,8 @@
 import pytest
 
-from src import protocol
+from tlscc import protocol
 
-
-class FakeSock:
-    def recv(self, n):
-        return "hello\n"  # <-- str, not bytes
+from .helpers import FakeSocket
 
 
 class TestReceiveMessage:
@@ -45,7 +42,7 @@ class TestReceiveMessage:
             protocol.receive_message(s2)
 
     def test_receive_non_bytes(self, socket_pair, readout):
-        sock = FakeSock()
+        sock = FakeSocket()
         with pytest.raises(TypeError, match=r"Receive failed.  Unexpected type:"):
             protocol.receive_message(sock)
 

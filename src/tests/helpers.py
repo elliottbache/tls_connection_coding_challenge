@@ -65,3 +65,6 @@ class FakeSocket:
     def accept(self):
         self.accept_calls += 1
         return object(), ("127.0.0.1", 54321)
+
+    def recv(self, n):
+        return "hello\n"  # <-- str, not bytes

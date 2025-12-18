@@ -47,8 +47,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.protocol import (
+from tlscc.protocol import (
     DEFAULT_CA_CERT,
+    DEFAULT_LONG_TIMEOUT,
     DEFAULT_OTHER_TIMEOUT,
     DEFAULT_POW_TIMEOUT,
     DEFAULT_SERVER_HOST,
@@ -57,8 +58,8 @@ from src.protocol import (
     send_message,
 )
 
-DEFAULT_CPP_BINARY_PATH = "build/pow_challenge"  # path to c++ executable
-DEFAULT_ALLOWED_ROOT = "build"
+DEFAULT_CPP_BINARY_PATH = "src/tlscc/_bin/pow_challenge"  # path to c++ executable
+DEFAULT_ALLOWED_ROOT = "src/tlscc/_bin"
 DEFAULT_RESPONSES = {
     "NAME": "Elliott Bache",
     "MAILNUM": "2",
@@ -244,7 +245,7 @@ def prepare_client_socket(
 
     # create the client socket
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.settimeout(timeout)
+    client_socket.settimeout(DEFAULT_LONG_TIMEOUT)
 
     if is_secure:
         # create an SSL context, loading CA certificate
@@ -287,7 +288,7 @@ def hasher(authdata: str, input_string: str) -> str:
         >>> authdata = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu' \
             + 'WROTeTaSmqFCAzuwkwLCRgIIq'
         >>> input_string = 'LGTk'
-        >>> from src.client import hasher
+        >>> from src import hasher
         >>> hasher(authdata, input_string)
         'bd8de303197ac9997d5a721a11c46d9ed0450798'
     """
@@ -316,7 +317,7 @@ def decipher_message(message: str, valid_messages: set[str]) -> list[str]:
         >>> valid_messages = {'HELO', 'END', 'MAIL2', 'BIRTHDATE', \
          'MAILNUM', 'ADDRNUM', 'MAIL1', 'ADDRLINE2', 'POW', 'ERROR', \
          'SKYPE', 'COUNTRY', 'ADDRLINE1', 'NAME'}
-        >>> from src.client import decipher_message
+        >>> from src import decipher_message
         >>> decipher_message(message, valid_messages)
         Received MAILNUM LGTk
         (0, ['MAILNUM', 'LGTk'])
@@ -512,7 +513,7 @@ def handle_pow_cpp(
             + 'WROTeTaSmqFCAzuwkwLCRgIIq'
         >>> difficulty = "6"
         >>> cpp_binary_path = "build/pow_prepare_server_socket"
-        >>> from src.client import handle_pow_cpp
+        >>> from src import handle_pow_cpp
         >>> handle_pow_cpp(authdata, difficulty, cpp_binary_path) \
             # doctest: +ELLIPSIS
         POW difficulty: ...
@@ -587,7 +588,7 @@ def define_response(
             'SKYPE', 'COUNTRY', 'ADDRLINE1', 'NAME'}
             >>> cpp_binary_path = "build/pow_prepare_server_socket"
             >>> responses = {}
-            >>> from src.client import define_response
+            >>> from src import define_response
             >>> # a tiny queue we can inspect
             >>> class Q:
             ...     def __init__(self): self.items = []

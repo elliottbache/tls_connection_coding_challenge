@@ -2,6 +2,10 @@
 name = "tls-connection-coding-challenge"
 version = "0.1.0"
 dependencies = ["cryptography", "trustme"]
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "GPL-3.0" }
+authors = [{ name = "Elliott Bache" }]
 
 [project.optional-dependencies]
 dev = [
@@ -9,6 +13,8 @@ dev = [
   "pytest-timeout",
   "sphinx",
   "sphinx-autodoc-typehints",
+  "sphinxcontrib.mermaid",
+  "sphinx_rtd_theme",
   "pre-commit",
   "ruff",
   "black",
@@ -18,8 +24,17 @@ dev = [
   "myst-parser>=3.0",
   "breathe",
   "pytest-cov",
-
 ]
+
+[project.scripts]
+tlscc-client = "tlscc.client:main"
+tlscc-server = "tlscc.server:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+tlscc = ["_bin/pow_challenge"]
 
 # pyproject.toml
 [tool.ruff]
@@ -56,14 +71,14 @@ ignore_missing_imports = true
 files = ["src"]
 explicit_package_bases = true
 namespace_packages = true
-mypy_path = ["."]
+mypy_path = ["src"]
 
 [[tool.mypy.overrides]]
-module = "src.tests.*"
+module = "tests.*"
 ignore_errors = true
 
 [tool.codespell]
-skip = "./docs/_build/*,build,dist,.venv,build-asan,build-tsan,./docs/html/*,old_files,_deps,htmlcov"
+skip = "./docs/_build/*,build,dist,.venv,build-asan,build-tsan,./docs/html/*,old_files,_deps,htmlcov,WD,./src/include"
 ignore-words-list = "teh,nd"  # add project-specific false positives
 
 [tool.pytest.ini_options]

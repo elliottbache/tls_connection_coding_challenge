@@ -2,7 +2,7 @@
 PROJECT_NAME           = "TLS Coding Challenge"
 
 # ---- Inputs (headers only) ----
-INPUT                  = src
+INPUT                  = cpp
 RECURSIVE              = YES
 FILE_PATTERNS          = *.h *.hpp *.hh *.hxx *.ipp
 EXCLUDE_PATTERNS       = */build/* */.venv/* */.tox/* */tests/_build/*

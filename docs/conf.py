@@ -2,15 +2,11 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
-import os
 import pathlib
 import sys
 
-# Make your package importable
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))  # <- make src/ importable
-# repo root so "import src.client" works
-sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, str(ROOT / "src"))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -57,13 +53,18 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "sphinx_rtd_theme"
-html_static_path = ["_static"]
+# html_static_path = ["_static"]
+html_static_path = []
 
 
 # add C++ documentation
 # Sphinx (docs/conf.py)
-breathe_default_project = "tls-connection-coding-challenge"
 
 DOCS = pathlib.Path(__file__).parent
 BREATHE_XML = DOCS / "_build" / "doxygen" / "xml"
-breathe_projects = {"tls-connection-coding-challenge": str(BREATHE_XML)}
+breathe_projects = {
+    "tls-connection-coding-challenge": str(
+        pathlib.Path(__file__).resolve().parent / "_build" / "doxygen" / "xml"
+    )
+}
+breathe_default_project = "tls-connection-coding-challenge"
