@@ -52,6 +52,7 @@ from src.protocol import (
     DEFAULT_OTHER_TIMEOUT,
     DEFAULT_WORK_TIMEOUT,
     DEFAULT_SERVER_HOST,
+    MAX_LINE_LENGTH,
     receive_message,
     send_message,
 )
@@ -397,16 +398,19 @@ def _validate_path(bin_path: Path) -> None:
         raise PermissionError(f"Insecure permissions on {bin_path} or its directory")
 
 
-def _validate_token(token: str) -> None:
-    """Validate token."""
-    if not isinstance(token, str):
+def _validate_string(s: str) -> None:
+    """Validate string."""
+    if not isinstance(s, str):
         raise ValueError(
-            "token is not a string.  Exiting since hashing function "
+            "Tested variable is not a string.  Exiting since hashing function "
             "will not work correctly"
         )
 
-    if not re.fullmatch(r"[A-Za-z0-9._~-]{1,128}", token):
-        raise ValueError("token contains disallowed characters or length")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", s):
+        raise ValueError("String contains disallowed characters or length")
+
+    if len(s) > MAX_LINE_LENGTH:
+        raise ValueError("String too long")
 
 
 def _validate_difficulty(difficulty: str) -> None:
@@ -426,7 +430,7 @@ def _check_inputs(cpp_binary_path: Path, token: str, difficulty: str) -> None:
     _validate_path(cpp_binary_path)
 
     # validate token
-    _validate_token(token)
+    _validate_string(token)
 
     # validate difficulty as an int
     _validate_difficulty(difficulty)
@@ -537,7 +541,7 @@ def handle_pow_cpp(
         ) from e
 
     except subprocess.CalledProcessError as e:
-        _validate_token(token)
+        _validate_string(token)
         _validate_difficulty(difficulty)
         raise subprocess.CalledProcessError(
             1,
@@ -604,10 +608,11 @@ def define_response(
         difficulty = args[2]
 
         result = handle_pow_cpp(token, difficulty, cpp_binary_path)
+        _validate_string(result.rstrip("\n"))
         is_err = False
 
     elif args[0] in valid_messages:
-        _validate_token(token)
+        _validate_string(token)
         is_err, result = (
             False,
             hasher(token, args[1]) + " " + responses[args[0]] + "\n",
