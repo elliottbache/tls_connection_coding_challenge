@@ -6,7 +6,7 @@ confidentiality reasons.  The client connects to the server and then
 listens for a list of commands that are answered one by one.  The
 first two commands are the handshake and contain 'HELO' and 'POW'.
 The POW challenge must be resolved in 2 hours.  This challenge is
-resolved by a C++ code called pow_benchmark.cpp.  Multithreading is
+resolved by a C++ code called pow_challenge.cpp.  Multithreading is
 used when calling this C++ code.
 
 Functions:
@@ -56,7 +56,7 @@ from src.protocol import (
     send_message,
 )
 
-DEFAULT_CPP_BINARY_PATH = "build/pow_benchmark"  # path to c++ executable
+DEFAULT_CPP_BINARY_PATH = "build/pow_challenge"  # path to c++ executable
 DEFAULT_RESPONSES = {
     "NAME": "Elliott Bache",
     "MAILNUM": "2",
@@ -164,7 +164,7 @@ def build_client_parser() -> argparse.ArgumentParser:
         "--pow-binary",
         default=DEFAULT_CPP_BINARY_PATH,
         type=str,
-        help="path to pow_benchmark executable",
+        help="path to pow_prepare_server_socket executable",
     )
 
     p.add_argument(
@@ -507,12 +507,12 @@ def handle_pow_cpp(
         >>> authdata = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu' \
             + 'WROTeTaSmqFCAzuwkwLCRgIIq'
         >>> difficulty = "6"
-        >>> cpp_binary_path = "build/pow_benchmark"
+        >>> cpp_binary_path = "build/pow_prepare_server_socket"
         >>> from src.client import handle_pow_cpp
         >>> handle_pow_cpp(authdata, difficulty, cpp_binary_path) \
             # doctest: +ELLIPSIS
         POW difficulty: ...
-        POW benchmark executable not found.
+        POW prepare_server_socket executable not found.
         (4, b'\\n')
     """
     # run pre-compiled c++ code for finding suffix
@@ -541,7 +541,7 @@ def handle_pow_cpp(
         _validate_difficulty(difficulty)
         raise subprocess.CalledProcessError(
             1,
-            cmd="pow_benchmark" + authdata + difficulty,
+            cmd="pow_prepare_server_socket" + authdata + difficulty,
             stderr=f"Error running executable: {e}",
         ) from e
 
@@ -581,7 +581,7 @@ def define_response(
             >>> valid_messages = {'HELO', 'END', 'MAIL2', 'BIRTHDATE', \
             'MAILNUM', 'ADDRNUM', 'MAIL1', 'ADDRLINE2', 'POW', 'ERROR', \
             'SKYPE', 'COUNTRY', 'ADDRLINE1', 'NAME'}
-            >>> cpp_binary_path = "build/pow_benchmark"
+            >>> cpp_binary_path = "build/pow_prepare_server_socket"
             >>> responses = {}
             >>> from src.client import define_response
             >>> # a tiny queue we can inspect

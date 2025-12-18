@@ -15,8 +15,8 @@ def readout(capsys) -> Callable[[], Any]:
 
 
 @pytest.fixture
-def path_to_pow_benchmark():
-    return "path/to/pow_benchmark"
+def path_to_pow_challenge():
+    return "path/to/pow_challenge"
 
 
 @pytest.fixture

@@ -103,7 +103,7 @@ docker compose up --build
 ```
 
 ## Installation
-## Creating client and server side certificates
+### Creating client and server side certificates
 Follow these steps to create the proper certificates for local testing.  These same commands may be found in
 ```scripts/make-certs.sh```.  
 
@@ -117,30 +117,30 @@ $ mkdir certificates
 $ cd certificates
 ```
 
-### Client side
-#### Create a certificate authority (CA)
+#### Client side
+##### Create a certificate authority (CA)
 ```sh
 $ openssl genrsa -out ca_key.pem 2048
 $ openssl req -x509 -new -nodes -key ca_key.pem -sha256 -days 3650 -out ca_cert.pem -subj "/CN=My Test CA"
 ```
 This should create "ca_cert.pem" and "ca_key.pem".
 
-#### Create a client key and certificate signing request (CSR)
+##### Create a client key and certificate signing request (CSR)
 ```sh
 $ openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out ec_private_key.pem
 $ openssl req -new -key ec_private_key.pem -out client.csr -subj "/CN=client"
 ```
 This should create "client.csr" and "ec_private_key.pem".
 
-#### Sign the client key with the CA
+##### Sign the client key with the CA
 ```sh
 $ openssl x509 -req -in client.csr -CA ca_cert.pem -CAkey ca_key.pem -CAcreateserial -out client_cert.pem -days 365
 -sha256
 ```
 This creates "ca_cert.srl" and "client_cert.pem".
 
-### Server side
-#### Prepare the server certificates
+#### Server side
+##### Prepare the server certificates
 ```sh
 $ openssl req -x509 -newkey rsa:2048 -nodes -keyout server-key.pem -out server-cert.pem -days 365 -subj "/CN=localhost"
 ```
@@ -150,19 +150,19 @@ This creates "server-cert.pem" and "server-key.pem".  You will need to answer a 
 This password will be used every time you launch the server and use the certificate. 
 
 ## Compiling C++ code for finding checksum
-The C++ code "pow_benchmark.cpp" is used to find a checksum with enough leading zeroes for specified difficulty.  C++
+The C++ code "pow_challenge.cpp" is used to find a checksum with enough leading zeroes for specified difficulty.  C++
 is used rather than Python due to its speed.
 
 In a Linux terminal from the "src" folder, enter:
 ```sh
 $ mkdir ../build
-$ g++ -O3 -std=c++17 pow_benchmark.cpp pow_core.cpp -o ../build/pow_benchmark -lssl -lcrypto -pthread
+$ g++ -O3 -std=c++17 pow_challenge.cpp pow_core.cpp -o ../build/pow_challenge -lssl -lcrypto -pthread
 ```
 
 ## Execution / Usage
 
 This program was developed with Python 3.11.14.  It is intended for use in Linux, and some of the security 
-checks are not available in Windows (such as checking that the POW benchmark binary file launched with 
+checks are not available in Windows (such as checking that the POW challenge binary file launched with 
 subprocess.run is not world writable).  
 
 To run TLS connection coding challenge, fire up a terminal window and run the following command in the "src" folder:
@@ -187,9 +187,9 @@ $ python client.py
 ```
 Various flags are available for running in CLI.  e.g.
 ```sh
-# Connect to same host/port, using local pow_benchmark
+# Connect to same host/port, using local pow_challenge
 python -m src.client --host localhost --ports 3481 \
-  --pow-bin build/pow_benchmark --insecure
+  --pow-bin build/pow_challenge --insecure
 
 ```
 

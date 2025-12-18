@@ -56,7 +56,7 @@ python -m src.server
 python -m src.client
 ```
 ## C++ POW helper
-- Place the compiled ```build/pow_benchmark``` in ```build/``` (Linux/macOS), or adjust ```DEFAULT_CPP_BINARY_PATH```.
+- Place the compiled ```build/pow_challenge``` in ```build/``` (Linux/macOS), or adjust ```DEFAULT_CPP_BINARY_PATH```.
 - Add a quick ctest/pytest smoke test if you change the binary interface.
 
 ## Test matrix & quality gates
