@@ -5,5 +5,5 @@ Python API
    :toctree: _autosummary
    :recursive:
 
-   server
-   client
+   tlslp.server
+   tlslp.client

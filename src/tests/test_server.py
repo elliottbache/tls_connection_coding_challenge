@@ -4,8 +4,9 @@ from contextlib import closing
 
 import pytest
 
-from src import server
-from src.tests.helpers import FakeContext, FakeSocket, FakeSSLContext
+from tlslp import server
+
+from .helpers import FakeContext, FakeSocket, FakeSSLContext
 
 
 # helpers
@@ -64,7 +65,6 @@ class TestSendAndReceive:
         self, socket_pair, token, random_string, readout
     ):
         s1, s2 = socket_pair
-        s1.close()
         s2.close()
 
         with pytest.raises(Exception, match=r"Send failed."):

@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: docker/server.Dockerfile
     network_mode: "host"
-    command: ["python", "-m", "src.server"]      # server binds 127.0.0.1:1234
+    command: ["tlslp-server"]      # server binds 127.0.0.1:1234
 
   client:
     build:
@@ -14,5 +14,5 @@ services:
     environment:
       HOSTFULL_NAME: "localhost"
       PORT: "1234"
-    command: ["python", "-m", "src.client"]      # client connects to 127.0.0.1:1234
+    command: ["tlslp-client"]      # client connects to 127.0.0.1:1234
 
