@@ -58,7 +58,7 @@ class TestSendAndReceive:
         s1, s2 = socket_pair
 
         _ = s2.sendall(b"ERROR internal server error\n")
-        with pytest.raises(Exception, match=r"ERROR internal server error"):
+        with pytest.raises(Exception, match=r"internal server error"):
             server.send_and_receive(authdata, "ERROR internal server error", s1)
 
     def test_send_and_receive_error_sending(
@@ -76,7 +76,7 @@ class TestSendAndReceive:
         s1, s2 = socket_pair
         s2.settimeout(0)
 
-        with pytest.raises(Exception, match=r"Client timed out"):
+        with pytest.raises(Exception, match=r"Client timeout"):
             server.send_and_receive(authdata, random_string, s1)
 
     def test_send_and_receive_helo(self, socket_pair, authdata):
@@ -122,7 +122,7 @@ class TestSendAndReceive:
         s2.sendall((suffix + "p\n").encode("utf-8"))
 
         # server sends POW command and receives incorrect suffix from client
-        with pytest.raises(Exception, match=r"Invalid suffix returned from client."):
+        with pytest.raises(ValueError, match=r"Invalid suffix returned from client."):
             server.send_and_receive(authdata, "POW " + authdata + " " + difficulty, s1)
 
         # check second message sent from server declaring an error has occurred in the POW challenge
@@ -138,7 +138,7 @@ class TestSendAndReceive:
         s2.sendall((cksum[:-1] + "p 2\n").encode("utf-8"))
 
         # server sends MAILNUM command and receives incorrect checksum from client
-        with pytest.raises(Exception, match=r"Invalid checksum received."):
+        with pytest.raises(ValueError, match=r"Invalid checksum received."):
             server.send_and_receive(authdata, "MAILNUM " + random_string, s1)
 
         # check second message sent from server declaring an error has occurred in
@@ -290,7 +290,7 @@ class TestMain:
 
         # catch error and print
         out = readout()
-        assert "Exception: Error!" in out
+        assert "Connection closed" in out
 
         # even on exception, __exit__ should run
         assert fake_context.wrapped.exited is True

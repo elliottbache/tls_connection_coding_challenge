@@ -39,7 +39,7 @@ tlscc = ["_bin/pow_challenge"]
 # pyproject.toml
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E","F","I","UP","B","SIM","S","PERF","RUF"]

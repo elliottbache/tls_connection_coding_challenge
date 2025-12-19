@@ -374,13 +374,14 @@ pow_challenge <authdata> <difficulty>
 ```
 ### Benchmarking 
 Tests were carried out for various difficulties on a standard laptop (Intel i5-1235U, 1300 MHz, 10 cores).
-The calculation times for 3 different runs and their average are shown in the following table.  
+The tool automatically created 12 threads.  The calculation times for the average of multiple runs are 
+shown in the following table.   
 | **Difficulty**        | **4** | **5** | **6** | **7** | **8** | **9** |
-|-----------------------|*******|-------|-------|-------|-------|-------|
-| **Run time 1 (s)**    |   0.15    |  0.31     |  2.84     |  923.43     |       |       |
-| **Run time 2 (s)**    |   0.43    |  3.26     |  0.44     |  240.16     |       |       |
-| **Run time 3 (s)**    |   0.07    |  0.41     |  0.95     |  803.26     |       |       |
-| **Run time avg. (s)** |   0.22    |  1.33     |  1.41     |  655.62     |       |       |
+|-----------------------|-------|-------|-------|-------|-------|-------|
+| **Number of runs**    |   100    |  100     |  100     |  100     |   100    |   100    |
+| **Total run time (s)**    |   5    |  9     |  25     |    787   |   4678    |   24764    |
+| **Average run time (s)**    |   0.05    |  0.09     |  0.25     |   7.87    |   46.78    |   247.64    |
+
 
 
 ---
