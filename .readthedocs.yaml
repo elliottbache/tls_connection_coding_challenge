@@ -6,7 +6,7 @@ build:
   - doxygen
   jobs:
     pre_build:
-      - cd docs && mkdir -p _build/doxygen && doxygen Doxyfile
+      - mkdir -p docs/_build/doxygen && doxygen docs/Doxyfile
 sphinx:
   configuration: docs/conf.py
 python:
