@@ -23,12 +23,15 @@ Functions:
 
 import argparse
 import hashlib
+import logging
+import math
 import random
 import socket
 import ssl
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from tlslp.logging_utils import configure_logging
 from tlslp.protocol import (
     DEFAULT_CA_CERT,
     DEFAULT_LONG_TIMEOUT,
@@ -47,6 +50,8 @@ DEFAULT_AUTHDATA = "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCR
 DEFAULT_RANDOM_STRING = "LGTk"
 DEFAULT_DIFFICULTY = 4
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class ServerConfig:
@@ -61,14 +66,18 @@ class ServerConfig:
     token: str
     random_string: str
     difficulty: int
+    log_level: str
+    json_logs: bool
 
 
 def port(s: str) -> int:
     try:
         p = int(s)
     except ValueError as e:
+        logger.exception(f"port must be an integer: {e}")
         raise argparse.ArgumentTypeError("port must be an integer") from e
     if not (0 < p < 65536):
+        logger.exception("port out of range (1..65535)")
         raise argparse.ArgumentTypeError("port out of range (1..65535)")
     return p
 
@@ -77,89 +86,104 @@ def positive_int(s: str) -> int:
     try:
         n = int(s)
     except ValueError as e:
+        logger.exception(f"must be an integer: {e}")
         raise argparse.ArgumentTypeError("must be an integer") from e
     if n <= 0:
+        logger.exception("must be > 0")
         raise argparse.ArgumentTypeError("must be > 0")
     return n
 
 
 def build_client_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog="tls-client", description="TLS client for the toy protocol demo."
+    parser = argparse.ArgumentParser(
+        prog="tlslp-client", description="TLS client for the toy protocol demo."
     )
 
-    p.add_argument(
+    parser.add_argument(
         "--host",
         default=DEFAULT_SERVER_HOST,
         help=f"server hostname (default: {DEFAULT_SERVER_HOST})",
     )
 
-    p.add_argument(
+    parser.add_argument(
         "--port",
         default=DEFAULT_PORT,
         type=int,
         help="comma-separated list of ports (e.g. 1234,8235)",
     )
 
-    p.add_argument(
+    parser.add_argument(
         "--server-cert",
         default=DEFAULT_SERVER_CERT,
         type=str,
         help="path to server certificate (PEM)",
     )
-    p.add_argument(
+    parser.add_argument(
         "--server-key",
         default=DEFAULT_SERVER_KEY,
         type=str,
         help="path to server private key (PEM)",
     )
-    p.add_argument(
+    parser.add_argument(
         "--ca-cert",
         default=DEFAULT_CA_CERT,
         type=str,
         help="path to client CA certificate (PEM)",
     )
 
-    p.add_argument(
+    parser.add_argument(
         "--pow-timeout",
         default=DEFAULT_WORK_TIMEOUT,
         type=positive_int,
         help=f"timeout (s) for WORK (default: {DEFAULT_WORK_TIMEOUT})",
     )
-    p.add_argument(
+    parser.add_argument(
         "--other-timeout",
         default=DEFAULT_OTHER_TIMEOUT,
         type=positive_int,
         help=f"timeout (s) for non-WORK steps (default: {DEFAULT_OTHER_TIMEOUT})",
     )
 
-    p.add_argument(
+    parser.add_argument(
         "--insecure",
         action="store_true",
         help="skip server cert verification (ONLY for localhost dev)",
     )
 
-    p.add_argument(
+    parser.add_argument(
         "--token",
         default=DEFAULT_AUTHDATA,
         type=str,
         help="authentication data for hashing",
     )
 
-    p.add_argument(
+    parser.add_argument(
         "--random-string",
         default=DEFAULT_RANDOM_STRING,
         type=str,
         help="random string for body messages checksums",
     )
 
-    p.add_argument(
+    parser.add_argument(
         "--difficulty",
         default=DEFAULT_DIFFICULTY,
         type=int,
         help="WORK challenge difficulty",
     )
-    return p
+
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+    )
+
+    parser.add_argument(
+        "--json-logs",
+        action="store_true",
+        help="Emit logs as JSON (one object per line).",
+    )
+
+    return parser
 
 
 def args_to_server_config(ns: argparse.Namespace) -> ServerConfig:
@@ -175,6 +199,8 @@ def args_to_server_config(ns: argparse.Namespace) -> ServerConfig:
         token=ns.token,
         random_string=ns.random_string,
         difficulty=ns.difficulty,
+        log_level=ns.log_level,
+        json_logs=ns.json_logs,
     )
 
 
@@ -217,44 +243,45 @@ def send_and_receive(
     """
     received_message = ""
     secure_sock.settimeout(timeout)
+    if to_send.startswith("ERROR"):
+        raise Exception(to_send.split(" ", maxsplit=1)[1])  # internal server ERROR
+
     try:
-        if to_send.startswith("ERROR"):
-            raise Exception(to_send.split(" ", maxsplit=1)[1])  # internal server ERROR
-
         send_message(to_send, secure_sock)
-
-        try:
-            received_message = receive_message(secure_sock)
-        except TimeoutError as e:
-            raise TimeoutError("Client timeout") from e
-
-        # check WORK suffix
-        if to_send.startswith("WORK") and not _check_suffix(
-            to_send, token, received_message
-        ):
-            raise Exception(r"Invalid suffix returned from client.")
-        # check checksum for rest of possible messages
-        elif not (
-            to_send.startswith("WORK")
-            or to_send.startswith("HELLO")
-            or to_send.startswith("ERROR")
-            or to_send.startswith("DONE")
-        ) and not _check_cksum(to_send, token, received_message):
-            raise Exception(r"Invalid checksum received.")
-
-        return received_message
-
-    except TimeoutError as e:
-        send_error("ERROR Client timeout.", secure_sock)
-        raise TimeoutError("Client timed out") from e
-
     except Exception as e:
-        try:
-            err_msg = str("ERROR " + e.args[0])
-        except Exception:
-            err_msg = "ERROR"
-        send_error(err_msg, secure_sock)
-        raise Exception(err_msg) from e
+        logger.exception(f"Send error: {e}")
+        send_error("ERROR sending.", secure_sock)
+        raise ValueError(r"ERROR sending.") from e
+
+    try:
+        received_message = receive_message(secure_sock)
+    except TimeoutError as e:
+        logger.exception(f"Client timeout: {e}")
+        raise TimeoutError("Client timeout") from e
+    except Exception as e:
+        logger.exception(f"Receive error {e}.")
+        send_error("ERROR receiving.", secure_sock)
+        raise ValueError(r"ERROR receiving.") from e
+
+    # check WORK suffix
+    if to_send.startswith("WORK") and not _check_suffix(
+        to_send, token, received_message
+    ):
+        logger.exception("Invalid suffix returned from client.")
+        send_error("ERROR Invalid suffix returned from client.", secure_sock)
+        raise ValueError(r"Invalid suffix returned from client.")
+    # check checksum for rest of possible messages
+    elif not (
+        to_send.startswith("WORK")
+        or to_send.startswith("HELLO")
+        or to_send.startswith("ERROR")
+        or to_send.startswith("DONE")
+    ) and not _check_cksum(to_send, token, received_message):
+        logger.exception("Invalid checksum received.")
+        send_error("ERROR Invalid checksum received.", secure_sock)
+        raise ValueError(r"Invalid checksum received.")
+
+    return received_message
 
 
 def send_error(to_send: str, secure_sock: socket.socket) -> None:
@@ -301,6 +328,10 @@ def prepare_server_socket(
     # Check that server_host is local, otherwise raise error so that insecure
     # connection isn't mistakenly used
     if server_host != "localhost":
+        logger.exception(
+            f"Refusing insecure TLS to {server_host!r}. For "
+            f"non-local hosts, enable certificate verification."
+        )
         raise ValueError(
             f"Refusing insecure TLS to {server_host}. For "
             f"non-local hosts, enable certificate verification."
@@ -344,6 +375,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_client_parser()
     ns = parser.parse_args(argv)
     cfg = args_to_server_config(ns)
+
+    configure_logging(level=cfg.log_level, json_logs=cfg.json_logs, node="server")
+
+    logger.info("Server starting")
+
     is_secure = not cfg.insecure
 
     server_socket, context = prepare_server_socket(
@@ -355,42 +391,46 @@ def main(argv: Sequence[str] | None = None) -> int:
         is_secure,
     )
     print(f"Server listening on https://{cfg.server_host}:{cfg.port}")
+    logger.info(f"Server listening on https://{cfg.server_host!r}:{cfg.port!r}")
 
     # Wait for a client to connect
     while True:
         client_socket, client_address = server_socket.accept()
         with context.wrap_socket(client_socket, server_side=True) as secure_sock:
             if not secure_sock.getpeername():
+                logger.exception("No client certificate presented.")
                 raise RuntimeError("No client certificate presented.")
-            print(f"Connection from {client_address}")
+            logger.info(f"Connection from {client_address!r}")
 
             try:
                 # handshake
-                print("\nSending HELLO")
+                logger.info("Step: handshake")
+                logger.debug("Sending HELLO")
                 msg = send_and_receive(
                     cfg.token, "HELLO", secure_sock, cfg.other_timeout
                 )
-                print(f"Received {msg}")
+                logger.debug(f"Received {msg!r}")
 
-                print(
-                    f"\nAuthentication data: {cfg.token}\nDifficulty: "
-                    f"{cfg.difficulty}"
+                # only log first part of token
+                half_len_token = math.ceil(len(cfg.token) / 2)
+                logger.debug(
+                    f"Authentication data: {cfg.token[:half_len_token]!r}..., Difficulty: {cfg.difficulty!r}"
                 )
-                print(f"Sending WORK {cfg.token} {cfg.difficulty}")
+
                 msg = send_and_receive(
                     cfg.token,
                     "WORK " + str(cfg.token) + " " + str(cfg.difficulty),
                     secure_sock,
                     cfg.pow_timeout,
                 )
-                print(f"Received suffix: {msg}")
+                logger.info(f"Valid suffix returned from client: {msg!r}")
                 this_hash = hashlib.sha256(  # noqa: S324
                     (cfg.token + msg).encode()
                 ).hexdigest()
-                print(f"Hash: {this_hash}")
-                print("Valid suffix returned from client.")
+                logger.info(f"Hash: {this_hash!r}")
 
                 # body
+                choice = None
                 for _ in range(20):
                     # This randomly sends requests to the client.
                     choice = random.choice(  # noqa: S311
@@ -408,30 +448,43 @@ def main(argv: Sequence[str] | None = None) -> int:
                             "ERROR internal server error",
                         ]
                     )
-                    print(f"\nSending {choice} {cfg.random_string}")
+                    logger.info(f"Step: {choice.lower().split(' ', maxsplit=1)[0]!r}")
+                    logger.debug(f"Sending {choice!r} {cfg.random_string!r}")
+
+                    # if internal server error, break and close connection
+                    if choice.startswith("ERROR"):
+                        break
+
                     msg = send_and_receive(
                         cfg.token,
                         f"{choice} " f"{cfg.random_string}",
                         secure_sock,
                         cfg.other_timeout,
                     )
-                    print(f"Received {msg}")
-                    print(f"Checksum received: {msg.split(' ', maxsplit=1)[0]}")
-                    print("Valid checksum received.")
+                    logger.debug(f"Received {msg!r}")
+                    logger.info(
+                        f"Valid checksum received: {msg.split(' ', maxsplit=1)[0]!r}"
+                    )
+
+                # if internal server error, break and close connection
+                if choice is not None and choice.startswith("ERROR"):
+                    break
 
                 # end message
-                print("\nSending DONE")
+                logger.info("Step: end")
+                logger.debug("Sending DONE")
                 msg = send_and_receive(
                     cfg.token, "DONE", secure_sock, cfg.other_timeout
                 )
-                print(f"Received {msg}")
+                logger.debug(f"Received {msg!r}")
 
             except Exception as e:
-                print(f"Exception: {e}")
+                logger.exception(f"Exception: {e}")
 
             break
 
-    print("\nConnection closed")
+    logger.info("Connection closed")
+    print("Connection closed")
 
     return 0
 
