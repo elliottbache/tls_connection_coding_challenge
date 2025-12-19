@@ -333,7 +333,8 @@ or for tighter control.
 ``N`` hex ``0``s (i.e., ``bits = 4*N`` zero bits).
 
 ### Strategy
-- **SHA1** was imposed as a coding constraint in the challenge.  
+- **SHA1** was imposed as a coding constraint in the challenge.
+- SHA1 is **initialized** with ```authdata```, then a copy is **updated** with each new suffix. 
 - **Counter-based suffix** (deterministic, minimal RNG use).
 - **Thread sharding**: each thread walks different counters (``base + tid``, ``step = total_threads``).
 - **Bit test**: Check full zero bytes; then mask remaining bits:

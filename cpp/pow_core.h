@@ -2,8 +2,9 @@
 \brief Find the hex string with the indicated difficulty.
 
 This set of functions finds a hex string that has the indicated number of leading zeros
-using the supplied authdata string.  The authdata is concatenated with a
-suffix, and they are then passed through a SHA1 hash.  The hash is tested to
+using the supplied authdata string.  The SHA1 context is initialized with the authdata
+(SHA1_Init(...)), then a copy of this context is updated with each suffix
+(SHA1_Update(...)), before finalizing (SHA1_Final(...)).  The hash is tested to
 see if it has a number of leading zeroes equal to the required difficulty.
 This code automatically adjusts the suffix string length so that the solution
 space will contain enough possible valid suffixes.
