@@ -37,7 +37,7 @@ sequenceDiagram
 ```
 
 This is a toy protocol demo that requires the client to connect to a server,
-complete a WORK challenge using SHA256 in under 2 hours, and reply to multiple queries.
+complete a WORK challenge with 9 leading hex zeros using SHA256 in under 2 hours, and reply to multiple queries.
 This is designed to be run in an interactive session, printing output to the
 stdout.  The choice of this hasher was made by the entity who created the challenge
 and must not be changed in this project.
