@@ -54,12 +54,13 @@ class TestSendMessage:
 
 
 class TestSendAndReceive:
-    def test_send_and_receive_error_choice(self, socket_pair, authdata):
+    def test_send_and_receive_error_choice(self, socket_pair, authdata, readout):
         s1, s2 = socket_pair
 
         _ = s2.sendall(b"ERROR internal server error\n")
-        with pytest.raises(Exception, match=r"internal server error"):
-            server.send_and_receive(authdata, "ERROR internal server error", s1)
+        msg = server.send_and_receive(authdata, "ERROR internal server error", s1)
+
+        assert not msg
 
     def test_send_and_receive_error_sending(
         self, socket_pair, authdata, random_string, readout

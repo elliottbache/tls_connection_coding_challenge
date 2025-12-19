@@ -34,6 +34,8 @@ Functions:
 import argparse
 import errno
 import hashlib
+import logging
+import math
 import multiprocessing
 import os
 import re
@@ -47,6 +49,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from tlscc.logging_utils import configure_logging
 from tlscc.protocol import (
     DEFAULT_CA_CERT,
     DEFAULT_LONG_TIMEOUT,
@@ -92,6 +95,8 @@ DEFAULT_PORTS = [3336, 8083, 8446, 49155, 3481, 65532]
 DEFAULT_PRIVATE_KEY_PATH = "certificates/ec_private_key.pem"
 DEFAULT_CLIENT_CERT_PATH = "certificates/client_cert.pem"
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class ClientConfig:
@@ -104,14 +109,18 @@ class ClientConfig:
     pow_timeout: int
     other_timeout: int
     insecure: bool
+    log_level: str
+    json_logs: bool
 
 
 def port(s: str) -> int:
     try:
         p = int(s)
     except ValueError as e:
+        logger.exception(f"port must be an integer: {e}")
         raise argparse.ArgumentTypeError("port must be an integer") from e
     if not (0 < p < 65536):
+        logger.exception("port out of range (1..65535)")
         raise argparse.ArgumentTypeError("port out of range (1..65535)")
     return p
 
@@ -120,76 +129,90 @@ def positive_int(s: str) -> int:
     try:
         n = int(s)
     except ValueError as e:
+        logger.exception(f"must be an integer: {e}")
         raise argparse.ArgumentTypeError("must be an integer") from e
     if n <= 0:
+        logger.exception("must be > 0")
         raise argparse.ArgumentTypeError("must be > 0")
     return n
 
 
 def build_client_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog="tls-client", description="TLS client for the coding challenge."
+    parser = argparse.ArgumentParser(
+        prog="tlscc-client", description="TLS client for the coding challenge."
     )
 
-    p.add_argument(
+    parser.add_argument(
         "--host",
         default=DEFAULT_SERVER_HOST,
         help=f"server hostname (default: {DEFAULT_SERVER_HOST})",
     )
 
-    p.add_argument(
+    parser.add_argument(
         "--ports",
         default=DEFAULT_PORTS,
         type=lambda s: [port(x) for x in s.split(",")],
         help="comma-separated list of ports (e.g. 3481,8446)",
     )
 
-    p.add_argument(
+    parser.add_argument(
         "--client-cert",
         default=DEFAULT_CLIENT_CERT_PATH,
         type=str,
         help="path to client certificate (PEM)",
     )
-    p.add_argument(
+    parser.add_argument(
         "--private-key",
         default=DEFAULT_PRIVATE_KEY_PATH,
         type=str,
         help="path to client private key (PEM)",
     )
-    p.add_argument(
+    parser.add_argument(
         "--ca-cert",
         default=DEFAULT_CA_CERT,
         type=str,
         help="path to client CA certificate (PEM)",
     )
 
-    p.add_argument(
+    parser.add_argument(
         "--pow-binary",
         default=DEFAULT_CPP_BINARY_PATH,
         type=str,
         help="path to pow_prepare_server_socket executable",
     )
 
-    p.add_argument(
+    parser.add_argument(
         "--pow-timeout",
         default=DEFAULT_POW_TIMEOUT,
         type=positive_int,
         help=f"timeout (s) for POW (default: {DEFAULT_POW_TIMEOUT})",
     )
-    p.add_argument(
+    parser.add_argument(
         "--other-timeout",
         default=DEFAULT_OTHER_TIMEOUT,
         type=positive_int,
         help=f"timeout (s) for non-POW steps (default: {DEFAULT_OTHER_TIMEOUT})",
     )
 
-    p.add_argument(
+    parser.add_argument(
         "--insecure",
         action="store_true",
         help="skip server cert verification (ONLY for localhost dev)",
     )
 
-    return p
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+    )
+
+    parser.add_argument(
+        "--json-logs",
+        action="store_true",
+        help="Emit logs as JSON (one object per line).",
+    )
+
+    return parser
 
 
 def _merge_ports(ns: argparse.Namespace) -> list[int]:
@@ -211,6 +234,8 @@ def args_to_client_config(ns: argparse.Namespace) -> ClientConfig:
         pow_timeout=ns.pow_timeout,
         other_timeout=ns.other_timeout,
         insecure=ns.insecure,
+        log_level=ns.log_level,
+        json_logs=ns.json_logs,
     )
 
 
@@ -238,6 +263,10 @@ def prepare_client_socket(
     # Check that server_host is local, otherwise raise error so that insecure
     # connection isn't mistakenly used
     if server_host != "localhost":
+        logger.exception(
+            f"Refusing insecure TLS to {server_host!r}. For "
+            f"non-local hosts, enable certificate verification."
+        )
         raise ValueError(
             f"Refusing insecure TLS to {server_host}. For "
             f"non-local hosts, enable certificate verification."
@@ -326,10 +355,15 @@ def decipher_message(message: str, valid_messages: set[str]) -> list[str]:
 
     # check that the message has arguments
     if not args:
+        logger.exception(f"No args in the response: {message!r}")
         raise ValueError(f"No args in the response: {message}")
 
     # check that message belongs to list of possible messages
     if args[0] not in valid_messages:
+        logger.exception(
+            f"This response is not valid: {message!r}. "
+            f"Valid messages: {valid_messages!r}"
+        )
         raise ValueError(
             f"This response is not valid: {message}. "
             f"Valid messages: {valid_messages}"
@@ -380,20 +414,27 @@ def _validate_path(bin_path: Path, allowed_root: Path | None = None) -> None:
     """Resolve and vet path."""
     # check if file exists
     if not bin_path.is_file():
+        logger.exception(f"POW binary not a regular file: {bin_path!r}")
         raise FileNotFoundError(f"POW binary not a regular file: {bin_path}")
     # check if it's a symbolic link
     if bin_path.is_symlink():
+        logger.exception(f"Refusing to execute symlink: {bin_path!r}")
         raise PermissionError(f"Refusing to execute symlink: {bin_path}")
     # check if it's executable
     if os.name == "posix" and not os.access(bin_path, os.X_OK):
+        logger.exception(f"POW binary at {bin_path!r} is not executable.")
         raise PermissionError(f"POW binary at {bin_path} is not executable.")
     # check if it's world writable
     if _is_world_writable(bin_path) or _is_world_writable(bin_path.parent):
+        logger.exception(f"Insecure permissions on {bin_path!r} or its directory")
         raise PermissionError(f"Insecure permissions on {bin_path} or its directory")
     # check if it's in an allowed folder
     if allowed_root is not None:
         root = allowed_root.resolve(strict=True)
         if not bin_path.is_relative_to(root):
+            logger.exception(
+                f"Insecure directory location {bin_path.parent!r} for {bin_path!r}"
+            )
             raise PermissionError(
                 f"Insecure directory location {bin_path.parent} for {bin_path}"
             )
@@ -402,15 +443,21 @@ def _validate_path(bin_path: Path, allowed_root: Path | None = None) -> None:
 def _validate_string(s: str) -> None:
     """Validate string."""
     if not isinstance(s, str):
+        logger.exception(
+            "Tested variable is not a string.  Exiting since hashing function "
+            "will not work correctly"
+        )
         raise TypeError(
             "Tested variable is not a string.  Exiting since hashing function "
             "will not work correctly"
         )
 
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", s):
+        logger.exception("String contains disallowed characters or length")
         raise ValueError("String contains disallowed characters or length")
 
     if len(s) > MAX_LINE_LENGTH:
+        logger.exception("String too long")
         raise ValueError("String too long")
 
 
@@ -419,9 +466,11 @@ def _validate_difficulty(difficulty: str) -> None:
     try:
         idifficulty = int(difficulty)
     except (ValueError, TypeError) as e:
+        logger.exception(f"POW difficulty is not an integer: {e}")
         raise TypeError("POW difficulty is not an integer") from e
 
     if idifficulty < 0 or idifficulty > 64:
+        logger.exception("POW difficulty is out of range")
         raise ValueError("POW difficulty is out of range")
 
 
@@ -534,9 +583,11 @@ def handle_pow_cpp(
         if suffix:
             return suffix + "\n"
         else:
+            logger.exception("No RESULT found in POW output.")
             raise ValueError("No RESULT found in POW output.")
 
     except FileNotFoundError as e:
+        logger.exception(f"POW binary not a regular file {cpp_binary_path!r}: {e}")
         raise FileNotFoundError(
             f"POW binary not a regular file: {cpp_binary_path}"
         ) from e
@@ -544,6 +595,7 @@ def handle_pow_cpp(
     except subprocess.CalledProcessError as e:
         _validate_string(authdata)
         _validate_difficulty(difficulty)
+        logger.exception(f"Error running executable: {e}")
         raise subprocess.CalledProcessError(
             1,
             cmd="pow_prepare_server_socket" + authdata + difficulty,
@@ -643,6 +695,7 @@ def connect_to_server(sock: socket.socket, server_host: str, port: int) -> bool:
         return True
     except TimeoutError as e:
         exc = e
+        logger.exception(f"Connect timeout to {server_host!r}:{port!r}: {e}")
         raise TimeoutError(f"Connect timeout to {server_host}:{port}") from e
     except ConnectionRefusedError as e:
         exc = e
@@ -651,19 +704,24 @@ def connect_to_server(sock: socket.socket, server_host: str, port: int) -> bool:
         ) from e
     except socket.gaierror as e:
         exc = e
+        logger.exception(f"DNS/addr error for {server_host!r}:{port!r}: {e}")
         raise socket.gaierror(
             f"DNS/addr error for {server_host}:{port}: {e}"
         ) from e  # bad host / not resolvable
     except ssl.SSLCertVerificationError as e:
         exc = e
         # server_host mismatch, expired, unknown CA, etc.
+        logger.exception(
+            f"Certificate verification failed for {server_host!r}:{port!r}: {e}"
+        )
         raise ssl.SSLCertVerificationError(
-            f"Certificate verification failed " f"for {server_host}:{port}: {e}"
+            f"Certificate verification failed for {server_host}:{port}: {e}"
         ) from e
     except ssl.SSLError as e:
         exc = e
         # other TLS/handshake issues (protocol mismatch, bad
         # record, etc.)
+        logger.exception(f"TLS error during connect to {server_host!r}:{port!r}: {e}")
         raise ssl.SSLError(
             f"TLS error during connect to {server_host}:{port}: {e}"
         ) from e
@@ -671,13 +729,20 @@ def connect_to_server(sock: socket.socket, server_host: str, port: int) -> bool:
         exc = e
         # catch-all for OS-level socket errors
         if e.errno == errno.EHOSTUNREACH:
+            logger.exception(
+                f"OSError. Host unreachable: {server_host!r}:{port!r}: {e}"
+            )
             raise OSError(f"OSError. Host unreachable: {server_host}:{port}") from e
         elif e.errno == errno.ENETUNREACH:
+            logger.exception(
+                f"OSError. Network unreachable when connecting to {server_host!r}:{port!r}: {e}"
+            )
             raise OSError(
                 f"OSError. Network unreachable when "
                 f"connecting to {server_host}:{port}"
             ) from e
         else:
+            logger.exception(f"OSError connecting to {server_host!r}:{port!r}: {e}")
             raise OSError(f"OSError connecting to {server_host}:{port}: {e}") from e
     finally:
         if exc is not None:
@@ -691,11 +756,13 @@ def _receive_and_decipher_message(
     """Receive and decode message from server and return containing message."""
     while True:
         message = receive_message(secure_sock)
+        logger.debug(f"Received {message!r}")
 
         # Error check message and create list from message
         try:
             return decipher_message(message, valid_messages)
         except Exception as e:
+            logger.exception(f"Error deciphering message: {e}")
             raise Exception(f"Error deciphering message: {e}") from e
 
 
@@ -732,11 +799,13 @@ def _process_message_with_timeout(
     if p.is_alive():
         p.terminate()  # forcefully stop the process
         p.join()
+        logger.exception(f"{args[0]!r} function timed out.")
         raise TimeoutError(f"{args[0]} function timed out.")
     else:
         is_err, msg = queue.get()
         if is_err:
             to_send = msg.rstrip("\n")
+            logger.exception(f"{args[0]!r} failed: {to_send!r}.")
             raise Exception(f"{args[0]} failed: {to_send}.")
         else:
             return msg
@@ -755,11 +824,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     Side effects:
         Opens network connections, prints to stdout/stderr.
     """
-    print("Windows ACLs not checked.  Skipping world-writable test.")
-
     parser = build_client_parser()
     ns = parser.parse_args(argv)
     cfg = args_to_client_config(ns)
+
+    configure_logging(level=cfg.log_level, json_logs=cfg.json_logs, node="client")
+    logger.warning("Windows ACLs not checked.  Skipping world-writable test.")
+
     is_secure = not cfg.insecure
 
     responses = DEFAULT_RESPONSES
@@ -767,8 +838,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     authdata = ""  # this will be set with POW message from server
 
     # Create and wrap socket
-    print("Client cert exists:", os.path.exists(cfg.client_cert))
-    print("Private key exists:", os.path.exists(cfg.private_key))
+    logger.info(f"Client cert exists: {os.path.exists(cfg.client_cert)!r}")
+    logger.info(f"Private key exists: {os.path.exists(cfg.private_key)!r}")
 
     # Connect to the server using TLS
     # Cycle through possible ports, trying to connect to each until success
@@ -787,24 +858,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                 is_connected = connect_to_server(secure_sock, cfg.server_host, port)
                 break
             except Exception as e:
-                print(f"Error connecting to {cfg.server_host}:{port}: {e}")
+                logger.warning(f"when connecting to {cfg.server_host!r}:{port!r}: {e}")
 
     if not is_connected:
-        print("Not able to connect to any port.  Exiting")
+        logger.exception("Not able to connect to any port.  Exiting")
         sys.exit(1)
 
-    print(f"Connected to {port}\n")
+    logger.info(f"Connected to {port!r}")
+    print(f"Connected to {port}")
 
     # listen to connection until broken
     try:
         while True:
 
             args = _receive_and_decipher_message(secure_sock, valid_messages)
-            print(f"Received {' '.join(args)}")
 
             # If no args are received, continue
             if not args or not args[0]:
-                print("Problem deciphering message. Continuing.")
+                logger.warning("Problem deciphering message. Continuing.")
                 continue
 
             if args[0] == "ERROR":
@@ -824,32 +895,36 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cfg.other_timeout,
             )
             end = time.time()
-            print("The time of execution is :", (end - start), "s")
+            logger.info(f"The time of execution is : {(end - start)!r})s")
 
             if args[0] == "POW":
                 this_hash = hashlib.sha1(  # noqa: S324
                     (args[1] + response.rstrip("\n")).encode()
                 ).hexdigest()
-                print(
-                    f"POW difficulty: {args[2]}"
-                    f"\nAuthdata: {args[1]}\nValid POW Suffix: {response}"
-                    f"Hash: {this_hash}"
-                )
 
-            print(f"Sending to server = {response}")
+                # only log first part of authdata
+                half_len_authdata = math.ceil(len(args[1]) / 2)
+                logger.debug(
+                    f"Authentication data: {half_len_authdata!r}..., Difficulty: {args[2]!r}"
+                )
+                logger.info(f"Valid suffix returned from client: {response!r}")
+                logger.info(f"Hash: {this_hash!r}")
+
+            logger.debug(f"Sending to server = {response!r}")
             send_message(response, secure_sock)
 
             if args[0] == "END":
                 break
 
     except TimeoutError as e:
-        print(e)
+        logger.exception(f"TimeoutError: {e}")
 
     except Exception as e:
-        print(e)
+        logger.exception(f"Exception: {e}")
 
     finally:
         secure_sock.close()
+        logger.info("Connection closed.")
         print("Connection closed.")
 
     return 0
