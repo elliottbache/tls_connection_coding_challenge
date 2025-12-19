@@ -245,15 +245,16 @@ certificates
 perf.data*
 
 .vscode
-
+analysis.sarif
+htmlcov
 _deps
+WD
+src/include
+_deps
+*Testing
+*_bin
 
 CMakeFiles
 CMakeCache.txt
 CTestTestfile.cmake
-
-analysis.sarif
-
-htmlcov
-_deps
 
