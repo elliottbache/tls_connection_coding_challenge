@@ -29,7 +29,7 @@ DEFAULT_SERVER_HOST = "localhost"
 
 
 def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
-    """Send string to the client.
+    """Send string.
 
     This ensures that the string is UTF-8 and ends with a newline
     character.

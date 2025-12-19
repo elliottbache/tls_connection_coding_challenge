@@ -241,17 +241,17 @@ def send_and_receive(
     Returns:
         str: the string received.
     """
-    received_message = ""
     secure_sock.settimeout(timeout)
-    if to_send.startswith("ERROR"):
-        raise Exception(to_send.split(" ", maxsplit=1)[1])  # internal server ERROR
-
     try:
         send_message(to_send, secure_sock)
     except Exception as e:
         logger.exception(f"Send error: {e}")
         send_error("ERROR sending.", secure_sock)
         raise ValueError(r"ERROR sending.") from e
+
+    # no waiting to receive a message from client
+    if to_send.startswith("ERROR"):
+        return ""
 
     try:
         received_message = receive_message(secure_sock)
@@ -451,16 +451,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                     logger.info(f"Step: {choice.lower().split(' ', maxsplit=1)[0]!r}")
                     logger.debug(f"Sending {choice!r} {cfg.random_string!r}")
 
-                    # if internal server error, break and close connection
-                    if choice.startswith("ERROR"):
-                        break
-
                     msg = send_and_receive(
                         cfg.token,
                         f"{choice} " f"{cfg.random_string}",
                         secure_sock,
                         cfg.other_timeout,
                     )
+
+                    # if internal server error, break and close connection
+                    if choice.startswith("ERROR"):
+                        break
+
                     logger.debug(f"Received {msg!r}")
                     logger.info(
                         f"Valid checksum received: {msg.split(' ', maxsplit=1)[0]!r}"
