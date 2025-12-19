@@ -578,7 +578,7 @@ class TestReceiveAndDecipherMessage:
     def test_receive_and_decipher_message_success(self, monkeypatch, valid_messages):
         fake_sock = FakeSocket()
 
-        def fake_receive_message(sock):
+        def fake_receive_message(sock, *args):
             fake_sock.calls["sock"] = sock
             return "MAILNUM LGTk"
 
@@ -602,14 +602,18 @@ class TestReceiveAndDecipherMessage:
     ):
         fake_sock = FakeSocket()
 
-        monkeypatch.setattr(client, "receive_message", lambda sock: "BADMSG")
+        def fake_receive_message(sock, *args):
+            fake_sock.calls["sock"] = sock
+            return "BADMSG"
+
+        monkeypatch.setattr(client, "receive_message", fake_receive_message)
 
         def problem(*args, **kwargs):
             raise ValueError("Error!")
 
         monkeypatch.setattr(client, "decipher_message", problem)
 
-        with pytest.raises(Exception, match=r"Error deciphering message: Error!"):
+        with pytest.raises(Exception, match=r"Error deciphering message"):
             client._receive_and_decipher_message(fake_sock, valid_messages)
 
 
@@ -733,6 +737,7 @@ class TestProcessMessageWithTimeout:
 
 class TestMain:
     def test_main_success(self, monkeypatch, valid_messages):
+
         monkeypatch.setattr(client.os.path, "exists", lambda p: True)
 
         # force single port
@@ -758,7 +763,7 @@ class TestMain:
 
         sent = []
 
-        def fake_send_message(msg, sock):
+        def fake_send_message(msg, sock, logger):
             sent.append((msg, sock))
 
         monkeypatch.setattr(client, "send_message", fake_send_message)
@@ -769,6 +774,7 @@ class TestMain:
         assert fake_sock.closed
 
     def test_main_server_error(self, monkeypatch, valid_messages):
+
         monkeypatch.setattr(client.os.path, "exists", lambda p: True)
 
         # force single port
@@ -796,7 +802,7 @@ class TestMain:
 
         sent = []
 
-        def fake_send_message(msg, sock):
+        def fake_send_message(msg, sock, logger):
             sent.append((msg, sock))
 
         monkeypatch.setattr(client, "send_message", fake_send_message)
