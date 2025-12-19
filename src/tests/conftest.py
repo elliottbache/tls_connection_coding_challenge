@@ -67,8 +67,11 @@ def socket_pair():
     try:
         yield s1, s2
     finally:
-        for s in (s1, s2):
-            try:
-                s.close()
-            except OSError as e:
-                print(f"OSError: {e}")
+        try:
+            s1.close()
+        except OSError as e:
+            print(f"OSError: {e}")
+        try:
+            s2.close()
+        except OSError as e:
+            print(f"OSError: {e}")
