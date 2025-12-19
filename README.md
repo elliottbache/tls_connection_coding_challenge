@@ -121,8 +121,8 @@ cmake --build build --config Release
 It can also be compiled directly without 
 CMake or the Makefile in a Linux terminal from the ```cpp``` folder, enter:
 ```bash
-$ mkdir ../build
-$ g++ -O3 -std=c++17 pow_challenge.cpp pow_core.cpp -o ../build/pow_challenge -lssl -lcrypto -pthread
+mkdir ../build
+g++ -O3 -std=c++17 pow_challenge.cpp pow_core.cpp -o ../build/pow_challenge -lssl -lcrypto -pthread
 ```
 
 #### Move files to binary directory
@@ -144,10 +144,10 @@ A ```certificates``` folder should be created and
 these certificates should be placed in the ```certificates``` folder.  The steps are for typing in a Linux terminal from the
 project root folder. 
 ```sh
-$ mkdir certificates
+mkdir certificates
 ```
 ```sh
-$ cd certificates
+cd certificates
 ```
 
 ##### Client side
