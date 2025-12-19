@@ -99,17 +99,18 @@ run-server:
 run-client:
 	$(ACTIVATE); tlslp-client
 
+runs ?= 1
 SHELL := /bin/bash
 .ONESHELL:
 .PHONY: bench
 bench:
 	$(ACTIVATE)
-	python - <<'PY'
+	python3 - <<'PY'
 	import time
 	import subprocess
 	# Use the Make variable DIFF inside the Python block
 	t0=time.time()
-	subprocess.run(["build/pow_challenge", "$(token)", "$(diff)"], check=True)
+	[subprocess.run(["build/pow_challenge", "$(token)", "$(diff)"], check=True) for _ in range($(runs))]
 	print(f"Difficulty: $(diff)")
 	print("Elapsed:", time.time()-t0, "s")
 	PY
