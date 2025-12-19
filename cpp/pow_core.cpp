@@ -25,6 +25,10 @@ namespace
         const int bits_required = difficulty * 4;
         uint64_t counter = base_counter + thread_id;
 
+        SHA_CTX sha_context_base;
+        SHA256_Init(&sha_context_base);
+        SHA256_Update(&sha_context_base, token, auth_len);
+
         while (!found.load(std::memory_order_acquire))
         {
             pow_internal::generate_counter_string(counter, suffix.data(), suffix_length);
@@ -37,7 +41,9 @@ namespace
             std::memcpy(input, token, auth_len);
             std::memcpy(input + auth_len, suffix.data(), suffix_length);
 
-            SHA256(input, input_len, digest);
+            SHA_CTX sha_context = sha_context_base;
+            SHA256_Update(&sha_context, suffix.data(), suffix_length);
+            SHA256_Final(digest, &sha_context);
 
             if (pow_internal::has_leading_zeros(digest, bits_required))
             {
