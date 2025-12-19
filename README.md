@@ -55,10 +55,20 @@ and must not be changed in this project.
 - [License](#license)
 
 ## Quickstart
-The following commands are made available by ```Makefile``` and a more detailed description of the various
-options may be found in [Make commands](#make-commands).
+### Downloading the repository
+The repository first must be cloned to your local machine.  In Linux/WSL:
+```bash
+git clone https://github.com/elliottbache/tls_connection_coding_challenge.git
+```
+or it can be downloaded as a .zip file at 
+```https://github.com/elliottbache/tls_connection_coding_challenge/archive/refs/heads/master.zip```.
+
+Once downloaded (and unzipped if necessary), the user should enter the directory using Linux/WSL
+before proceeding with the installation.
 
 ### Quick installation
+The following commands are made available by ```Makefile``` and a more detailed description of the various
+options may be found in [Make commands](#make-commands).
 ```bash
 make all
 ```
