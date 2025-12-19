@@ -755,7 +755,7 @@ def _receive_and_decipher_message(
 ) -> list[str]:
     """Receive and decode message from server and return containing message."""
     while True:
-        message = receive_message(secure_sock)
+        message = receive_message(secure_sock, logger)
         logger.debug(f"Received {message!r}")
 
         # Error check message and create list from message
@@ -911,7 +911,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 logger.info(f"Hash: {this_hash!r}")
 
             logger.debug(f"Sending to server = {response!r}")
-            send_message(response, secure_sock)
+            send_message(response, secure_sock, logger)
 
             if args[0] == "DONE":
                 break

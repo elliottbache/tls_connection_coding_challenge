@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import socket
 from contextlib import closing
 
@@ -46,11 +47,21 @@ class TestSendMessage:
     @pytest.mark.parametrize(
         "payload, expected", [("HELLO\n", "HELLO\n"), ("HELLO", "HELLO\n")]
     )
-    def test_send_message(self, socket_pair, payload, expected):
+    def test_send_message(self, socket_pair, payload, expected, caplog):
+        logger = logging.getLogger("tlslp")
         s1, s2 = socket_pair
-        err = server.send_message(payload, s1)
+        err = server.send_message(payload, s1, logger)
         _ = s2.recv(1024)
         assert err is None
+
+        msg = expected.rstrip("\n")
+        with caplog.at_level(logging.DEBUG):
+            logger.debug(f"Sent {msg}")
+
+        # Verify the message exists in the logs
+        assert f"Sent {msg}" in caplog.text
+        # Verify the log level
+        assert caplog.records[0].levelname == "DEBUG"
 
 
 class TestSendAndReceive:
