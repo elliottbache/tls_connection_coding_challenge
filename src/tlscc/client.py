@@ -884,7 +884,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cfg.other_timeout,
             )
             end = time.time()
-            logger.info(f"The time of execution is : {(end - start)!r})s")
+            logger.debug(f"The time of execution is : {(end - start)!r})s")
 
             if args[0] == "WORK":
                 this_hash = hashlib.sha256(  # noqa: S324

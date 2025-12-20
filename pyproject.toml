@@ -82,7 +82,7 @@ skip = "./docs/_build/*,build,dist,.venv,build-asan,build-tsan,./docs/html/*,old
 ignore-words-list = "teh,nd"  # add project-specific false positives
 
 [tool.pytest.ini_options]
-testpaths = ["src/tests"]
+testpaths = ["tests"]
 addopts = [
   "-q",
   "--cov=src",
