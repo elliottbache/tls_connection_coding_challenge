@@ -48,7 +48,7 @@ DEFAULT_SERVER_CERT = "certificates/server-cert.pem"
 DEFAULT_SERVER_KEY = "certificates/server-key.pem"
 DEFAULT_AUTHDATA = "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq"
 DEFAULT_RANDOM_STRING = "LGTk"
-DEFAULT_DIFFICULTY = 4
+DEFAULT_DIFFICULTY = 7
 
 logger = logging.getLogger(__name__)
 
