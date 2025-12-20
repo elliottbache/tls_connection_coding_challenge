@@ -103,6 +103,10 @@ def configure_logging(
         json_logs (bool): If True, emit JSON lines, otherwise emit human-readable logs.
         node (str): Client or server
     """
+    # route Python warnings through logging.
+    logging.captureWarnings(True)
+    warn_logger = logging.getLogger("py.warnings")
+
     # normalize and validate level
     level_upper = level.upper()
     numeric_level = getattr(logging, level_upper, None)
@@ -124,6 +128,12 @@ def configure_logging(
     handler.setLevel("WARNING")
     _set_formatter(json_logs, handler)
     root.addHandler(handler)
+    warn_logger.addHandler(handler)
+
+    # we want to disable file logs for tests during installation.
+    # this option is selected in the Makefile
+    if os.getenv("TLSCC_DISABLE_FILE_LOGS", "").lower() in {"1", "true", "yes", "on"}:
+        return None
 
     # define and create folder for saving log
     log_file = pathlib.Path(node).with_suffix(".log")
@@ -138,9 +148,4 @@ def configure_logging(
     handler.setLevel(numeric_level)
     _set_formatter(json_logs, handler)
     root.addHandler(handler)
-
-    # route Python warnings through logging.
-    logging.captureWarnings(True)
-    warn_logger = logging.getLogger("py.warnings")
-    for handler in root.handlers:
-        warn_logger.addHandler(handler)
+    warn_logger.addHandler(handler)

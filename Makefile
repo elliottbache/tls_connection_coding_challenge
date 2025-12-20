@@ -28,7 +28,9 @@ $(VENVDIR):
 	$(PY) -m venv $(VENVDIR)
 
 .PHONY: all
-all: clean venv install-dev certs build-cpp docs lint format typecheck test bench
+all: clean venv install-dev certs build-cpp docs lint format typecheck
+	$(ACTIVATE); pytest -q --no-persistent-logs
+	$(ACTIVATE); make bench --no-print-directory
 
 .PHONY: clean
 clean:
