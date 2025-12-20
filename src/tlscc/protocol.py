@@ -149,10 +149,10 @@ def receive_message(secure_sock: socket.socket, logger: logging.Logger) -> str:
             # test for empty string
             if not chunk or chunk == b"":
                 logger.exception(
-                    "Receive failed.  Received empty string. " "Peer probably closed."
+                    "Receive failed.  Received empty string. Peer probably closed."
                 )
                 raise TransportError(
-                    "Receive failed.  Received empty string. " "Peer probably closed."
+                    "Receive failed.  Received empty string. Peer probably closed."
                 )
 
             # ensure it's a bytes-like object
@@ -161,13 +161,6 @@ def receive_message(secure_sock: socket.socket, logger: logging.Logger) -> str:
                     f"Receive failed.  Unexpected type: " f"{type(chunk)!r}"
                 )
                 raise TypeError(f"Receive failed.  Unexpected type: " f"{type(chunk)}")
-
-            # test received data to make sure it is UTF-8
-            try:
-                chunk.decode("utf-8")
-            except UnicodeDecodeError as e:
-                logger.exception(f"Receive failed.  Invalid UTF-8: {e}")
-                raise ProtocolError(f"Receive failed.  Invalid UTF-8: {e}") from e
 
             buf += chunk
             if len(buf) > MAX_LINE_LENGTH:
@@ -178,7 +171,12 @@ def receive_message(secure_sock: socket.socket, logger: logging.Logger) -> str:
             if buf.endswith(b"\n"):
                 break
 
-        return buf.decode().rstrip("\n")
+        # test received data to make sure it is UTF-8
+        try:
+            return buf.decode("utf-8").rstrip("\n")
+        except UnicodeDecodeError as e:
+            logger.exception(f"Receive failed.  Invalid UTF-8: {e}")
+            raise ProtocolError(f"Receive failed.  Invalid UTF-8: {e}") from e
 
     except TimeoutError as e:
         logger.exception(f"Receive timeout: {e}")
