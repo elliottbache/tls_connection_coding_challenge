@@ -60,16 +60,33 @@ and must not be changed in this project.
 - [License](#license)
 
 ## Quickstart
+### TL;DR (local demo, no Docker)
+In a Linux/WSL terminal:
+```bash
+git clone https://github.com/elliottbache/tls_line_protocol.git
+cd tls_line_protocol
+make all
+make run-server
+```
+Open another terminal in the same folder and run:
+```bash
+make run-client
+```
+That's it, you’ve run the TLS toy protocol demo end-to-end!  Keep reading for a more in-depth 
+explanation of what just happened.  
+
 ### Downloading the repository
-The repository first must be cloned to your local machine.  In Linux/WSL:
+The repository first must be cloned to your local machine.  In a Linux/WSL terminal:
 ```bash
 git clone https://github.com/elliottbache/tls_line_protocol.git
 ```
 or it can be downloaded as a .zip file at 
 ```https://github.com/elliottbache/tls_line_protocol/archive/refs/heads/master.zip```.
 
-Once downloaded (and unzipped if necessary), the user should enter the directory using Linux/WSL
-before proceeding with the installation.
+Once downloaded (and unzipped if necessary), the user should enter the directory using the Linux/WSL terminal
+```bash
+cd tls_line_protocol
+```
 
 ### Quick installation
 The following commands are made available by ```Makefile``` and a more detailed description of the various
@@ -95,7 +112,7 @@ sudo service docker start
 ```
 On Linux:
 ```bash
-sudo systemctl status docker
+sudo systemctl start docker
 ```
 
 #### Start a docker container
@@ -242,7 +259,7 @@ tlslp-server --log-level DEBUG
 For a complete list, run
 ```bash
 # Run demo server on localhost:1234 with difficulty 6
-tlslp-server -help
+tlslp-server --help
 ```
 
 #### In another terminal, run the client
@@ -361,11 +378,10 @@ TLS line protocol uses the following technologies and tools:
 
 ## Security
 
-This project is a toy protocol demo/demo. The default configuration uses **local,
-unverified TLS** between client and server to simplify running the sample.
+This project is a toy protocol demo/demo. The default configuration uses 
+**local, mutual TLS (mTLS)** between client and server.  
 
-For production hardening, this repo includes a documented path that enables
-**mutual TLS (mTLS)**. 
+There is also a flag that allows for basic, unverified TLS to simplify running the sample.
 
 ### Basic TLS vs. mTLS
 

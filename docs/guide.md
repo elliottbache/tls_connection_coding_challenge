@@ -6,7 +6,7 @@ protocol and includes a **Proof-of-Work (WORK)** step solved by a fast **C++ hel
 get a thorough **pytest** suite (unit + integration) and **Sphinx** docs/doctests.
 
 ## How to run
-![Demo](docs/demo.gif)
+![Demo](demo.gif)
 For complete instructions, see 
 [Installation](https://github.com/elliottbache/tls_line_protocol/blob/master/README.md#installation)
 and [Execution and usage](https://github.com/elliottbache/tls_line_protocol/blob/master/README.md#execution--usage).
@@ -411,7 +411,7 @@ def test_handle_pow_cpp_success(monkeypatch):
 
 ### Integration tests (end-to-end)
 - Start a **real TLS server** on an ephemeral port (use ``trustme`` for throwaway certs).
-- Patch client defaults to point at your server and **fake WORK binary** (a tiny Python 
+- Patch client defaults and a **fake WORK binary** (a tiny Python 
 script that prints ``RESULT:testsuffix``).
 - TODO!!! Run client ``main()`` and assert the session transcript.
 
@@ -439,3 +439,6 @@ If you’re using ``.rst``:
 
    guide
 ```
+
+## Future work
+- Create integration test asserting full transcript from main().
