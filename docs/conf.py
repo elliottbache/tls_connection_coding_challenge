@@ -29,7 +29,7 @@ extensions = [
     "sphinxcontrib.mermaid",  # the mermaid extension
 ]
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
-myst_heading_anchors = 3  # create anchors for ##, ###, etc.
+myst_heading_anchors = 6  # create anchors for ##, ###, etc.
 
 # Generate autosummary stub pages automatically on build
 autosummary_generate = True
