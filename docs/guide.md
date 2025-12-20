@@ -5,6 +5,14 @@ This project demonstrates a minimal **TLS client/server** that speaks a simple, 
 protocol and includes a **Proof-of-Work (WORK)** step solved by a fast **C++ helper**. You also 
 get a thorough **pytest** suite (unit + integration) and **Sphinx** docs/doctests.
 
+## How to run
+![Demo](docs/demo.gif)
+For complete instructions, see 
+[Installation](https://github.com/elliottbache/tls_line_protocol/blob/master/README.md#installation)
+and [Execution and usage](https://github.com/elliottbache/tls_line_protocol/blob/master/README.md#execution--usage).
+ 
+
+
 ### High-level flow
 ```{mermaid}
 sequenceDiagram
@@ -381,8 +389,6 @@ shown in the following table.
 | **Number of runs**    |   100    |  100     |  100     |  100     |   100    |   100    |
 | **Total run time (s)**    |   5    |  9     |  25     |    787   |   4678    |   24764    |
 | **Average run time (s)**    |   0.05    |  0.09     |  0.25     |   7.87    |   46.78    |   247.64    |
-
-
 
 ---
 

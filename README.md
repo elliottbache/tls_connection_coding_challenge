@@ -13,6 +13,10 @@
 > - Fully testable: unit tests for parsing & hashing; integration test creates a throwaway TLS server and exercises the full round-trip.
 
 ---
+## Short demo: server + client solving WORK and answering requests
+![Demo](docs/demo.gif)
+
+---
 
 ## Architecture (at a glance)
 
@@ -45,6 +49,7 @@ and must not be changed in this project.
 **Table of Contents**
 
 - [Quickstart](#quickstart)
+- [Demo GIF](#demo-gif)
 - [Installation](#installation)
 - [Execution / Usage](#execution--usage)
 - [Technologies](#technologies)
@@ -291,6 +296,31 @@ A list of make commands is made available through ``Makefile``.  The following l
 - make run-server: Run server (local)
 - make run-client: Run client (local)
 - make bench: Quick benchmark for pow (example)
+
+## Demo GIF
+The ```.cast``` file is available for easy regeneration of the GIF file.  The following commands were used 
+to create the [GIF](#short-demo-server--client-solving-pow-and-answering-requests).
+```bash
+asciinema rec -i 3 --overwrite -t "TLSCC demo" -c "tmux new-session -A -s tlslp-demo" docs/demo.cast
+git clone https://github.com/elliottbache/tls_line_protocol.git
+cd tls_line_protocol/
+make all
+# Here we first run the server in this terminal pane (tmux)
+# and then open another pane in tmux using <CTRL + B> %
+# In normal operation without tmux, you would open another terminal
+# and write the client commands in that terminal
+make run-server
+ctrl + B %
+cd tls_line_protocol
+make run-client
+ctrl + B <-
+cat ~/.local/state/tlslp/logs/server.log 
+ctrl + B ->
+cat ~/.local/state/tlslp/logs/client.log
+exit
+exit
+asciinema-agg docs/demo.cast docs/demo.gif
+```
 
 ### Sphinx in PyCharm
 In order to create Sphinx documentation from the docstrings in PyCharm, a new run task must be created: 
