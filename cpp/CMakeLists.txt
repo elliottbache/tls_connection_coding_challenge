@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
+cmake_policy(SET CMP0135 NEW)
+
 project(pow_challenge LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -58,14 +60,23 @@ target_link_libraries(pow_challenge
 )
 enable_sanitizers(pow_challenge)
 
+# Suppress CMP0048 (Project version) warnings from GTest
+cmake_policy(PUSH)
+cmake_policy(SET CMP0048 NEW)
+
 include(FetchContent)
 FetchContent_Declare(
   googletest
-  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+  URL https://github.com/google/googletest/releases/download/v1.17.0/googletest-1.17.0.tar.gz
+  GIT_TAG        v1.15.2  # Modern version
+  SYSTEM # this marks headers as 'system' to suppress compiler warnings from GTest
 )
+
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
+
+cmake_policy(POP)
 
 enable_testing()
 
