@@ -38,6 +38,7 @@ from tlscc.protocol import (
     DEFAULT_OTHER_TIMEOUT,
     DEFAULT_POW_TIMEOUT,
     DEFAULT_SERVER_HOST,
+    _parse_positive_int,
     receive_message,
     send_message,
 )
@@ -68,30 +69,6 @@ class ServerConfig:
     difficulty: int
     log_level: str
     json_logs: bool
-
-
-def port(s: str) -> int:
-    try:
-        p = int(s)
-    except ValueError as e:
-        logger.exception(f"port must be an integer: {e}")
-        raise argparse.ArgumentTypeError("port must be an integer") from e
-    if not (0 < p < 65536):
-        logger.exception("port out of range (1..65535)")
-        raise argparse.ArgumentTypeError("port out of range (1..65535)")
-    return p
-
-
-def positive_int(s: str) -> int:
-    try:
-        n = int(s)
-    except ValueError as e:
-        logger.exception(f"must be an integer: {e}")
-        raise argparse.ArgumentTypeError("must be an integer") from e
-    if n <= 0:
-        logger.exception("must be > 0")
-        raise argparse.ArgumentTypeError("must be > 0")
-    return n
 
 
 def build_client_parser() -> argparse.ArgumentParser:
@@ -134,13 +111,13 @@ def build_client_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--pow-timeout",
         default=DEFAULT_POW_TIMEOUT,
-        type=positive_int,
+        type=_parse_positive_int,
         help=f"timeout (s) for POW (default: {DEFAULT_POW_TIMEOUT})",
     )
     parser.add_argument(
         "--other-timeout",
         default=DEFAULT_OTHER_TIMEOUT,
-        type=positive_int,
+        type=_parse_positive_int,
         help=f"timeout (s) for non-POW steps (default: {DEFAULT_OTHER_TIMEOUT})",
     )
 
