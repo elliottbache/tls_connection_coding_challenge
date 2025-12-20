@@ -1,3 +1,4 @@
 ```{include} ../README.md
-:start-after: <!-- docs:start -->
-:end-before: <!-- docs:end -->
+:relative-docs: docs/
+:relative-images:
+```
