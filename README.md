@@ -216,7 +216,7 @@ subprocess.run is not world writable).
 
 ### Option A: No Docker
 #### Run demo server (listens on localhost, verifies client by default)
-From within the Python virtual environment (see [.venv](#create-and-activate-a-venv)):
+From within the Python virtual environment (see [Virtual environment](#create-and-activate-a-venv)):
 ```bash
 tlscc-server
 ```
