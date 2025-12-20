@@ -57,6 +57,7 @@ from tlslp.protocol import (
     DEFAULT_WORK_TIMEOUT,
     DEFAULT_SERVER_HOST,
     MAX_LINE_LENGTH,
+    _parse_positive_int,
     receive_message,
     send_message,
 )
@@ -113,7 +114,7 @@ class ClientConfig:
     json_logs: bool
 
 
-def port(s: str) -> int:
+def _parse_port(s: str) -> int:
     try:
         p = int(s)
     except ValueError as e:
@@ -123,18 +124,6 @@ def port(s: str) -> int:
         logger.exception("port out of range (1..65535)")
         raise argparse.ArgumentTypeError("port out of range (1..65535)")
     return p
-
-
-def positive_int(s: str) -> int:
-    try:
-        n = int(s)
-    except ValueError as e:
-        logger.exception(f"must be an integer: {e}")
-        raise argparse.ArgumentTypeError("must be an integer") from e
-    if n <= 0:
-        logger.exception("must be > 0")
-        raise argparse.ArgumentTypeError("must be > 0")
-    return n
 
 
 def build_client_parser() -> argparse.ArgumentParser:
@@ -151,7 +140,7 @@ def build_client_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--ports",
         default=DEFAULT_PORTS,
-        type=lambda s: [port(x) for x in s.split(",")],
+        type=lambda s: [_parse_port(x) for x in s.split(",")],
         help="comma-separated list of ports (e.g. 1234,8235)",
     )
 
@@ -184,13 +173,13 @@ def build_client_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--pow-timeout",
         default=DEFAULT_WORK_TIMEOUT,
-        type=positive_int,
+        type=_parse_positive_int,
         help=f"timeout (s) for WORK (default: {DEFAULT_WORK_TIMEOUT})",
     )
     parser.add_argument(
         "--other-timeout",
         default=DEFAULT_OTHER_TIMEOUT,
-        type=positive_int,
+        type=_parse_positive_int,
         help=f"timeout (s) for non-WORK steps (default: {DEFAULT_OTHER_TIMEOUT})",
     )
 
