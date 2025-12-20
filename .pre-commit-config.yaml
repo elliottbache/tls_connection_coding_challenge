@@ -2,7 +2,7 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.7.0
     hooks:
-      - id: ruff          # no --fix => does not rewrite
+      - id: ruff
 
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
@@ -25,5 +25,5 @@ repos:
     rev: v1.13.0
     hooks:
       - id: mypy
-        args: ["--config-file=pyproject.toml"]  # check src explicitly
-        pass_filenames: false                           # <-- critical
+        args: ["--config-file=pyproject.toml"]
+        pass_filenames: false
