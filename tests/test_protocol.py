@@ -2,10 +2,9 @@ import argparse
 import logging
 
 import pytest
+from helpers import FakeSocket
 
 from tlscc import protocol
-
-from .helpers import FakeSocket
 
 
 class TestReceiveMessage:

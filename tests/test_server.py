@@ -4,10 +4,9 @@ import socket
 from contextlib import closing
 
 import pytest
+from helpers import FakeContext, FakeSocket, FakeSSLContext
 
 from tlscc import server
-
-from .helpers import FakeContext, FakeSocket, FakeSSLContext
 
 
 # helpers
