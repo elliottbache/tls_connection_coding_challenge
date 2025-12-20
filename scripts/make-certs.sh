@@ -11,8 +11,7 @@ openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out ec_private_k
 openssl req -new -key ec_private_key.pem -out client.csr -subj "/CN=client"
 
 # client cert signed by CS
-openssl x509 -req -in client.csr -CA ca_cert.pem -CAkey ca_key.pem -CAcreateserial -out \
-  client_cert.pem -days 365 -sha256
+openssl x509 -req -in client.csr -CA ca_cert.pem -CAkey ca_key.pem -CAcreateserial -out client_cert.pem -days 365 -sha256
 
 # server key and CSR
 openssl genrsa -out server-key.pem 2048
