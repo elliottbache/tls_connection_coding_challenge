@@ -235,7 +235,7 @@ Thumbs.db
 
 # Old files that haven't yet been formatted for publication
 src/old_files
-old_files
+PRIVATE/old_files
 
 build-asan
 build-tsan

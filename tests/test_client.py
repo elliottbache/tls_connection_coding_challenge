@@ -8,10 +8,9 @@ import subprocess
 import sys
 
 import pytest
+from helpers import FakeContext, FakeSocket, FakeWrappedSock
 
 from tlslp import client
-
-from .helpers import FakeContext, FakeSocket, FakeWrappedSock
 
 
 # helpers
