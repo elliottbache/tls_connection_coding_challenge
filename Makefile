@@ -93,11 +93,11 @@ test-cpp:
 
 .PHONY: run-server
 run-server:
-	$(ACTIVATE); tlslp-server
+	$(ACTIVATE); tlslp-server --log-level=DEBUG
 
 .PHONY: run-client
 run-client:
-	$(ACTIVATE); tlslp-client
+	$(ACTIVATE); tlslp-client --log-level=DEBUG
 
 runs ?= 1
 SHELL := /bin/bash
