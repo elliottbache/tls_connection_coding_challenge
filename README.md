@@ -65,7 +65,7 @@ In a Linux/WSL terminal:
 ```bash
 git clone https://github.com/elliottbache/tls_connection_coding_challenge.git
 cd tls_connection_coding_challenge
-make all
+make setup
 make run-server
 ```
 Open another terminal in the same folder and run:
@@ -92,7 +92,7 @@ cd tls_connection_coding_challenge
 The following commands are made available by ```Makefile``` and a more detailed description of the various
 options may be found in [Make commands](#make-commands).
 ```bash
-make all
+make setup
 ```
 
 ### Option A: No Docker
@@ -299,7 +299,9 @@ An in-depth description of the modules and functions of this program can be foun
 
 ### Make commands
 A list of make commands is made available through ``Makefile``.  The following list comes from using ``make help``:
-- make all:  Makes all except run-server and run-client
+- make all: Makes all except run-server and run-client
+- make setup: Makes those needed for initial setup
+- make ci: Makes those needed for CI (lint, typecheck, test)
 - make clean: Remove caches and build artifacts"
 - make venv: Create virtualenv (.venv)
 - make install-dev: Install project + dev deps
@@ -310,6 +312,7 @@ A list of make commands is made available through ``Makefile``.  The following l
 - make format: Run ruff --fix, black, isort
 - make typecheck: Run mypy
 - make test: Run pytest
+- make test-cpp: Run CTest
 - make run-server: Run server (local)
 - make run-client: Run client (local)
 - make bench: Quick benchmark for pow (example)
@@ -321,7 +324,7 @@ to create the [GIF](#short-demo-server--client-solving-pow-and-answering-request
 asciinema rec -i 3 --overwrite -t "TLSCC demo" -c "tmux new-session -A -s tlscc-demo" docs/demo.cast
 git clone https://github.com/elliottbache/tls_connection_coding_challenge.git
 cd tls_connection_coding_challenge/
-make all
+make setup
 # Here we first run the server in this terminal pane (tmux)
 # and then open another pane in tmux using <CTRL + B> %
 # In normal operation without tmux, you would open another terminal
