@@ -25,9 +25,12 @@ namespace
         const int bits_required = difficulty * 4;
         uint64_t counter = base_counter + thread_id;
 
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         SHA_CTX sha_context_base;
         SHA1_Init(&sha_context_base);
         SHA1_Update(&sha_context_base, authdata, auth_len);
+        #pragma GCC diagnostic pop
 
         while (!found.load(std::memory_order_acquire))
         {
@@ -41,9 +44,12 @@ namespace
             std::memcpy(input, authdata, auth_len);
             std::memcpy(input + auth_len, suffix.data(), suffix_length);
 
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
             SHA_CTX sha_context = sha_context_base;
             SHA1_Update(&sha_context, suffix.data(), suffix_length);
             SHA1_Final(digest, &sha_context);
+            #pragma GCC diagnostic pop
 
             if (pow_internal::has_leading_zeros(digest, bits_required))
             {
