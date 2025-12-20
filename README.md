@@ -228,6 +228,11 @@ tlscc-server --host 127.0.0.1 --port 3481 \
   --server-key certificates/server-key.pem \
   --difficulty 6
 ```
+A typical command for development is:
+```bash
+# Run demo server logging all messages
+tlscc-server --log-level DEBUG
+```
 For a complete list, run
 ```bash
 # Run demo server on localhost:3481 with difficulty 6
@@ -240,11 +245,15 @@ tlscc-client
 ```
 Various flags are available for running in CLI.  e.g.
 ```sh
-# Connect to same host/port, using local pow_challenge
+# Connect to same host/port, using pow_challenge in non-default folder
 tlscc-client --host localhost --ports 3481 \
-  --pow-bin build/pow_challenge --insecure
+  --pow-bin bin/pow_challenge --insecure
 ```
-
+A typical command for development is:
+```bash
+# Run demo server logging all messages
+tlscc-client --log-level DEBUG
+```
 ### Option B: Docker
 
 3. Start a docker container
