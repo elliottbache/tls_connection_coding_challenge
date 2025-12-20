@@ -109,7 +109,7 @@ distributions.
 The quickest and easiest way to install the various components of this package can be found in [Quickstart](#quickstart).
 The following steps are for manual installation.
 ### Create a Python virtual environment with dependencies (skip this if using Docker)
-#### Create & activate a venv
+#### Create and activate a venv
 ```bash
 python -m venv .venv
 . .venv/bin/activate 
@@ -216,6 +216,7 @@ subprocess.run is not world writable).
 
 ### Option A: No Docker
 #### Run demo server (listens on localhost, verifies client by default)
+From within the Python virtual environment (see [.venv](#create-and-activate-a-venv)):
 ```bash
 tlslp-server
 ```
