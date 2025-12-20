@@ -7,6 +7,7 @@ Notes:
     functioning of this program and should thus be treated as an exception.
 """
 
+import argparse
 import logging
 import socket
 import ssl
@@ -29,6 +30,18 @@ DEFAULT_LONG_TIMEOUT = 24 * 3600
 DEFAULT_SERVER_HOST = "localhost"
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_positive_int(s: str) -> int:
+    try:
+        n = int(s)
+    except ValueError as e:
+        logger.exception(f"must be an integer: {e}")
+        raise argparse.ArgumentTypeError("must be an integer") from e
+    if n <= 0:
+        logger.exception("must be > 0")
+        raise argparse.ArgumentTypeError("must be > 0")
+    return n
 
 
 def send_message(
