@@ -1,3 +1,4 @@
+import argparse
 import logging
 
 import pytest
@@ -70,3 +71,33 @@ class TestReceiveMessage:
         _ = s1.sendall(message_to_receive)
         with pytest.raises(ValueError, match=r"Line too long"):
             protocol.receive_message(s2, logger)
+
+
+class TestParsePositiveInt:
+
+    def test_parse_positive_int_accepts_positive_int(self, caplog):
+        """Valid positive integers should parse and return an int."""
+        assert protocol._parse_positive_int("42") == 42
+
+        print(f"\ncaplog: {caplog}")
+        assert caplog.records == []
+
+    def test_parse_positive_int_rejects_non_integer(self, caplog):
+        """Non-integer strings should raise ArgumentTypeError and log an exception."""
+        with (
+            caplog.at_level(logging.ERROR, logger=protocol.logger.name),
+            pytest.raises(argparse.ArgumentTypeError, match=r"must be an integer"),
+        ):
+            protocol._parse_positive_int("abc")
+
+        assert "must be an integer" in caplog.text
+
+    def test_parse_positive_int_rejects_zero_or_negative(self, caplog):
+        """Zero/negative integers should raise ArgumentTypeError and log an exception."""
+        with (
+            caplog.at_level(logging.ERROR, logger=protocol.logger.name),
+            pytest.raises(argparse.ArgumentTypeError, match=r"must be > 0"),
+        ):
+            protocol._parse_positive_int("0")
+
+        assert "must be > 0" in caplog.text
