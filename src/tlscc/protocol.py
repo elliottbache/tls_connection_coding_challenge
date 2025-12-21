@@ -97,7 +97,10 @@ def send_message(
         string_to_send += "\n"
 
     # encode string
-    bstring_to_send = string_to_send.encode("utf-8")
+    try:
+        bstring_to_send = string_to_send.encode("utf-8")
+    except UnicodeEncodeError as e:
+        raise ProtocolError("Send failed. Failed encoding.") from e
 
     # send message
     try:
@@ -105,7 +108,7 @@ def send_message(
     except (TimeoutError, ssl.SSLEOFError, ssl.SSLError, OSError, BrokenPipeError) as e:
         string_to_send_no_newline = string_to_send.rstrip("\n")
         raise TransportError(
-            f"Send failed.  Sending {string_to_send_no_newline}. {type(e)} {e}"
+            f"Send failed.  Sending {string_to_send_no_newline}. {type(e)}"
         ) from e
 
 

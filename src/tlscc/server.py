@@ -37,6 +37,8 @@ from tlslp.protocol import (
     DEFAULT_OTHER_TIMEOUT,
     DEFAULT_WORK_TIMEOUT,
     DEFAULT_SERVER_HOST,
+    ProtocolError,
+    TransportError,
     _parse_positive_int,
     receive_message,
     send_message,
@@ -220,10 +222,9 @@ def send_and_receive(
     secure_sock.settimeout(timeout)
     try:
         send_message(to_send, secure_sock, logger)
-    except Exception as e:
-        logger.exception(f"Send error: {e}")
+    except Exception:
         send_error("ERROR sending.", secure_sock)
-        raise ValueError(r"ERROR sending.") from e
+        raise
 
     # no waiting to receive a message from client
     if to_send.startswith("ERROR"):
@@ -231,13 +232,11 @@ def send_and_receive(
 
     try:
         received_message = receive_message(secure_sock, logger)
-    except TimeoutError as e:
-        logger.exception(f"Client timeout: {e}")
-        raise TimeoutError("Client timeout") from e
-    except Exception as e:
-        logger.exception(f"Receive error {e}.")
+    except TransportError:
+        raise
+    except ProtocolError as e:
         send_error("ERROR receiving.", secure_sock)
-        raise ValueError(r"ERROR receiving.") from e
+        raise ProtocolError(r"ERROR receiving.") from e
 
     # check WORK suffix
     if to_send.startswith("WORK") and not _check_suffix(
@@ -274,6 +273,8 @@ def send_error(to_send: str, secure_sock: socket.socket) -> None:
 
     try:
         send_message(to_send, secure_sock, logger)
+    except Exception:
+        logger.exception("Error could not be sent.")
     finally:
         pass
 
@@ -285,7 +286,6 @@ def prepare_server_socket(
     server_cert_path: str,
     server_key_path: str,
     is_secure: bool = False,
-    timeout: int = 6,
 ) -> tuple[socket.socket, ssl.SSLContext]:
     """Prepare a socket to be used for sending and receiving.
 
@@ -301,9 +301,9 @@ def prepare_server_socket(
         socket.socket: the socket to be used for sending and receiving.
         ssl.SSLContext: the ssl context to be used for sending and receiving.
     """
-    # Check that server_host is local, otherwise raise error so that insecure
-    # connection isn't mistakenly used
-    if server_host != "localhost":
+    # Check that server_host is local for basic TLS, otherwise raise error so
+    # that insecure connection isn't mistakenly used
+    if not is_secure and server_host != "localhost":
         logger.exception(
             f"Refusing insecure TLS to {server_host!r}. For "
             f"non-local hosts, enable certificate verification."
@@ -377,6 +377,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 logger.exception("No client certificate presented.")
                 raise RuntimeError("No client certificate presented.")
             logger.info(f"Connection from {client_address!r}")
+            print(f"Connection from {client_address}")
 
             try:
                 # handshake
@@ -443,27 +444,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                         f"Valid checksum received: {msg.split(' ', maxsplit=1)[0]!r}"
                     )
 
-                # if internal server error, break and close connection
-                if choice is not None and choice.startswith("ERROR"):
-                    break
-
                 # end message
-                logger.info("Step: end")
-                logger.debug("Sending DONE")
-                msg = send_and_receive(
-                    cfg.token, "DONE", secure_sock, cfg.other_timeout
-                )
-                logger.debug(f"Received {msg!r}")
+                if choice is not None and not choice.startswith("ERROR"):
+                    logger.info("Step: end")
+                    logger.debug("Sending DONE")
+                    msg = send_and_receive(
+                        cfg.token, "DONE", secure_sock, cfg.other_timeout
+                    )
+                    logger.debug(f"Received {msg!r}")
 
             except Exception as e:
                 logger.exception(f"Exception: {e}")
 
-            break
-
-    logger.info("Connection closed")
-    print("Connection closed")
-
-    return 0
+        logger.info("Connection closed")
+        print("Connection closed")
 
 
 if __name__ == "__main__":

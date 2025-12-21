@@ -143,7 +143,7 @@ def configure_logging(
 
     # create debug handler (all)
     handler = RotatingFileHandler(
-        filename=fn, mode="a", maxBytes=5 * 1024 * 1024, backupCount=3
+        filename=fn, mode="a", maxBytes=50 * 1024 * 1024, backupCount=2
     )
     _set_formatter(json_logs, handler)
     root.addHandler(handler)
