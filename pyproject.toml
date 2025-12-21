@@ -1,7 +1,6 @@
 [project]
 name = "tls-connection-coding-challenge"
 version = "0.1.0"
-dependencies = ["cryptography", "trustme"]
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "GPL-3.0" }
@@ -24,6 +23,7 @@ dev = [
   "myst-parser>=3.0",
   "breathe",
   "pytest-cov",
+  "trustme"
 ]
 
 [project.scripts]
@@ -32,9 +32,6 @@ tlscc-server = "tlscc.server:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-
-[tool.setuptools.package-data]
-tlscc = ["_bin/pow_challenge"]
 
 # pyproject.toml
 [tool.ruff]
@@ -55,7 +52,7 @@ quote-style = "double"  # personal taste
 
 [tool.black]
 line-length = 88
-target-version = ["py311"]
+target-version = ["py310"]
 extend-exclude = "^(migrations|build|dist|.venv|_deps)/"
 
 [tool.isort]
@@ -63,7 +60,7 @@ skip = [".venv", "migrations", "build", "dist"]
 profile = "black"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.10"
 strict = false
 warn_unused_configs = true
 disallow_untyped_defs = true

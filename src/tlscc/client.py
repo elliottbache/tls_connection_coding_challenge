@@ -399,19 +399,15 @@ def _is_world_writable(path: Path) -> bool:
         return True
 
 
-def _validate_path(bin_path: Path, allowed_root: Path | None = None) -> None:
+def _validate_path(bin_path: Path, allowed_root: Path | None = None) -> bool:
     """Resolve and vet path."""
-    # check if file exists
-    if not bin_path.is_file():
-        logger.exception(f"POW binary not a regular file: {bin_path!r}")
-        raise FileNotFoundError(f"POW binary not a regular file: {bin_path}")
     # check if it's a symbolic link
     if bin_path.is_symlink():
-        logger.exception(f"Refusing to execute symlink: {bin_path!r}")
+        logger.critical(f"Refusing to execute symlink: {bin_path!r}")
         raise PermissionError(f"Refusing to execute symlink: {bin_path}")
     # check if it's executable
     if os.name == "posix" and not os.access(bin_path, os.X_OK):
-        logger.exception(f"POW binary at {bin_path!r} is not executable.")
+        logger.critical(f"POW binary at {bin_path!r} is not executable.")
         raise PermissionError(f"POW binary at {bin_path} is not executable.")
     # check if it's world writable
     if _is_world_writable(bin_path) or _is_world_writable(bin_path.parent):
@@ -427,6 +423,8 @@ def _validate_path(bin_path: Path, allowed_root: Path | None = None) -> None:
             raise PermissionError(
                 f"Insecure directory location {bin_path.parent} for {bin_path}"
             )
+
+    return True
 
 
 def _validate_string(s: str) -> None:
@@ -463,10 +461,7 @@ def _validate_difficulty(difficulty: str) -> None:
         raise ValueError("POW difficulty is out of range")
 
 
-def _check_inputs(bin_path: Path, authdata: str, difficulty: str) -> None:
-
-    # resolve and vet the executable path
-    _validate_path(bin_path, Path(DEFAULT_ALLOWED_ROOT))
+def _check_inputs(authdata: str, difficulty: str) -> None:
 
     # validate authdata
     _validate_string(authdata)
@@ -476,12 +471,12 @@ def _check_inputs(bin_path: Path, authdata: str, difficulty: str) -> None:
 
 
 def run_pow_binary(
-    cpp_binary_path: str, authdata: str, difficulty: str, timeout: int = 7200
+    bin_path: Path, authdata: str, difficulty: str, timeout: int = 7200
 ) -> subprocess.CompletedProcess:
     """Run the POW challenge C++ binary.
 
     Args:
-        cpp_binary_path (Path): The path of the C++ binary.
+        bin_path (Path): The path of the C++ binary.
         authdata (str): The authdata to use.
         difficulty (str): The difficulty to use.
         timeout (int, optional): The timeout to use.
@@ -503,17 +498,7 @@ def run_pow_binary(
               (cwd=str(cpp_binary_path.parent))
 
     """
-    bin_path = Path(cpp_binary_path).resolve(strict=True)
-    # on Windows, allow implicit .exe
-    if (
-        sys.platform.startswith("win")
-        and bin_path.suffix == ""
-        and not bin_path.exists()
-    ):
-        bin_path = bin_path.with_suffix(".exe")
-
-    _check_inputs(bin_path, authdata, difficulty)
-
+    _check_inputs(authdata, difficulty)
     return subprocess.run(
         args=[os.fspath(bin_path), authdata, difficulty],
         text=True,
@@ -528,7 +513,7 @@ def run_pow_binary(
 def handle_pow_cpp(
     authdata: str,
     difficulty: str,
-    cpp_binary_path: str = DEFAULT_CPP_BINARY_PATH,
+    bin_path: Path = Path(DEFAULT_CPP_BINARY_PATH),
     timeout: int = 7200,
 ) -> str:
     """Find a hash with the given number of leading zeros.
@@ -539,7 +524,7 @@ def handle_pow_cpp(
     Args:
         authdata (str): The authdata from the server.
         difficulty (str): The number of leading zeroes required.
-        cpp_binary_path (str): The path to the C++ program that solves
+        bin_path (Path): The path to the C++ program that solves
             the POW challenge.
 
     Returns:
@@ -560,7 +545,7 @@ def handle_pow_cpp(
     """
     # run pre-compiled c++ code for finding suffix
     try:
-        result = run_pow_binary(cpp_binary_path, authdata, difficulty, timeout)
+        result = run_pow_binary(bin_path, authdata, difficulty, timeout)
 
         # Extract the single result line
         suffix = None
@@ -575,11 +560,11 @@ def handle_pow_cpp(
             logger.exception("No RESULT found in POW output.")
             raise ValueError("No RESULT found in POW output.")
 
-    except FileNotFoundError as e:
-        logger.exception(f"POW binary not a regular file {cpp_binary_path!r}: {e}")
-        raise FileNotFoundError(
-            f"POW binary not a regular file: {cpp_binary_path}"
-        ) from e
+    # except FileNotFoundError as e:
+    #     logger.exception(f"POW binary not a regular file {bin_path!r}: {e}")
+    #     raise FileNotFoundError(
+    #         f"POW binary not a regular file: {bin_path}"
+    #     ) from e
 
     except subprocess.CalledProcessError as e:
         _validate_string(authdata)
@@ -598,7 +583,7 @@ def define_response(
     valid_messages: set[str],
     queue: multiprocessing.Queue,
     responses: dict[str, str] = DEFAULT_RESPONSES,
-    cpp_binary_path: str = DEFAULT_CPP_BINARY_PATH,
+    bin_path: Path = Path(DEFAULT_CPP_BINARY_PATH),
 ) -> None:
     """
     Create response to message depending on received message.
@@ -612,7 +597,7 @@ def define_response(
         valid_messages (set[str]): The list of valid messages that
             the server can send.
         responses (dict[str, str]): The list of responses to send.
-        cpp_binary_path (str): The path to the C++ program that solves
+        bin_path (Path): The path to the C++ program that solves
             the POW challenge.
 
     Returns:
@@ -649,7 +634,7 @@ def define_response(
     elif args[0] == "POW":
         difficulty = args[2]
 
-        result = handle_pow_cpp(authdata, difficulty, cpp_binary_path)
+        result = handle_pow_cpp(authdata, difficulty, bin_path)
         _validate_string(result.rstrip("\n"))
         is_err = False
 
@@ -760,7 +745,7 @@ def _process_message_with_timeout(
     authdata: str,
     valid_messages: set[str],
     responses: dict[str, str] = DEFAULT_RESPONSES,
-    cpp_binary_path: str = DEFAULT_CPP_BINARY_PATH,
+    bin_path: Path = Path(DEFAULT_CPP_BINARY_PATH),
     pow_timeout: float = DEFAULT_POW_TIMEOUT,
     other_timeout: float = DEFAULT_OTHER_TIMEOUT,
 ) -> str:
@@ -780,7 +765,7 @@ def _process_message_with_timeout(
             valid_messages,
             queue,
             responses,
-            cpp_binary_path,
+            bin_path,
         ),
     )
     p.start()
@@ -798,6 +783,33 @@ def _process_message_with_timeout(
             raise Exception(f"{args[0]} failed: {to_send}.")
         else:
             return msg
+
+
+def _resolved_bin_path(cpp_binary_path: str) -> Path:
+    """Resolve path and add .exe if Windows and no extension."""
+    try:
+        bin_path = Path(cpp_binary_path).resolve(strict=True)
+    except (FileNotFoundError, OSError) as e:
+        logger.critical(
+            f"POW binary not a regular file: {cpp_binary_path!r}.\nIf it is "
+            f"elsewhere, use --pow-binary flag to define its path.  If "
+            f"not yet installed, try installing"
+            f" it with 'make build-cpp' from the root directory.\n"
+            f"Otherwise, g++ -O3 -std=c++17 pow_challenge.cpp pow_core.cpp"
+            f" -o ../build/pow_challenge -lssl -lcrypto -pthread from"
+            f" cpp/; cp ../build/pow_challenge ../src/tlscc/_bin/"
+        )
+        raise FileNotFoundError(
+            f"POW binary not a regular file: {cpp_binary_path}"
+        ) from e
+
+    if (
+        sys.platform.startswith("win")
+        and bin_path.suffix == ""
+        and not bin_path.exists()
+    ):
+        bin_path = bin_path.with_suffix(".exe")
+    return bin_path
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -826,9 +838,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     valid_messages = DEFAULT_VALID_MESSAGES  # valid messages from the server
     authdata = ""  # this will be set with POW message from server
 
-    # Create and wrap socket
+    # check paths
     logger.info(f"Client cert exists: {os.path.exists(cfg.client_cert)!r}")
     logger.info(f"Private key exists: {os.path.exists(cfg.private_key)!r}")
+    bin_path = _resolved_bin_path(cfg.pow_binary)
+    print(f"\nbin_path: {bin_path!r}")
+
+    logger.info(
+        f"POW binary exists: {_validate_path(bin_path, Path(DEFAULT_ALLOWED_ROOT))!r}"
+    )
 
     # Connect to the server using TLS
     # Cycle through possible ports, trying to connect to each until success
@@ -879,7 +897,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 authdata,
                 valid_messages,
                 responses,
-                cfg.pow_binary,
+                bin_path,
                 cfg.pow_timeout,
                 cfg.other_timeout,
             )

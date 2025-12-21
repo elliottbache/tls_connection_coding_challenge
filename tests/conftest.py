@@ -16,6 +16,14 @@ def readout(capsys) -> Callable[[], Any]:
 
 
 @pytest.fixture
+def readerr(capsys) -> Callable[[], Any]:
+    def _():
+        return capsys.readouterr().err.replace("\r\n", "\n").rstrip("\n")
+
+    return _
+
+
+@pytest.fixture
 def path_to_pow_challenge():
     return "path/to/pow_challenge"
 
