@@ -6,6 +6,7 @@ import ssl
 import stat
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 from helpers import FakeContext, FakeSocket, FakeWrappedSock
@@ -86,10 +87,13 @@ class FakeProcess:
 @pytest.fixture(scope="function")
 def fake_bin(tmp_path):
     new_path = tmp_path
+    # switch off others write access
     new_path.chmod(new_path.stat().st_mode & ~stat.S_IWOTH)
     new_bin = new_path / "pow_challenge"
     new_bin.touch()
+    # switch off others write access
     new_bin.chmod(new_bin.stat().st_mode & ~stat.S_IWOTH)
+    # switch on user, group, and others execute access
     new_bin.chmod(new_bin.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     return new_bin
 
@@ -245,7 +249,7 @@ class TestRunPowBinary:
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
-        result = client.run_pow_binary(str(fake_bin), token, difficulty)
+        result = client.run_pow_binary(fake_bin, token, difficulty)
 
         assert isinstance(result, FakeCompleted)
         assert result.returncode == 0
@@ -306,31 +310,6 @@ class TestRunPowBinary:
         with pytest.raises(ValueError, match="WORK difficulty is out of range"):
             client.run_pow_binary(fake_bin, token, wrong_difficulty)
 
-    def test_run_pow_binary_no_executable(self, token, difficulty, fake_bin):
-
-        with pytest.raises(FileNotFoundError, match="WORK binary not a regular file"):
-            client.run_pow_binary(fake_bin.parent, token, difficulty)
-
-    @pytest.mark.skipif(
-        sys.platform.startswith("win"), reason="POSIX chmod not supported on Windows"
-    )
-    def test_run_pow_binary_writable_linux_executable(
-        self, token, difficulty, fake_bin
-    ):
-        fake_bin.chmod(0o777)
-        with pytest.raises(PermissionError, match="Insecure permissions on"):
-            client.run_pow_binary(fake_bin, token, difficulty)
-
-    @pytest.mark.skipif(
-        sys.platform.startswith("win"), reason="POSIX chmod not supported on Windows"
-    )
-    def test_run_pow_binary_linux_non_executable(self, token, difficulty, fake_bin):
-        fake_bin.chmod(
-            fake_bin.stat().st_mode & ~stat.S_IXUSR & ~stat.S_IXGRP & ~stat.S_IXOTH
-        )
-        with pytest.raises(PermissionError, match=r"is not executable."):
-            client.run_pow_binary(fake_bin, token, difficulty)
-
     def test_run_pow_binary_error(
         self, token, difficulty, suffix, fake_bin, monkeypatch
     ):
@@ -389,16 +368,9 @@ class TestHandlePowCpp:
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
-        suffix_output = client.handle_pow_cpp(token, difficulty, str(fake_bin))
+        suffix_output = client.handle_pow_cpp(token, difficulty, fake_bin)
 
         assert suffix_output == suffix + "\n"
-
-    def test_handle_pow_cpp_no_executable(
-        self, token, difficulty, timeout, path_to_pow_challenge
-    ):
-
-        with pytest.raises(FileNotFoundError, match="WORK binary not a regular file"):
-            client.handle_pow_cpp(token, difficulty, path_to_pow_challenge, timeout)
 
     def test_handle_pow_cpp_no_result(
         self, token, difficulty, timeout, fake_bin, monkeypatch
@@ -639,7 +611,7 @@ class TestProcessMessageWithTimeout:
             token=token,
             valid_messages=valid_messages,
             responses={},
-            cpp_binary_path="/path/to/challenge",
+            bin_path=Path("/path/to/challenge"),
             pow_timeout=999,
             other_timeout=123,
         )
@@ -670,7 +642,7 @@ class TestProcessMessageWithTimeout:
             token=token,
             valid_messages=valid_messages,
             responses=client.DEFAULT_RESPONSES,
-            cpp_binary_path="/path/to/challenge",
+            bin_path=Path("/path/to/challenge"),
             pow_timeout=777,
             other_timeout=1,
         )
@@ -700,7 +672,7 @@ class TestProcessMessageWithTimeout:
                 token=token,
                 valid_messages=valid_messages,
                 responses=client.DEFAULT_RESPONSES,
-                cpp_binary_path="/path/to/challenge",
+                bin_path=Path("/path/to/challenge"),
                 pow_timeout=1,
                 other_timeout=1,
             )
@@ -728,7 +700,7 @@ class TestProcessMessageWithTimeout:
                 token=token,
                 valid_messages=valid_messages,
                 responses=client.DEFAULT_RESPONSES,
-                cpp_binary_path="/path/to/challenge",
+                bin_path=Path("/path/to/challenge"),
                 pow_timeout=1,
                 other_timeout=1,
             )
@@ -771,6 +743,54 @@ class TestMain:
 
         assert sent == [("HELLOBACK\n", fake_sock), ("OK\n", fake_sock)]
         assert fake_sock.closed
+
+    def test_main_no_pow_binary(self, monkeypatch, valid_messages, readerr, tmp_path):
+
+        bin_path = tmp_path / "non_existent_file.txt"
+        monkeypatch.setattr(client, "DEFAULT_CPP_BINARY_PATH", bin_path)
+
+        with pytest.raises(FileNotFoundError, match=r"WORK binary not a regular file"):
+            client.main([])
+
+        err = readerr()
+        print(f"\nreaderr: {err}")
+        assert "make build-cpp" in err
+
+    @pytest.mark.skipif(
+        sys.platform.startswith("win"), reason="POSIX chmod not supported on Windows"
+    )
+    def test_main_pow_binary_not_executable(
+        self, monkeypatch, valid_messages, readerr, tmp_path
+    ):
+
+        bin_path = tmp_path
+        bin_path.chmod(bin_path.stat().st_mode & ~stat.S_IXUSR)
+        monkeypatch.setattr(client, "DEFAULT_CPP_BINARY_PATH", bin_path)
+
+        with pytest.raises(PermissionError, match="is not executable"):
+            client.main([])
+
+        err = readerr()
+        print(f"\nreaderr: {err}")
+        assert "is not executable" in err
+
+    @pytest.mark.skipif(
+        sys.platform.startswith("win"), reason="POSIX chmod not supported on Windows"
+    )
+    def test_main_pow_binary_writable_linux_executable(
+        self, monkeypatch, valid_messages, readerr, tmp_path
+    ):
+
+        bin_path = tmp_path
+        bin_path.chmod(bin_path.stat().st_mode | stat.S_IWOTH)
+        monkeypatch.setattr(client, "DEFAULT_CPP_BINARY_PATH", bin_path)
+
+        with pytest.raises(PermissionError, match="Insecure permissions"):
+            client.main([])
+
+        err = readerr()
+        print(f"\nreaderr: {err}")
+        assert "Insecure permissions" in err
 
     def test_main_server_error(self, monkeypatch, valid_messages):
 

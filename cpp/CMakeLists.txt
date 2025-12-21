@@ -68,7 +68,6 @@ include(FetchContent)
 FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/releases/download/v1.17.0/googletest-1.17.0.tar.gz
-  GIT_TAG        v1.15.2  # Modern version
   SYSTEM # this marks headers as 'system' to suppress compiler warnings from GTest
 )
 
