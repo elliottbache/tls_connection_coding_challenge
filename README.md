@@ -75,6 +75,9 @@ make run-client
 That's it, you’ve run the TLS toy protocol demo end-to-end!  Keep reading for a more in-depth 
 explanation of what just happened.  
 
+Note: requires (for the C++ WORK solver): CMake ≥ 3.16, a C++20 compiler (GCC/Clang), and OpenSSL development 
+headers/libs (e.g. libssl-dev on Ubuntu/Debian).
+
 ### Downloading the repository
 The repository first must be cloned to your local machine.  In a Linux/WSL terminal:
 ```bash

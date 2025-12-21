@@ -36,10 +36,10 @@ all: clean install-dev certs build-cpp docs lint format typecheck
 	$(ACTIVATE); make bench --no-print-directory
 
 .PHONY: setup
-setup: clean install-dev certs build-cpp
+setup: install-dev certs build-cpp
 
 .PHONY: ci
-ci: install-dev lint typecheck test
+ci: lint typecheck test
 
 .PHONY: clean
 clean:
