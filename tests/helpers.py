@@ -36,6 +36,7 @@ class FakeWrappedSock:
 
     def __init__(self) -> None:
         self.exited = False
+        self.timeout = 0
 
     def __enter__(self):
         return self
@@ -46,6 +47,9 @@ class FakeWrappedSock:
 
     def getpeername(self):
         return "Awesome socket"
+
+    def settimeout(self, timeout):
+        self.timeout = timeout
 
 
 # create socket-like object

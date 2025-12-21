@@ -1,5 +1,5 @@
 # create directory and change directory
-mkdir certificates
+mkdir -p certificates
 cd certificates
 
 # CA
