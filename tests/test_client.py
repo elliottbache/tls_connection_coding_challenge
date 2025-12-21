@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from helpers import FakeContext, FakeSocket, FakeWrappedSock
 
-from tlscc import client
+from tlscc import client, protocol
 
 
 # helpers
@@ -513,29 +513,33 @@ class TestConnectToServer:
         assert sock.calls["addr"] == ("localhost", 3481)
 
     @pytest.mark.parametrize(
-        "exc, expected",
+        "exc, expected_err, err_msg",
         [
-            (TimeoutError, "Connect timeout to localhost:3481"),
-            (ConnectionRefusedError, "Connection refused by localhost:3481"),
+            (TimeoutError, protocol.TransportError, "Failed to connect to"),
+            (ConnectionRefusedError, protocol.TransportError, "Failed to connect to"),
             (
                 socket.gaierror,
-                "DNS/addr error for localhost:3481",
+                protocol.TransportError,
+                "Failed to connect to",
             ),
             (
                 ssl.SSLCertVerificationError,
-                "Certificate verification failed for localhost:3481",
+                protocol.TransportError,
+                "Failed to connect to",
             ),
             (
                 ssl.SSLError,
-                "TLS error during connect to localhost:3481",
+                protocol.TransportError,
+                "Failed to connect to",
             ),
             (
+                OSError,
                 OSError,
                 "OSError",
             ),
         ],
     )
-    def test_connect_to_server_exception(self, monkeypatch, exc, expected):
+    def test_connect_to_server_exception(self, monkeypatch, exc, expected_err, err_msg):
 
         def fake_connect(*a, **k):
             raise exc
@@ -543,7 +547,7 @@ class TestConnectToServer:
         sock = FakeSocket()
         monkeypatch.setattr(sock, "connect", fake_connect)
 
-        with pytest.raises(exc, match=expected):
+        with pytest.raises(expected_err, match=err_msg):
             client.connect_to_server(sock, "localhost", 3481)
 
 
@@ -586,8 +590,9 @@ class TestReceiveAndDecipherMessage:
 
         monkeypatch.setattr(client, "decipher_message", problem)
 
-        with pytest.raises(Exception, match=r"Error deciphering message"):
+        with pytest.raises(Exception) as e:
             client._receive_and_decipher_message(fake_sock, valid_messages)
+        assert "Error!" in str(e)
 
 
 class TestProcessMessageWithTimeout:
@@ -751,50 +756,43 @@ class TestMain:
     def test_main_no_pow_binary(self, monkeypatch, valid_messages, readerr, tmp_path):
 
         bin_path = tmp_path / "non_existent_file.txt"
-        monkeypatch.setattr(client, "DEFAULT_CPP_BINARY_PATH", bin_path)
+        monkeypatch.setattr(client, "DEFAULT_CPP_BINARY_PATH", str(bin_path))
 
-        with pytest.raises(FileNotFoundError, match=r"POW binary not a regular file"):
+        with pytest.raises(FileNotFoundError) as e:
             client.main([])
 
-        err = readerr()
-        print(f"\nreaderr: {err}")
-        assert "make build-cpp" in err
+        assert "make build-cpp" in str(e.value)
 
     @pytest.mark.skipif(
         sys.platform.startswith("win"), reason="POSIX chmod not supported on Windows"
     )
     def test_main_pow_binary_not_executable(
-        self, monkeypatch, valid_messages, readerr, tmp_path
+        self, monkeypatch, valid_messages, readerr, fake_bin
     ):
 
-        bin_path = tmp_path
+        bin_path = fake_bin
         bin_path.chmod(bin_path.stat().st_mode & ~stat.S_IXUSR)
-        monkeypatch.setattr(client, "DEFAULT_CPP_BINARY_PATH", bin_path)
+        monkeypatch.setattr(client, "DEFAULT_CPP_BINARY_PATH", str(bin_path))
 
-        with pytest.raises(PermissionError, match="is not executable"):
+        with pytest.raises(PermissionError) as e:
             client.main([])
 
-        err = readerr()
-        print(f"\nreaderr: {err}")
-        assert "is not executable" in err
+        assert "is not executable" in str(e.value)
 
     @pytest.mark.skipif(
         sys.platform.startswith("win"), reason="POSIX chmod not supported on Windows"
     )
     def test_main_pow_binary_writable_linux_executable(
-        self, monkeypatch, valid_messages, readerr, tmp_path
+        self, monkeypatch, valid_messages, readerr, fake_bin
     ):
-
-        bin_path = tmp_path
+        bin_path = fake_bin
         bin_path.chmod(bin_path.stat().st_mode | stat.S_IWOTH)
         monkeypatch.setattr(client, "DEFAULT_CPP_BINARY_PATH", bin_path)
 
-        with pytest.raises(PermissionError, match="Insecure permissions"):
+        with pytest.raises(PermissionError) as e:
             client.main([])
 
-        err = readerr()
-        print(f"\nreaderr: {err}")
-        assert "Insecure permissions" in err
+        assert "Insecure permissions" in str(e.value)
 
     def test_main_server_error(self, monkeypatch, valid_messages, fake_bin):
 

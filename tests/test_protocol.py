@@ -31,8 +31,10 @@ class TestReceiveMessage:
         message_to_receive = "æ\n".encode("cp1252")
 
         _ = s1.sendall(message_to_receive)
-        with pytest.raises(ValueError, match=r"Receive failed.  Invalid UTF-8:"):
+        with pytest.raises(protocol.ProtocolError) as e:
             protocol.receive_message(s2, logger)
+
+        assert "Receive failed.  Invalid UTF-8" in str(e)
 
     def test_receive_message_no_newline(self, socket_pair, readout, caplog):
         logger = logging.getLogger("tlscc")
@@ -40,26 +42,27 @@ class TestReceiveMessage:
         message_to_receive = b"EHLO"
 
         _ = s1.sendall(message_to_receive)
-        with pytest.raises(TimeoutError, match=r"timed out"):
+        with pytest.raises(protocol.TransportError) as e:
             protocol.receive_message(s2, logger)
 
-        assert "Receive timeout" in caplog.text
+        assert "Receive timeout" in str(e)
 
     def test_receive_empty_message(self, socket_pair, readout):
         logger = logging.getLogger("tlscc")
         s1, s2 = socket_pair
         s1.close()
 
-        with pytest.raises(
-            protocol.TransportError, match=r"Receive failed.  Received empty string."
-        ):
+        with pytest.raises(protocol.ProtocolError) as e:
             protocol.receive_message(s2, logger)
+
+        assert "Receive failed.  Received empty string" in str(e)
 
     def test_receive_non_bytes(self, socket_pair, readout):
         logger = logging.getLogger("tlscc")
         sock = FakeSocket()
-        with pytest.raises(TypeError, match=r"Receive failed.  Unexpected type:"):
+        with pytest.raises(protocol.ProtocolError) as e:
             protocol.receive_message(sock, logger)
+        assert "Receive failed.  Unexpected type" in str(e)
 
     def test_receive_long_line(self, socket_pair, readout):
         logger = logging.getLogger("tlscc")
@@ -67,8 +70,9 @@ class TestReceiveMessage:
         message_to_receive = bytes([3]) * 1001 + b"\n"
 
         _ = s1.sendall(message_to_receive)
-        with pytest.raises(ValueError, match=r"Line too long"):
+        with pytest.raises(ValueError) as e:
             protocol.receive_message(s2, logger)
+        assert "Line too long" in str(e)
 
 
 class TestParsePositiveInt:
