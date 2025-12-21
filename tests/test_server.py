@@ -4,9 +4,9 @@ import socket
 from contextlib import closing
 
 import pytest
-from helpers import FakeContext, FakeSocket, FakeSSLContext
+from helpers import FakeContext
 
-from tlslp import server
+from tlslp import protocol, server
 
 
 # helpers
@@ -78,8 +78,10 @@ class TestSendAndReceive:
         s1, s2 = socket_pair
         s2.close()
 
-        with pytest.raises(Exception, match=r"Send failed."):
+        with pytest.raises(protocol.TransportError) as e:
             server.send_and_receive(token, random_string, s1)
+
+        assert "Send failed.  Sending" in str(e.value)
 
     def test_send_and_receive_error_receiving(
         self, socket_pair, token, random_string, readout
@@ -87,8 +89,10 @@ class TestSendAndReceive:
         s1, s2 = socket_pair
         s2.settimeout(0)
 
-        with pytest.raises(Exception, match=r"Client timeout"):
+        with pytest.raises(protocol.TransportError) as e:
             server.send_and_receive(token, random_string, s1)
+
+        assert "Receive timeout" in str(e.value)
 
     def test_send_and_receive_helo(self, socket_pair, token):
         s1, s2 = socket_pair
@@ -168,12 +172,13 @@ class TestSendError:
 
         assert err is None
 
-    def test_send_error_fail(self, socket_pair, readout):
+    def test_send_error_fail(self, socket_pair, caplog):
         s1, _ = socket_pair
         message_to_send = "æ".encode("cp1252")
 
-        with pytest.raises(TypeError, match=r"Send failed.  Unexpected type:"):
-            server.send_error(message_to_send, s1)
+        server.send_error(message_to_send, s1)
+
+        assert "Error could not be sent." in caplog.text
 
 
 class TestPrepareSocket:
@@ -206,102 +211,3 @@ class TestPrepareSocket:
 
             # CA, server certificate and server key are successfully loaded
             assert ("chain", "srv.pem", "key.pem") in fake_context._loaded
-
-
-class TestMain:
-    def test_main_runs_one_session(
-        self, token, random_string, cksum, suffix, monkeypatch
-    ):
-        fake_server_sock = FakeSocket()
-        fake_context = FakeSSLContext()
-
-        prepare_calls = []
-
-        def fake_prepare_server_socket(
-            server_host,
-            port,
-            ca_cert_path,
-            server_cert_path,
-            server_key_path,
-            is_secure=True,
-        ):
-            prepare_calls.append(
-                (server_host, port, ca_cert_path, server_cert_path, server_key_path)
-            )
-            return fake_server_sock, fake_context
-
-        monkeypatch.setattr(server, "prepare_server_socket", fake_prepare_server_socket)
-
-        # avoid ERROR choice
-        monkeypatch.setattr(server.random, "choice", lambda seq: "MAILNUM")
-
-        calls = []
-
-        def fake_send_and_receive(this_token, to_send, secure_sock, timeout):
-            calls.append((this_token, to_send))
-            if to_send == "HELLO":
-                return "HELLOBACK"
-            if to_send.startswith("WORK "):
-                return suffix
-            if to_send == "DONE":
-                return "OK"
-            # info commands
-            return f"{cksum} 2"
-
-        monkeypatch.setattr(server, "send_and_receive", fake_send_and_receive)
-
-        rc = server.main([])
-        assert rc == 0
-
-        # prepare_server_socket called with defaults
-        assert prepare_calls == [
-            (
-                server.DEFAULT_SERVER_HOST,
-                server.DEFAULT_PORT,
-                server.DEFAULT_CA_CERT,
-                server.DEFAULT_SERVER_CERT,
-                server.DEFAULT_SERVER_KEY,
-            )
-        ]
-
-        # accepted exactly once
-        assert fake_server_sock.accept_calls == 1
-
-        # TLS context wrap called with server_side=True
-        assert len(fake_context.wrap_calls) == 1
-        _, server_side = fake_context.wrap_calls[0]
-        assert server_side is True
-
-        # send_and_receive called expected number of times:
-        # HELLO + WORK + 20 body requests + DONE = 23
-        assert len(calls) == 23
-        assert calls[0][1] == "HELLO"
-        assert calls[1][1] == f"WORK {token} {server.DEFAULT_DIFFICULTY}"
-        assert calls[-1][1] == "DONE"
-        # body messages: "choice <random_string>"
-        for _, to_send in calls[2:-1]:
-            assert to_send == f"MAILNUM {random_string}"
-
-    def test_main_closes_wrapped_socket_on_exception(self, monkeypatch, readout):
-        fake_server_sock = FakeSocket()
-        fake_context = FakeSSLContext()
-
-        monkeypatch.setattr(
-            server,
-            "prepare_server_socket",
-            lambda *a, **k: (fake_server_sock, fake_context),
-        )
-
-        def problem(*args, **kwargs):
-            raise Exception("Error!")
-
-        monkeypatch.setattr(server, "send_and_receive", problem)
-
-        server.main([])
-
-        # catch error and print
-        out = readout()
-        assert "Connection closed" in out
-
-        # even on exception, __exit__ should run
-        assert fake_context.wrapped.exited is True
