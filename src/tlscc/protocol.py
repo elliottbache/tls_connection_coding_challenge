@@ -90,8 +90,7 @@ def send_message(
     """
     # ensure it's a string object
     if not isinstance(string_to_send, str):
-        logger.exception(f"Send failed.  Unexpected type: {type(string_to_send)!r}")
-        raise TypeError(f"Send failed.  Unexpected type: {type(string_to_send)}")
+        raise ProtocolError(f"Send failed.  Unexpected type: {type(string_to_send)}")
 
     # ensure that the string ends with endline
     if not string_to_send.endswith("\n"):
@@ -105,9 +104,6 @@ def send_message(
         secure_sock.sendall(bstring_to_send)
     except (TimeoutError, ssl.SSLEOFError, ssl.SSLError, OSError, BrokenPipeError) as e:
         string_to_send_no_newline = string_to_send.rstrip("\n")
-        logger.exception(
-            f"Send failed.  Sending {string_to_send_no_newline!r}.  {type(e)} {e}"
-        )
         raise TransportError(
             f"Send failed.  Sending {string_to_send_no_newline}. {type(e)} {e}"
         ) from e
@@ -148,23 +144,18 @@ def receive_message(secure_sock: socket.socket, logger: logging.Logger) -> str:
 
             # test for empty string
             if not chunk or chunk == b"":
-                logger.exception(
-                    "Receive failed.  Received empty string. Peer probably closed."
-                )
-                raise TransportError(
+                raise ProtocolError(
                     "Receive failed.  Received empty string. Peer probably closed."
                 )
 
             # ensure it's a bytes-like object
             if not isinstance(chunk, bytes):
-                logger.exception(
-                    f"Receive failed.  Unexpected type: " f"{type(chunk)!r}"
+                raise ProtocolError(
+                    f"Receive failed.  Unexpected type: " f"{type(chunk)}"
                 )
-                raise TypeError(f"Receive failed.  Unexpected type: " f"{type(chunk)}")
 
             buf += chunk
             if len(buf) > MAX_LINE_LENGTH:
-                logger.exception("Line too long")
                 raise ProtocolError("Line too long")
 
             # read until newline
@@ -175,13 +166,16 @@ def receive_message(secure_sock: socket.socket, logger: logging.Logger) -> str:
         try:
             return buf.decode("utf-8").rstrip("\n")
         except UnicodeDecodeError as e:
-            logger.exception(f"Receive failed.  Invalid UTF-8: {e}")
-            raise ProtocolError(f"Receive failed.  Invalid UTF-8: {e}") from e
+            raise ProtocolError("Receive failed.  Invalid UTF-8") from e
 
     except TimeoutError as e:
-        logger.exception(f"Receive timeout: {e}")
-        raise
+        raise TransportError("Receive timeout") from e
 
     except (ssl.SSLError, OSError) as e:
-        logger.exception(f"Receive failed: {e}")
-        raise TransportError(f"Receive failed: {e}") from e
+        raise TransportError("Receive failed") from e
+
+    except ProtocolError:
+        raise
+
+    except Exception as e:
+        raise TransportError from e
