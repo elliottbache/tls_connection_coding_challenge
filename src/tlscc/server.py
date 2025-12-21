@@ -321,7 +321,6 @@ def prepare_server_socket(
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(server_address)
     server_socket.listen(1)
-    server_socket.settimeout(min(DEFAULT_OTHER_TIMEOUT, DEFAULT_WORK_TIMEOUT))
 
     if is_secure:
         # wrap the socket with SSL

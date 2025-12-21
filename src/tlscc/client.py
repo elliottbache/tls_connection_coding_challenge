@@ -57,6 +57,7 @@ from tlslp.protocol import (
     DEFAULT_WORK_TIMEOUT,
     DEFAULT_SERVER_HOST,
     MAX_LINE_LENGTH,
+    TransportError,
     _parse_positive_int,
     receive_message,
     send_message,
@@ -120,10 +121,8 @@ def _parse_port(s: str) -> int:
     try:
         p = int(s)
     except ValueError as e:
-        logger.exception(f"port must be an integer: {e}")
         raise argparse.ArgumentTypeError("port must be an integer") from e
     if not (0 < p < 65536):
-        logger.exception("port out of range (1..65535)")
         raise argparse.ArgumentTypeError("port out of range (1..65535)")
     return p
 
@@ -254,10 +253,6 @@ def prepare_client_socket(
     # check that server_host is local if insecure mode, otherwise raise error so
     # that insecure connection isn't mistakenly used
     if not is_secure and server_host != "localhost":
-        logger.exception(
-            f"Refusing insecure TLS to {server_host!r}. For "
-            f"non-local hosts, enable certificate verification."
-        )
         raise ValueError(
             f"Refusing insecure TLS to {server_host}. For "
             f"non-local hosts, enable certificate verification."
@@ -348,15 +343,10 @@ def decipher_message(message: str, valid_messages: set[str]) -> list[str]:
 
     # check that the message has arguments
     if not args:
-        logger.exception(f"No args in the response: {message!r}")
         raise ValueError(f"No args in the response: {message}")
 
     # check that message belongs to list of possible messages
     if args[0] not in valid_messages:
-        logger.exception(
-            f"This response is not valid: {message!r}. "
-            f"Valid messages: {valid_messages!r}"
-        )
         raise ValueError(
             f"This response is not valid: {message}. "
             f"Valid messages: {valid_messages}"
@@ -407,23 +397,17 @@ def _validate_path(bin_path: Path, allowed_root: Path | None = None) -> bool:
     """Resolve and vet path."""
     # check if it's a symbolic link
     if bin_path.is_symlink():
-        logger.critical(f"Refusing to execute symlink: {bin_path!r}")
         raise PermissionError(f"Refusing to execute symlink: {bin_path}")
     # check if it's executable
     if os.name == "posix" and not os.access(bin_path, os.X_OK):
-        logger.critical(f"WORK binary at {bin_path!r} is not executable.")
         raise PermissionError(f"WORK binary at {bin_path} is not executable.")
     # check if it's world writable
     if _is_world_writable(bin_path) or _is_world_writable(bin_path.parent):
-        logger.exception(f"Insecure permissions on {bin_path!r} or its directory")
         raise PermissionError(f"Insecure permissions on {bin_path} or its directory")
     # check if it's in an allowed folder
     if allowed_root is not None:
         root = allowed_root.resolve(strict=True)
         if not bin_path.is_relative_to(root):
-            logger.exception(
-                f"Insecure directory location {bin_path.parent!r} for {bin_path!r}"
-            )
             raise PermissionError(
                 f"Insecure directory location {bin_path.parent} for {bin_path}"
             )
@@ -434,21 +418,15 @@ def _validate_path(bin_path: Path, allowed_root: Path | None = None) -> bool:
 def _validate_string(s: str) -> None:
     """Validate string."""
     if not isinstance(s, str):
-        logger.exception(
-            "Tested variable is not a string.  Exiting since hashing function "
-            "will not work correctly"
-        )
         raise TypeError(
             "Tested variable is not a string.  Exiting since hashing function "
             "will not work correctly"
         )
 
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", s):
-        logger.exception("String contains disallowed characters or length")
         raise ValueError("String contains disallowed characters or length")
 
     if len(s) > MAX_LINE_LENGTH:
-        logger.exception("String too long")
         raise ValueError("String too long")
 
 
@@ -457,11 +435,9 @@ def _validate_difficulty(difficulty: str) -> None:
     try:
         idifficulty = int(difficulty)
     except (ValueError, TypeError) as e:
-        logger.exception(f"WORK difficulty is not an integer: {e}")
         raise TypeError("WORK difficulty is not an integer") from e
 
     if idifficulty < 0 or idifficulty > 64:
-        logger.exception("WORK difficulty is out of range")
         raise ValueError("WORK difficulty is out of range")
 
 
@@ -561,20 +537,12 @@ def handle_pow_cpp(
         if suffix:
             return suffix + "\n"
         else:
-            logger.exception("No RESULT found in WORK output.")
             raise ValueError("No RESULT found in WORK output.")
 
-    # except FileNotFoundError as e:
-    #     logger.exception(f"WORK binary not a regular file {bin_path!r}: {e}")
-    #     raise FileNotFoundError(
-    #         f"WORK binary not a regular file: {bin_path}"
-    #     ) from e
-
     except subprocess.CalledProcessError as e:
-        _validate_string(token)
-        _validate_difficulty(difficulty)
-        logger.exception(f"Error running executable: {e}")
-        raise
+        raise subprocess.CalledProcessError(
+            returncode=1, output="Error running executable", cmd=str(bin_path)
+        ) from e
 
 
 def define_response(
@@ -667,57 +635,27 @@ def connect_to_server(sock: socket.socket, server_host: str, port: int) -> bool:
     try:
         sock.connect((server_host, int(port)))
         return True
-    except TimeoutError as e:
+    except (
+        TimeoutError,
+        ConnectionRefusedError,
+        socket.gaierror,
+        ssl.SSLCertVerificationError,
+        ssl.SSLError,
+    ) as e:
         exc = e
-        logger.exception(f"Connect timeout to {server_host!r}:{port!r}: {e}")
-        raise TimeoutError(f"Connect timeout to {server_host}:{port}") from e
-    except ConnectionRefusedError as e:
-        exc = e
-        raise ConnectionRefusedError(
-            f"Connection refused by {server_host}:{port}"
-        ) from e
-    except socket.gaierror as e:
-        exc = e
-        logger.exception(f"DNS/addr error for {server_host!r}:{port!r}: {e}")
-        raise socket.gaierror(
-            f"DNS/addr error for {server_host}:{port}: {e}"
-        ) from e  # bad host / not resolvable
-    except ssl.SSLCertVerificationError as e:
-        exc = e
-        # server_host mismatch, expired, unknown CA, etc.
-        logger.exception(
-            f"Certificate verification failed for {server_host!r}:{port!r}: {e}"
-        )
-        raise ssl.SSLCertVerificationError(
-            f"Certificate verification failed for {server_host}:{port}: {e}"
-        ) from e
-    except ssl.SSLError as e:
-        exc = e
-        # other TLS/handshake issues (protocol mismatch, bad
-        # record, etc.)
-        logger.exception(f"TLS error during connect to {server_host!r}:{port!r}: {e}")
-        raise ssl.SSLError(
-            f"TLS error during connect to {server_host}:{port}: {e}"
-        ) from e
+        raise TransportError(f"Failed to connect to {server_host}:{port}") from e
     except OSError as e:
         exc = e
         # catch-all for OS-level socket errors
         if e.errno == errno.EHOSTUNREACH:
-            logger.exception(
-                f"OSError. Host unreachable: {server_host!r}:{port!r}: {e}"
-            )
             raise OSError(f"OSError. Host unreachable: {server_host}:{port}") from e
         elif e.errno == errno.ENETUNREACH:
-            logger.exception(
-                f"OSError. Network unreachable when connecting to {server_host!r}:{port!r}: {e}"
-            )
             raise OSError(
                 f"OSError. Network unreachable when "
                 f"connecting to {server_host}:{port}"
             ) from e
         else:
-            logger.exception(f"OSError connecting to {server_host!r}:{port!r}: {e}")
-            raise OSError(f"OSError connecting to {server_host}:{port}: {e}") from e
+            raise OSError(f"OSError connecting to {server_host}:{port}") from e
     finally:
         if exc is not None:
             sock.close()
@@ -735,9 +673,8 @@ def _receive_and_decipher_message(
         # Error check message and create list from message
         try:
             return decipher_message(message, valid_messages)
-        except Exception as e:
-            logger.exception(f"Error deciphering message: {e}")
-            raise Exception(f"Error deciphering message: {e}") from e
+        except Exception:
+            raise
 
 
 def _process_message_with_timeout(
@@ -773,18 +710,15 @@ def _process_message_with_timeout(
     if p.is_alive():
         p.terminate()  # forcefully stop the process
         p.join()
-        logger.exception(f"{args[0]!r} function timed out.")
         raise TimeoutError(f"{args[0]} function timed out.")
     else:
         try:
             is_err, msg = queue.get(block=True, timeout=other_timeout)
         except Empty as e:
-            logger.exception(f"Queue is empty: {e}")
             raise TimeoutError(f"Queue is empty: {e}") from e
 
         if is_err:
             to_send = msg.rstrip("\n")
-            logger.exception(f"{args[0]!r} failed: {to_send!r}.")
             raise Exception(f"{args[0]} failed: {to_send}.")
         else:
             return msg
@@ -795,7 +729,7 @@ def _resolved_bin_path(cpp_binary_path: str) -> Path:
     try:
         bin_path = Path(cpp_binary_path).resolve(strict=True)
     except (FileNotFoundError, OSError) as e:
-        logger.critical(
+        raise FileNotFoundError(
             f"WORK binary not a regular file: {cpp_binary_path!r}.\nIf it is "
             f"elsewhere, use --pow-binary flag to define its path.  If "
             f"not yet installed, try installing"
@@ -803,9 +737,6 @@ def _resolved_bin_path(cpp_binary_path: str) -> Path:
             f"Otherwise, g++ -O3 -std=c++17 pow_challenge.cpp pow_core.cpp"
             f" -o ../build/pow_challenge -lssl -lcrypto -pthread from"
             f" cpp/; cp ../build/pow_challenge ../src/tlslp/_bin/"
-        )
-        raise FileNotFoundError(
-            f"WORK binary not a regular file: {cpp_binary_path}"
         ) from e
 
     if (
@@ -846,13 +777,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     # check paths
     logger.info(f"Client cert exists: {os.path.exists(cfg.client_cert)!r}")
     logger.info(f"Private key exists: {os.path.exists(cfg.private_key)!r}")
-    print(f"\ncfg.pow_binary: {cfg.pow_binary!r}")
-    bin_path = _resolved_bin_path(cfg.pow_binary)
-    print(f"\nbin_path: {bin_path!r}")
-
-    logger.info(
-        f"WORK binary exists: {_validate_path(bin_path, Path(DEFAULT_ALLOWED_ROOT))!r}"
-    )
+    try:
+        bin_path = _resolved_bin_path(cfg.pow_binary)
+        logger.info(
+            f"WORK binary exists: {_validate_path(bin_path, Path(DEFAULT_ALLOWED_ROOT))!r}"
+        )
+    except FileNotFoundError:
+        logger.critical("Client fails.")
+        raise
+    except PermissionError:
+        logger.critical("Client fails.")
+        raise
 
     # Connect to the server using TLS
     # Cycle through possible ports, trying to connect to each until success
@@ -871,7 +806,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 is_connected = connect_to_server(secure_sock, cfg.server_host, port)
                 break
             except Exception as e:
-                logger.warning(f"when connecting to {cfg.server_host!r}:{port!r}: {e}")
+                logger.warning(f"Can't connect to {cfg.server_host!r}:{port!r}: {e}")
 
     if not is_connected:
         logger.exception("Not able to connect to any port.  Exiting")
@@ -929,11 +864,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args[0] == "DONE":
                 break
 
-    except TimeoutError as e:
-        logger.exception(f"TimeoutError: {e}")
-
-    except Exception as e:
-        logger.exception(f"Exception: {e}")
+    except Exception:
+        logger.exception("Client failed")
 
     finally:
         secure_sock.close()
