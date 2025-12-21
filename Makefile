@@ -1,4 +1,4 @@
-PY ?= python3
+PY ?= python3.11
 PIP ?= $(PY) -m pip
 VENVDIR ?= .venv
 ACTIVATE = . $(VENVDIR)/bin/activate

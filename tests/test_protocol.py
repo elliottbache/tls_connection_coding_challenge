@@ -34,14 +34,16 @@ class TestReceiveMessage:
         with pytest.raises(ValueError, match=r"Receive failed.  Invalid UTF-8:"):
             protocol.receive_message(s2, logger)
 
-    def test_receive_message_no_newline(self, socket_pair, readout):
+    def test_receive_message_no_newline(self, socket_pair, readout, caplog):
         logger = logging.getLogger("tlscc")
         s1, s2 = socket_pair
         message_to_receive = b"EHLO"
 
         _ = s1.sendall(message_to_receive)
-        with pytest.raises(TimeoutError, match=r"Receive timeout"):
+        with pytest.raises(TimeoutError, match=r"timed out"):
             protocol.receive_message(s2, logger)
+
+        assert "Receive timeout" in caplog.text
 
     def test_receive_empty_message(self, socket_pair, readout):
         logger = logging.getLogger("tlscc")

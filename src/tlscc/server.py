@@ -34,7 +34,6 @@ from dataclasses import dataclass
 from tlscc.logging_utils import configure_logging
 from tlscc.protocol import (
     DEFAULT_CA_CERT,
-    DEFAULT_LONG_TIMEOUT,
     DEFAULT_OTHER_TIMEOUT,
     DEFAULT_POW_TIMEOUT,
     DEFAULT_SERVER_HOST,
@@ -322,7 +321,7 @@ def prepare_server_socket(
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(server_address)
     server_socket.listen(1)
-    server_socket.settimeout(DEFAULT_LONG_TIMEOUT)
+    server_socket.settimeout(min(DEFAULT_OTHER_TIMEOUT, DEFAULT_POW_TIMEOUT))
 
     if is_secure:
         # wrap the socket with SSL
@@ -374,6 +373,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     while True:
         client_socket, client_address = server_socket.accept()
         with context.wrap_socket(client_socket, server_side=True) as secure_sock:
+            secure_sock.settimeout(min(DEFAULT_OTHER_TIMEOUT, DEFAULT_POW_TIMEOUT))
             if not secure_sock.getpeername():
                 logger.exception("No client certificate presented.")
                 raise RuntimeError("No client certificate presented.")
