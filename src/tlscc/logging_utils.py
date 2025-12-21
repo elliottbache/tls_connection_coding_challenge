@@ -1,10 +1,10 @@
+import datetime
 import json
 import logging
 import os
 import pathlib
 import sys
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 
 
@@ -33,7 +33,9 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         # use UTC timestamp
-        ts = datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat()
+        ts = datetime.datetime.fromtimestamp(
+            record.created, tz=datetime.UTC
+        ).isoformat()
 
         exc_type = None
         exc_text = None

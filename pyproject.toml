@@ -2,7 +2,7 @@
 name = "tls-line-protocol"
 version = "0.1.0"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "GPL-3.0" }
 authors = [{ name = "Elliott Bache" }]
 
@@ -36,7 +36,7 @@ package-dir = {"" = "src"}
 # pyproject.toml
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E","F","I","UP","B","SIM","S","PERF","RUF"]
@@ -52,7 +52,7 @@ quote-style = "double"  # personal taste
 
 [tool.black]
 line-length = 88
-target-version = ["py310"]
+target-version = ["py311"]
 extend-exclude = "^(migrations|build|dist|.venv|_deps)/"
 
 [tool.isort]
@@ -60,7 +60,7 @@ skip = [".venv", "migrations", "build", "dist"]
 profile = "black"
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 strict = false
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -75,7 +75,7 @@ module = "tests.*"
 ignore_errors = true
 
 [tool.codespell]
-skip = "./docs/_build/*,build,dist,.venv,build-asan,build-tsan,./docs/html/*,old_files,_deps,htmlcov,WD,./src/include,./docs/demo*,./certificates"
+skip = "./docs/_build/*,build,dist,.venv,build-asan,build-tsan,./docs/html/*,old_files,_deps,htmlcov,WD,./src/include,./docs/demo*,./certificates,pyproject.toml"
 ignore-words-list = "teh,nd"  # add project-specific false positives
 
 [tool.pytest.ini_options]

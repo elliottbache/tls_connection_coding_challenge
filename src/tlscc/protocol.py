@@ -180,7 +180,7 @@ def receive_message(secure_sock: socket.socket, logger: logging.Logger) -> str:
 
     except TimeoutError as e:
         logger.exception(f"Receive timeout: {e}")
-        raise TimeoutError("Receive timeout") from e
+        raise
 
     except (ssl.SSLError, OSError) as e:
         logger.exception(f"Receive failed: {e}")

@@ -51,11 +51,13 @@ class FakeMPQueue:
     def __init__(self):
         self._items = []
         self.created = {}
+        self.block = True
+        self.timeout = None
 
     def put(self, x):
         self._items.append(x)
 
-    def get(self):
+    def get(self, block=True, timeout=None):
         if not self._items:
             raise RuntimeError("FakeMPQueue.get() called with no items")
         return self._items.pop(0)
@@ -707,7 +709,7 @@ class TestProcessMessageWithTimeout:
 
 
 class TestMain:
-    def test_main_success(self, monkeypatch, valid_messages):
+    def test_main_success(self, monkeypatch, valid_messages, fake_bin):
 
         monkeypatch.setattr(client.os.path, "exists", lambda p: True)
 
@@ -738,6 +740,8 @@ class TestMain:
             sent.append((msg, sock))
 
         monkeypatch.setattr(client, "send_message", fake_send_message)
+        monkeypatch.setattr(client, "DEFAULT_CPP_BINARY_PATH", str(fake_bin))
+        monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", str(fake_bin.parent))
 
         client.main([])
 
@@ -792,7 +796,7 @@ class TestMain:
         print(f"\nreaderr: {err}")
         assert "Insecure permissions" in err
 
-    def test_main_server_error(self, monkeypatch, valid_messages):
+    def test_main_server_error(self, monkeypatch, valid_messages, fake_bin):
 
         monkeypatch.setattr(client.os.path, "exists", lambda p: True)
 
@@ -818,6 +822,8 @@ class TestMain:
             return None
 
         monkeypatch.setattr(client, "_process_message_with_timeout", fake_process)
+        monkeypatch.setattr(client, "DEFAULT_CPP_BINARY_PATH", str(fake_bin))
+        monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", str(fake_bin.parent))
 
         sent = []
 
@@ -831,7 +837,7 @@ class TestMain:
         assert sent == [("HELLOBACK\n", fake_sock)]
         assert fake_sock.closed
 
-    def test_main_connect_fail(self, monkeypatch):
+    def test_main_connect_fail(self, monkeypatch, fake_bin):
         monkeypatch.setattr(client.os.path, "exists", lambda p: True)
         monkeypatch.setattr(client, "DEFAULT_PORTS", [1234])
         monkeypatch.setattr(client, "DEFAULT_SERVER_HOST", "localhost")
@@ -849,6 +855,8 @@ class TestMain:
             raise SystemExit(code)
 
         monkeypatch.setattr(client.sys, "exit", fake_exit)
+        monkeypatch.setattr(client, "DEFAULT_CPP_BINARY_PATH", str(fake_bin))
+        monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", str(fake_bin.parent))
 
         with pytest.raises(SystemExit) as e:
             client.main([])

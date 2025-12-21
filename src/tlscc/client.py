@@ -48,11 +48,11 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from queue import Empty
 
 from tlslp.logging_utils import configure_logging
 from tlslp.protocol import (
     DEFAULT_CA_CERT,
-    DEFAULT_LONG_TIMEOUT,
     DEFAULT_OTHER_TIMEOUT,
     DEFAULT_WORK_TIMEOUT,
     DEFAULT_SERVER_HOST,
@@ -62,8 +62,10 @@ from tlslp.protocol import (
     send_message,
 )
 
-DEFAULT_CPP_BINARY_PATH = "src/tlslp/_bin/pow_challenge"  # path to c++ executable
-DEFAULT_ALLOWED_ROOT = "src/tlslp/_bin"
+DEFAULT_CPP_BINARY_PATH = str(
+    Path(__file__).parent / "_bin/pow_challenge"
+)  # path to C++ executable
+DEFAULT_ALLOWED_ROOT = str(Path(__file__).parent / "_bin")
 DEFAULT_RESPONSES = {
     "FULL_NAME": "Elliott Bache",
     "MAILNUM": "2",
@@ -249,9 +251,9 @@ def prepare_client_socket(
     Returns:
         socket.socket: The socket object.
     """
-    # Check that server_host is local, otherwise raise error so that insecure
-    # connection isn't mistakenly used
-    if server_host != "localhost":
+    # check that server_host is local if insecure mode, otherwise raise error so
+    # that insecure connection isn't mistakenly used
+    if not is_secure and server_host != "localhost":
         logger.exception(
             f"Refusing insecure TLS to {server_host!r}. For "
             f"non-local hosts, enable certificate verification."
@@ -263,7 +265,7 @@ def prepare_client_socket(
 
     # create the client socket
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.settimeout(DEFAULT_LONG_TIMEOUT)
+    client_socket.settimeout(min(DEFAULT_OTHER_TIMEOUT, DEFAULT_WORK_TIMEOUT))
 
     if is_secure:
         # create an SSL context, loading CA certificate
@@ -286,8 +288,10 @@ def prepare_client_socket(
         context.verify_mode = ssl.CERT_NONE
 
     context.minimum_version = ssl.TLSVersion.TLSv1_2
+    wrapped = context.wrap_socket(client_socket, server_hostname=server_host)
+    wrapped.settimeout(min(DEFAULT_OTHER_TIMEOUT, DEFAULT_WORK_TIMEOUT))
 
-    return context.wrap_socket(client_socket, server_hostname=server_host)
+    return wrapped
 
 
 def hasher(token: str, input_string: str) -> str:
@@ -570,11 +574,7 @@ def handle_pow_cpp(
         _validate_string(token)
         _validate_difficulty(difficulty)
         logger.exception(f"Error running executable: {e}")
-        raise subprocess.CalledProcessError(
-            1,
-            cmd="pow_prepare_server_socket" + token + difficulty,
-            stderr=f"Error running executable: {e}",
-        ) from e
+        raise
 
 
 def define_response(
@@ -776,7 +776,12 @@ def _process_message_with_timeout(
         logger.exception(f"{args[0]!r} function timed out.")
         raise TimeoutError(f"{args[0]} function timed out.")
     else:
-        is_err, msg = queue.get()
+        try:
+            is_err, msg = queue.get(block=True, timeout=other_timeout)
+        except Empty as e:
+            logger.exception(f"Queue is empty: {e}")
+            raise TimeoutError(f"Queue is empty: {e}") from e
+
         if is_err:
             to_send = msg.rstrip("\n")
             logger.exception(f"{args[0]!r} failed: {to_send!r}.")
@@ -841,6 +846,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # check paths
     logger.info(f"Client cert exists: {os.path.exists(cfg.client_cert)!r}")
     logger.info(f"Private key exists: {os.path.exists(cfg.private_key)!r}")
+    print(f"\ncfg.pow_binary: {cfg.pow_binary!r}")
     bin_path = _resolved_bin_path(cfg.pow_binary)
     print(f"\nbin_path: {bin_path!r}")
 
