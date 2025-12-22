@@ -11,42 +11,22 @@
 > - Linux/WSL-based minimal client/server that perform a TLS handshake, then a **HELO → POW → info requests → END** flow.
 > - POW solved by a fast C++ helper (multi-threaded) invoked from Python.
 > - Fully testable: unit tests for parsing & hashing; integration test creates a throwaway TLS server and exercises the full round-trip.
-
+> - Protocol flow diagram + walkthrough: see [Guide](docs/guide.md#high-level-flow) (also published on [Read the Docs](https://tls-connection-coding-challenge.readthedocs.io/en/latest/guide.html#high-level-flow)).
 ---
 ## Short demo: server + client solving POW and answering requests
 ![Demo](docs/demo.gif)
 
 ---
 
-## Architecture (at a glance)
-
-```{mermaid}
-sequenceDiagram
-  autonumber
-  participant C as Client
-  participant S as Server
-
-  S->>C: HELO\n
-  C->>S: EHLO\n
-
-  S->>C: POW <authdata> <difficulty>\n
-  C->>C: find suffix so that SHA1(authdata+suffix) has N hex zeros
-  C->>S: <suffix>\n
-
-  S->>C: MAILNUM <arg>\n (and other info requests)
-  C->>S: <sha1(authdata+arg)> <response>\n
-
-  S->>C: END\n
-  C->>S: OK\n
-```
+## Short description
 
 This is a coding challenge that requires the client to connect to a server,
 complete a POW challenge with 9 leading hex zeros using SHA1 in under 2 hours, and reply to multiple queries.
 This is designed to be run in an interactive session, printing output to the
 stdout.  The choice of this hasher was made by the entity who created the challenge
-and must not be changed in this project.
+and must not be changed in this project.  
 
-**Table of Contents**
+## Table of Contents
 
 - [Quickstart](#quickstart)
 - [Demo GIF](#demo-gif)
