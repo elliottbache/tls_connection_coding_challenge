@@ -11,8 +11,12 @@
 > - Linux/WSL-based minimal client/server that perform a TLS handshake, then a **HELLO → WORK → info requests → DONE** flow.
 > - WORK solved by a fast C++ helper (multi-threaded) invoked from Python.
 > - Fully testable: unit tests for parsing & hashing; integration test creates a throwaway TLS server and exercises the full round-trip.
-> - Protocol flow diagram + walkthrough: see [Guide](docs/guide.md#high-level-flow) (also published on [Read the Docs](https://tls-line-protocol.readthedocs.io/en/latest/guide.html#high-level-flow)).
 ---
+
+## High-level flow
+![Flow diagram](docs/_static/flow_diagram.svg "Flow diagaram")
+
+
 ## Short demo: server + client solving WORK and answering requests
 ![Demo](docs/demo.gif)
 
@@ -24,7 +28,8 @@ This is a toy protocol demo that requires the client to connect to a server,
 complete a WORK challenge with 9 leading hex zeros using SHA256 in under 2 hours, and reply to multiple queries.
 This is designed to be run in an interactive session, printing output to the
 stdout.  The choice of this hasher was made by the entity who created the challenge
-and must not be changed in this project.  
+and must not be changed in this project.  More details on how this project works may be found in the
+[Guide](docs/guide.md).
 
 ## Table of Contents
 

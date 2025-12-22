@@ -33,6 +33,9 @@ sequenceDiagram
   S->>C: DONE\n
   C->>S: OK\n
 ```
+README shows a static snapshot; this Mermaid diagram is the source.  Changes made to this diagram can be 
+compiled in an online editor, exported as ```.svg```, and placed in ```docs/_static/``` to replace the 
+current diagram in README.md.
 
 ### Key properties
 - **TLS** for transport security (optionally mutual auth).
