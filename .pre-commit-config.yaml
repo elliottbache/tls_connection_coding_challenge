@@ -17,7 +17,7 @@ repos:
         args: ["--check"]  # check-only, no rewrite
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.3.0
+    rev: v2.4.1
     hooks:
       - id: codespell      # no --write-changes => no rewrite
         args: ["--toml", "pyproject.toml"]
