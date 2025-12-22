@@ -260,8 +260,8 @@ class TestRunPowBinary:
 
         assert calls["args"] == [
             os.fspath(fake_bin),
-            "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq",
-            "6",
+            authdata,
+            difficulty,
         ]
         assert calls["text"] is True
         assert calls["capture_output"] is True

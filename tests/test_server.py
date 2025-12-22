@@ -4,15 +4,42 @@ import socket
 from contextlib import closing
 
 import pytest
-from helpers import FakeContext
+from helpers import FakeContext, FakeSocket, FakeSSLContext, FakeWrappedSock
 
 from tlscc import protocol, server
+from tlscc.protocol import DEFAULT_CA_CERT, DEFAULT_SERVER_HOST
+from tlscc.server import (
+    DEFAULT_PORT,
+    DEFAULT_SERVER_CERT,
+    DEFAULT_SERVER_KEY,
+    ServerConfig,
+)
 
 
 # helpers
 @pytest.fixture
 def cksum(authdata, random_string):
     return hashlib.sha1((authdata + random_string).encode()).hexdigest()  # noqa: S324
+
+
+@pytest.fixture
+def server_config(authdata, timeout, random_string, difficulty):
+    return ServerConfig(
+        server_host=DEFAULT_SERVER_HOST,
+        port=DEFAULT_PORT,
+        server_cert=DEFAULT_CA_CERT,
+        server_key=DEFAULT_SERVER_CERT,
+        ca_cert=DEFAULT_SERVER_KEY,
+        pow_timeout=timeout,
+        other_timeout=6,
+        insecure=False,
+        authdata=authdata,
+        random_string=random_string,
+        difficulty=difficulty,
+        log_level="DEBUG",
+        json_logs=False,
+        once=True,
+    )
 
 
 def recv_line(sock) -> bytes:
@@ -86,6 +113,7 @@ class TestSendAndReceive:
     def test_send_and_receive_error_receiving(
         self, socket_pair, authdata, random_string, readout
     ):
+        # since s1 is created with 1s timeout, it will have TimeoutError after 1s
         s1, s2 = socket_pair
         s2.settimeout(0)
 
@@ -161,6 +189,44 @@ class TestSendAndReceive:
         received_message = recv_line(s2).decode("utf-8")
         assert "ERROR Invalid checksum received" in received_message
 
+    def test_send_and_receive_protocol_error_sends_error(
+        self, monkeypatch, authdata, socket_pair
+    ):
+        s1, _ = socket_pair
+
+        def raise_protocol_error(*args, **kwargs):
+            raise server.ProtocolError("bad")
+
+        monkeypatch.setattr(server, "receive_message", raise_protocol_error)
+
+        sent = []
+        monkeypatch.setattr(server, "send_error", lambda msg, sock: sent.append(msg))
+
+        with pytest.raises(server.ProtocolError):
+            server.send_and_receive(authdata, "MAILNUM X", s1, timeout=0.01)
+
+        assert sent and sent[0].startswith("ERROR receiving.")
+
+    def test_send_and_receive_timeout_sends_error(
+        self, monkeypatch, authdata, socket_pair
+    ):
+        s1, _ = socket_pair
+
+        def raise_timeout_error(*args, **kwargs):
+            raise TimeoutError("bad")
+
+        monkeypatch.setattr(server, "receive_message", raise_timeout_error)
+
+        sent = []
+        monkeypatch.setattr(server, "send_error", lambda msg, sock: sent.append(msg))
+
+        with pytest.raises(protocol.TransportError) as e:
+            server.send_and_receive(authdata, "MAILNUM X", s1, timeout=0.001)
+
+        assert "Receive timeout" in str(e.value)
+
+        assert sent and sent[0].startswith("ERROR receiving.")
+
 
 class TestSendError:
     def test_send_error_success(self, socket_pair):
@@ -211,3 +277,150 @@ class TestPrepareSocket:
 
             # CA, server certificate and server key are successfully loaded
             assert ("chain", "srv.pem", "key.pem") in fake_context._loaded
+
+    def test_prepare_server_socket_insecure_non_local_rejected(self):
+        with pytest.raises(ValueError, match="Refusing insecure TLS"):
+            server.prepare_server_socket(
+                server_host="example.com",
+                port=0,
+                ca_cert_path="ca.pem",
+                server_cert_path="srv.pem",
+                server_key_path="key.pem",
+                is_secure=False,
+            )
+
+
+def test_handle_one_session(
+    authdata, random_string, cksum, suffix, monkeypatch, server_config
+):
+    fake_server_sock = FakeWrappedSock()
+
+    # avoid ERROR choice
+    monkeypatch.setattr(server.random, "choice", lambda seq: "MAILNUM")
+
+    calls = []
+
+    def fake_send_and_receive(this_authdata, to_send, secure_sock, timeout):
+        calls.append((this_authdata, to_send))
+        if to_send == "HELO":
+            return "EHLO"
+        if to_send.startswith("POW "):
+            return suffix
+        if to_send == "END":
+            return "OK"
+        # body commands
+        return f"{cksum} 2"
+
+    monkeypatch.setattr(server, "send_and_receive", fake_send_and_receive)
+
+    server.handle_one_session(True, server_config, fake_server_sock)
+
+    # send_and_receive called expected number of times:
+    # HELO + POW + 20 body requests + END = 23
+    assert len(calls) == 23
+    assert calls[0][1] == "HELO"
+    assert calls[1][1] == f"POW {authdata} {server.DEFAULT_DIFFICULTY}"
+    assert calls[-1][1] == "END"
+    # body messages: "choice <random_string>"
+    for _, to_send in calls[2:-1]:
+        assert to_send == f"MAILNUM {random_string}"
+
+
+class TestMain:
+
+    def test_main_handle_one_session(
+        self, authdata, random_string, cksum, suffix, monkeypatch
+    ):
+        fake_server_sock = FakeSocket()
+        fake_context = FakeSSLContext()
+
+        prepare_calls = []
+
+        def fake_prepare_server_socket(
+            server_host,
+            port,
+            ca_cert_path,
+            server_cert_path,
+            server_key_path,
+            is_secure=True,
+        ):
+            prepare_calls.append(
+                (server_host, port, ca_cert_path, server_cert_path, server_key_path)
+            )
+            return fake_server_sock, fake_context
+
+        monkeypatch.setattr(server, "prepare_server_socket", fake_prepare_server_socket)
+
+        # avoid ERROR choice
+        monkeypatch.setattr(server.random, "choice", lambda seq: "MAILNUM")
+
+        calls = []
+
+        def fake_send_and_receive(this_authdata, to_send, secure_sock, timeout):
+            calls.append((this_authdata, to_send))
+            if to_send == "HELO":
+                return "EHLO"
+            if to_send.startswith("POW "):
+                return suffix
+            if to_send == "END":
+                return "OK"
+            # body commands
+            return f"{cksum} 2"
+
+        monkeypatch.setattr(server, "send_and_receive", fake_send_and_receive)
+
+        rc = server.main(["--once"])
+        assert rc == 0
+
+        # prepare_server_socket called with defaults
+        assert prepare_calls == [
+            (
+                server.DEFAULT_SERVER_HOST,
+                server.DEFAULT_PORT,
+                server.DEFAULT_CA_CERT,
+                server.DEFAULT_SERVER_CERT,
+                server.DEFAULT_SERVER_KEY,
+            )
+        ]
+
+        # accepted exactly once
+        assert fake_server_sock.accept_calls == 1
+
+        # TLS context wrap called with server_side=True
+        assert len(fake_context.wrap_calls) == 1
+        _, server_side = fake_context.wrap_calls[0]
+        assert server_side is True
+
+        # send_and_receive called expected number of times:
+        # HELO + POW + 20 body requests + END = 23
+        assert len(calls) == 23
+        assert calls[0][1] == "HELO"
+        assert calls[1][1] == f"POW {authdata} {server.DEFAULT_DIFFICULTY}"
+        assert calls[-1][1] == "END"
+        # body messages: "choice <random_string>"
+        for _, to_send in calls[2:-1]:
+            assert to_send == f"MAILNUM {random_string}"
+
+    def test_main_closes_wrapped_socket_on_exception(self, monkeypatch, readout):
+        fake_server_sock = FakeSocket()
+        fake_context = FakeSSLContext()
+
+        monkeypatch.setattr(
+            server,
+            "prepare_server_socket",
+            lambda *a, **k: (fake_server_sock, fake_context),
+        )
+
+        def problem(*args, **kwargs):
+            raise Exception("Error!")
+
+        monkeypatch.setattr(server, "send_and_receive", problem)
+
+        server.main(["--once"])
+
+        # catch error and print
+        out = readout()
+        assert "Connection closed" in out
+
+        # even on exception, __exit__ should run
+        assert fake_context.wrapped.exited is True

@@ -46,7 +46,13 @@ class FakeWrappedSock:
         return False
 
     def getpeername(self):
-        return "Awesome socket"
+        return "127.0.0.1"
+
+    def getpeercert(self):
+        return {
+            "issuer": (("country", "US"), ("organization", "EB LLC")),
+            "notAfter": "Nov 22 08:15:19 2056 GMT",
+        }
 
     def settimeout(self, timeout):
         self.timeout = timeout
@@ -72,3 +78,12 @@ class FakeSocket:
 
     def recv(self, n):
         return "hello\n"  # <-- str, not bytes
+
+    def settimeout(self, t):
+        self.timeout = t
+
+    def getpeercert(self):
+        return {
+            "issuer": (("country", "US"), ("organization", "EB LLC")),
+            "notAfter": "Nov 22 08:15:19 2056 GMT",
+        }
