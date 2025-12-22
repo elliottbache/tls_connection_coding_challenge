@@ -6,6 +6,8 @@ from typing import Any
 
 import pytest
 
+from tlslp.server import DEFAULT_DIFFICULTY
+
 
 @pytest.fixture
 def readout(capsys) -> Callable[[], Any]:
@@ -40,7 +42,7 @@ def token():
 
 @pytest.fixture
 def suffix():
-    return "2biu"
+    return "bgwrg"
 
 
 @pytest.fixture
@@ -55,7 +57,7 @@ def random_string():
 
 @pytest.fixture
 def difficulty():
-    return "6"
+    return str(DEFAULT_DIFFICULTY)
 
 
 @pytest.fixture
