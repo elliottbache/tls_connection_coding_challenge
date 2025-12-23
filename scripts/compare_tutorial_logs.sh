@@ -1,3 +1,5 @@
+set -euo pipefail
+
 if ! diff -u docs/tutorial/server.log ~/.local/state/tlscc/logs/server.log; then
   status=1
 fi

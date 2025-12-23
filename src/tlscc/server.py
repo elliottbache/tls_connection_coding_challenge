@@ -26,6 +26,7 @@ import copy
 import hashlib
 import logging
 import math
+import os
 import random
 import socket
 import ssl
@@ -444,6 +445,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     logger.info("Server starting")
 
     is_secure = not cfg.insecure
+
+    logger.info(f"CA cert exists: {os.path.exists(cfg.ca_cert)!r}")
+    logger.info(f"Server cert exists: {os.path.exists(cfg.server_cert)!r}")
+    logger.info(f"Server key exists: {os.path.exists(cfg.server_key)!r}")
 
     server_socket, context = prepare_server_socket(
         cfg.server_host,
