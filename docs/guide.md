@@ -9,8 +9,10 @@ get a thorough **pytest** suite (unit + integration) and **Sphinx** docs/doctest
 ![Demo](demo.gif)
 For complete instructions, see 
 [Installation](https://github.com/elliottbache/tls_line_protocol/blob/master/README.md#installation)
-and [Execution and usage](https://github.com/elliottbache/tls_line_protocol/blob/master/README.md#execution--usage).
+and [Execution and usage](https://github.com/elliottbache/tls_line_protocol/blob/master/README.md#execution--usage). 
  
+
+---
 
 
 ### High-level flow

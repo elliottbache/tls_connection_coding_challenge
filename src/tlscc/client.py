@@ -52,6 +52,7 @@ from queue import Empty
 
 from tlslp.logging_utils import configure_logging
 from tlslp.protocol import (
+    DEFAULT_BODY_MESSAGES,
     DEFAULT_CA_CERT,
     DEFAULT_OTHER_TIMEOUT,
     DEFAULT_WORK_TIMEOUT,
@@ -79,22 +80,11 @@ DEFAULT_RESPONSES = {
     "ADDR_LINE1": "234 Evergreen Terrace",
     "ADDR_LINE2": "Springfield",
 }
-DEFAULT_VALID_MESSAGES = {
-    "HELLO",
-    "WORK",
-    "ERROR",
-    "DONE",
-    "FULL_NAME",
-    "MAILNUM",
-    "EMAIL1",
-    "EMAIL2",
-    "SOCIAL",
-    "BIRTHDATE",
-    "COUNTRY",
-    "ADDRNUM",
-    "ADDR_LINE1",
-    "ADDR_LINE2",
-}
+DEFAULT_VALID_MESSAGES = set(DEFAULT_BODY_MESSAGES)
+DEFAULT_VALID_MESSAGES.add("HELLO")
+DEFAULT_VALID_MESSAGES.add("WORK")
+DEFAULT_VALID_MESSAGES.add("DONE")
+DEFAULT_VALID_MESSAGES.add("ERROR")
 DEFAULT_PORTS = [3115, 7883, 8235, 38154, 1234, 55532]
 DEFAULT_PRIVATE_KEY_PATH = "certificates/ec_private_key.pem"
 DEFAULT_CLIENT_CERT_PATH = "certificates/client_cert.pem"
@@ -114,7 +104,7 @@ class ClientConfig:
     other_timeout: int
     insecure: bool
     log_level: str
-    json_logs: bool
+    tutorial: bool
 
 
 def _parse_port(s: str) -> int:
@@ -202,6 +192,12 @@ def build_client_parser() -> argparse.ArgumentParser:
         help="Emit logs as JSON (one object per line).",
     )
 
+    parser.add_argument(
+        "--tutorial",
+        action="store_true",
+        help="Handle one connection then exit (useful for tests).",
+    )
+
     return parser
 
 
@@ -225,7 +221,7 @@ def args_to_client_config(ns: argparse.Namespace) -> ClientConfig:
         other_timeout=ns.other_timeout,
         insecure=ns.insecure,
         log_level=ns.log_level,
-        json_logs=ns.json_logs,
+        tutorial=ns.tutorial,
     )
 
 
@@ -668,7 +664,7 @@ def _receive_and_decipher_message(
     """Receive and decode message from server and return containing message."""
     while True:
         message = receive_message(secure_sock, logger)
-        logger.debug(f"Received {message!r}")
+        logger.info(f"Received {message!r}")
 
         # Error check message and create list from message
         try:
@@ -765,7 +761,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ns = parser.parse_args(argv)
     cfg = args_to_client_config(ns)
 
-    configure_logging(level=cfg.log_level, json_logs=cfg.json_logs, node="client")
+    configure_logging(level=cfg.log_level, node="client", tutorial=cfg.tutorial)
     logger.warning("Windows ACLs not checked.  Skipping world-writable test.")
 
     is_secure = not cfg.insecure
@@ -855,10 +851,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 logger.debug(
                     f"Authentication data: {half_len_token!r}..., Difficulty: {args[2]!r}"
                 )
-                logger.info(f"Valid suffix returned from client: {response!r}")
-                logger.info(f"Hash: {this_hash!r}")
+                logger.debug(f"Valid suffix: {response!r}")
+                logger.debug(f"Hash: {this_hash!r}")
 
-            logger.debug(f"Sending to server = {response!r}")
+            split_msg = response.split(" ", maxsplit=1)
+            cksum = split_msg[0]
+            body = split_msg[1] if len(split_msg) > 1 else ""
+            logger.info(f"Sending to server: {body!r}")
+            logger.debug(f"Checksum sent: {cksum!r}")
             send_message(response, secure_sock, logger)
 
             if args[0] == "DONE":

@@ -22,6 +22,7 @@ Functions:
 """
 
 import argparse
+import copy
 import hashlib
 import logging
 import math
@@ -33,6 +34,7 @@ from dataclasses import dataclass
 
 from tlslp.logging_utils import configure_logging
 from tlslp.protocol import (
+    DEFAULT_BODY_MESSAGES,
     DEFAULT_CA_CERT,
     DEFAULT_OTHER_TIMEOUT,
     DEFAULT_WORK_TIMEOUT,
@@ -69,8 +71,7 @@ class ServerConfig:
     random_string: str
     difficulty: int
     log_level: str
-    json_logs: bool
-    once: bool
+    tutorial: bool
 
 
 def build_server_parser() -> argparse.ArgumentParser:
@@ -157,13 +158,7 @@ def build_server_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--json-logs",
-        action="store_true",
-        help="Emit logs as JSON (one object per line).",
-    )
-
-    parser.add_argument(
-        "--once",
+        "--tutorial",
         action="store_true",
         help="Handle one connection then exit (useful for tests).",
     )
@@ -184,8 +179,7 @@ def args_to_server_config(ns: argparse.Namespace) -> ServerConfig:
         random_string=ns.random_string,
         difficulty=ns.difficulty,
         log_level=ns.log_level,
-        json_logs=ns.json_logs,
-        once=ns.once,
+        tutorial=ns.tutorial,
     )
 
 
@@ -368,7 +362,8 @@ def handle_one_session(
         raise RuntimeError("No client certificate presented.")
 
     client_address = secure_sock.getpeername()
-    logger.info(f"Connection from {client_address!r}")
+    logger.info(f"Connection from address: {client_address[0]!r}")
+    logger.debug(f"Connection from port: {client_address[1]!r}")
     print(f"Connection from {client_address}")
 
     # handshake
@@ -389,29 +384,27 @@ def handle_one_session(
         secure_sock,
         cfg.pow_timeout,
     )
-    logger.info(f"Valid suffix returned from client: {msg!r}")
+    logger.debug(f"Valid suffix returned from client: {msg!r}")
     this_hash = hashlib.sha256((cfg.token + msg).encode()).hexdigest()  # noqa: S324
-    logger.info(f"Hash: {this_hash!r}")
+    logger.debug(f"Hash: {this_hash!r}")
 
     # body
     choice = None
-    for _ in range(20):
-        # This randomly sends requests to the client.
-        choice = random.choice(  # noqa: S311
-            [
-                "FULL_NAME",
-                "MAILNUM",
-                "EMAIL1",
-                "EMAIL2",
-                "SOCIAL",
-                "BIRTHDATE",
-                "COUNTRY",
-                "ADDRNUM",
-                "ADDR_LINE1",
-                "ADDR_LINE2",
-                "ERROR internal server error",
-            ]
+    body_messages = copy.deepcopy(DEFAULT_BODY_MESSAGES)
+    if cfg.tutorial:
+        n_body_messages = len(body_messages)
+    else:
+        n_body_messages = 20
+        body_messages.append("ERROR")
+
+    for idx in range(n_body_messages):
+        # in tutorial mode, send each message once, else in normal mode, randomly select requests
+        choice = (
+            body_messages[idx]
+            if cfg.tutorial
+            else random.choice(body_messages)  # noqa: S311
         )
+
         logger.info(f"Step: {choice.lower().split(' ', maxsplit=1)[0]!r}")
         logger.debug(f"Sending {choice!r} {cfg.random_string!r}")
 
@@ -426,15 +419,18 @@ def handle_one_session(
         if choice.startswith("ERROR"):
             break
 
-        logger.debug(f"Received {msg!r}")
-        logger.info(f"Valid checksum received: {msg.split(' ', maxsplit=1)[0]!r}")
+        split_msg = msg.split(" ", maxsplit=1)
+        cksum = split_msg[0]
+        body = split_msg[1] if len(split_msg) > 1 else ""
+        logger.info(f"Received {body!r}")
+        logger.debug(f"Checksum received: {cksum!r}")
 
     # end message
     if choice is not None and not choice.startswith("ERROR"):
         logger.info("Step: end")
         logger.debug("Sending DONE")
         msg = send_and_receive(cfg.token, "DONE", secure_sock, cfg.other_timeout)
-        logger.debug(f"Received {msg!r}")
+        logger.info(f"Received {msg!r}")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -443,7 +439,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ns = parser.parse_args(argv)
     cfg = args_to_server_config(ns)
 
-    configure_logging(level=cfg.log_level, json_logs=cfg.json_logs, node="server")
+    configure_logging(level=cfg.log_level, node="server", tutorial=cfg.tutorial)
 
     logger.info("Server starting")
 
@@ -463,20 +459,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         # Wait for a client to connect
         while True:
-            client_socket, client_address = server_socket.accept()
+            client_socket, _ = server_socket.accept()
             with context.wrap_socket(client_socket, server_side=True) as secure_sock:
                 handle_one_session(is_secure, cfg, secure_sock)
 
-            if cfg.once:
+            logger.info("Connection closed")
+            print("Connection closed")
+
+            if cfg.tutorial:
                 break
 
     except Exception:
         logger.exception("Unhandled exception in session")
+        logger.info("Connection closed")
+        print("Connection closed")
 
     finally:
         server_socket.close()
-        logger.info("Connection closed")
-        print("Connection closed")
 
     return 0
 
