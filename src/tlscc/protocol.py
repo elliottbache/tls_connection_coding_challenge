@@ -28,6 +28,18 @@ DEFAULT_OTHER_TIMEOUT = 6
 DEFAULT_POW_TIMEOUT = 7200
 DEFAULT_LONG_TIMEOUT = 24 * 3600
 DEFAULT_SERVER_HOST = "localhost"
+DEFAULT_BODY_MESSAGES = [
+    "NAME",
+    "MAILNUM",
+    "MAIL1",
+    "MAIL2",
+    "SKYPE",
+    "BIRTHDATE",
+    "COUNTRY",
+    "ADDRNUM",
+    "ADDRLINE1",
+    "ADDRLINE2",
+]
 
 logger = logging.getLogger(__name__)
 

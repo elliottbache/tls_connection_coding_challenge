@@ -75,8 +75,10 @@ module = "tests.*"
 ignore_errors = true
 
 [tool.codespell]
-skip = "docs/_build/*,build,dist,.venv,build-asan,build-tsan,docs/html/*,old_files,_deps,htmlcov,WD,src/include,docs/demo*,certificates,pyproject.toml,docs/_static/*"
-ignore-words-list = "teh,nd"  # add project-specific false positives
+# include both prefixed and non-prefixed paths for maximum compatibility.
+skip = "./docs/_build,./build,./dist,./.venv,./docs/html,./src/include,./docs/_static,pyproject.toml,./WD,./build*,./cpp/build,./PRIVATE,./htmlcov"
+ignore-words-list = "teh,nd,seh,atleast,atmost"
+
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -32,8 +32,8 @@ $(VENVDIR):
 
 .PHONY: all
 all: clean install-dev certs build-cpp docs lint format typecheck
-	$(ACTIVATE); pytest -q --no-persistent-logs
-	$(ACTIVATE); make bench --no-print-directory
+	$(ACTIVATE); pytest -q
+	$(ACTIVATE); make bench --no-print-directory  # this flag keeps the directory private for video making
 
 .PHONY: setup
 setup: install-dev certs build-cpp

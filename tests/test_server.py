@@ -37,8 +37,7 @@ def server_config(authdata, timeout, random_string, difficulty):
         random_string=random_string,
         difficulty=difficulty,
         log_level="DEBUG",
-        json_logs=False,
-        once=True,
+        tutorial=False,
     )
 
 
@@ -74,7 +73,7 @@ class TestSendMessage:
         "payload, expected", [("HELO\n", "HELO\n"), ("HELO", "HELO\n")]
     )
     def test_send_message(self, socket_pair, payload, expected, caplog):
-        logger = logging.getLogger("tlscc")
+        logger = logging.getLogger("test_server")
         s1, s2 = socket_pair
         err = server.send_message(payload, s1, logger)
         _ = s2.recv(1024)
@@ -328,9 +327,8 @@ def test_handle_one_session(
 
 class TestMain:
 
-    def test_main_handle_one_session(
-        self, authdata, random_string, cksum, suffix, monkeypatch
-    ):
+    def test_main_tutorial(self, authdata, random_string, cksum, suffix, monkeypatch):
+
         fake_server_sock = FakeSocket()
         fake_context = FakeSSLContext()
 
@@ -351,8 +349,8 @@ class TestMain:
 
         monkeypatch.setattr(server, "prepare_server_socket", fake_prepare_server_socket)
 
-        # avoid ERROR choice
-        monkeypatch.setattr(server.random, "choice", lambda seq: "MAILNUM")
+        """# avoid ERROR choice
+        monkeypatch.setattr(server.random, "choice", lambda seq: "MAILNUM")"""
 
         calls = []
 
@@ -360,16 +358,36 @@ class TestMain:
             calls.append((this_authdata, to_send))
             if to_send == "HELO":
                 return "EHLO"
-            if to_send.startswith("POW "):
+            elif to_send.startswith("POW "):
                 return suffix
-            if to_send == "END":
-                return "OK"
-            # body commands
-            return f"{cksum} 2"
+            elif to_send.startswith("NAME"):
+                return f"{cksum} Elliott Bache"
+            elif to_send.startswith("MAILNUM"):
+                return f"{cksum} 2"
+            elif to_send.startswith("MAIL1"):
+                return f"{cksum} elliottbache@gmail.com"
+            elif to_send.startswith("MAIL2"):
+                return f"{cksum} elliottbache2@gmail.com"
+            elif to_send.startswith("SKYPE"):
+                return f"{cksum} elliottbache@hotmail.com"
+            elif to_send.startswith("BIRTHDATE"):
+                return f"{cksum} 99.99.1982"
+            elif to_send.startswith("COUNTRY"):
+                return f"{cksum} USA"
+            elif to_send.startswith("ADDRNUM"):
+                return f"{cksum} 2"
+            elif to_send.startswith("ADDRLINE1"):
+                return f"{cksum} 234 Evergreen Terrace"
+            elif to_send.startswith("ADDRLINE2"):
+                return f"{cksum} Springfield"
+            elif to_send.startswith("END"):
+                return f"{cksum} OK"
+            else:
+                raise ValueError("Invalid message.")
 
         monkeypatch.setattr(server, "send_and_receive", fake_send_and_receive)
 
-        rc = server.main(["--once"])
+        rc = server.main(["--tutorial"])
         assert rc == 0
 
         # prepare_server_socket called with defaults
@@ -392,14 +410,14 @@ class TestMain:
         assert server_side is True
 
         # send_and_receive called expected number of times:
-        # HELO + POW + 20 body requests + END = 23
-        assert len(calls) == 23
+        # HELO + POW + 10 body requests + END = 13
+        assert len(calls) == 13
         assert calls[0][1] == "HELO"
         assert calls[1][1] == f"POW {authdata} {server.DEFAULT_DIFFICULTY}"
         assert calls[-1][1] == "END"
         # body messages: "choice <random_string>"
         for _, to_send in calls[2:-1]:
-            assert to_send == f"MAILNUM {random_string}"
+            assert random_string in to_send
 
     def test_main_closes_wrapped_socket_on_exception(self, monkeypatch, readout):
         fake_server_sock = FakeSocket()
@@ -416,7 +434,7 @@ class TestMain:
 
         monkeypatch.setattr(server, "send_and_receive", problem)
 
-        server.main(["--once"])
+        server.main(["--tutorial"])
 
         # catch error and print
         out = readout()

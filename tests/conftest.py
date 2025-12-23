@@ -1,5 +1,4 @@
 import hashlib
-import os
 import socket
 from collections.abc import Callable
 from typing import Any
@@ -86,24 +85,3 @@ def socket_pair():
             s2.close()
         except OSError as e:
             print(f"OSError: {e}")
-
-
-# create a non-persistent flag to not save log files for tests,
-# especially during installation
-def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption(
-        "--no-persistent-logs",
-        action="store_true",
-        default=False,
-        help="Disable persistent file logging during tests.",
-    )
-
-
-@pytest.fixture(autouse=True)
-def _disable_persistent_logs_if_requested(request: pytest.FixtureRequest) -> None:
-    """
-    If --no-persistent-logs is passed, tell the application code to not attach
-    FileHandlers (so tests don't pollute persistent logs).
-    """
-    if request.config.getoption("--no-persistent-logs"):
-        os.environ["TLSCC_DISABLE_FILE_LOGS"] = "1"
