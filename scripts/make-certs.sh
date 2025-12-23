@@ -1,3 +1,5 @@
+set -euo pipefail
+
 # create directory and change directory
 mkdir -p certificates
 cd certificates

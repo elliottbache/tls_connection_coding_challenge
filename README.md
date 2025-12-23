@@ -50,6 +50,7 @@ In a Linux/WSL terminal:
 ```bash
 git clone https://github.com/elliottbache/tls_line_protocol.git
 cd tls_line_protocol
+make deps
 make setup
 make run-server
 ```
@@ -60,8 +61,7 @@ make run-client
 That's it, you’ve run the TLS toy protocol demo end-to-end!  Keep reading for a more in-depth 
 explanation of what just happened.  
 
-Note: requires (for the C++ WORK solver): CMake ≥ 3.16, a C++20 compiler (GCC/Clang), and OpenSSL development 
-headers/libs (e.g. libssl-dev on Ubuntu/Debian).
+
 
 #### Tutorial mode and expected logs
 Optional: compare your logs to the expected tutorial run.  If you want a deterministic “known-good” run
@@ -118,12 +118,27 @@ distributions.
 The quickest and easiest way to install the various components of this package can be found in [Quickstart](#quickstart).
 The following steps are for manual installation.
 ### Create a Python virtual environment with dependencies (skip this if using Docker)
+#### System requirements (Linux/WSL):
+- **Python**: Python **3.11** + venv support (```python3.11```, ```python3.11-venv```)
+- **C++ WORK solver**: CMake **≥ 3.16**, a **C++20** compiler (GCC/Clang), and OpenSSL dev libs (`libssl-dev`)
+- **Build tools**: ```build-essential``` (compiler + make)
+
+#### These are installed via:
+- ```make deps``` (runs the scripts below), or
+- ```bash scripts/install-python-deps.sh``` and ```bash scripts/install-cpp-deps.sh```
+
+Note: if downloaded with wget or as a zip file, the permissions may be lost on the scripts.  In this case,
+you may need to change the permissions with ```chmod +x scripts/install-python-deps.sh scripts/install-cpp-deps.sh```.
+
+#### Prefer zero system dependencies?
+- Use **Docker** instead (see [Quickstart (alternative): Docker](#quickstart-alternative-docker) below).
+
 #### Create and activate a venv
 ```bash
 python -m venv .venv
 . .venv/bin/activate 
 ```
-#### Install dependencies
+#### Install rest of dependencies in venv 
 ```bash
 pip install -U pip
 pip install -e .[dev]

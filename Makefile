@@ -10,6 +10,7 @@ DEV_EXTRAS ?= dev
 help:
 	@echo "Common targets:"
 	@echo "  make all             Makes all except run-server and run-client"
+	@echo "  make deps            Makes all dependency installation (Python & C++)"
 	@echo "  make setup           Makes those needed for initial setup"
 	@echo "  make ci              Makes those needed for CI (lint, typecheck, test)"
 	@echo "  make clean           Remove caches and build artifacts"
@@ -35,6 +36,13 @@ all: clean install-dev certs build-cpp docs lint format typecheck
 	$(ACTIVATE); pytest -q
 	$(ACTIVATE); make bench --no-print-directory  # this flag keeps the directory private for video making
 
+.PHONY: deps deps-py deps-cpp
+deps: deps-py deps-cpp
+deps-py:
+	bash scripts/install-python-deps.sh
+deps-cpp:
+	bash scripts/install-cpp-deps.sh
+
 .PHONY: setup
 setup: install-dev certs build-cpp
 
@@ -56,6 +64,7 @@ install-dev: venv
 
 .PHONY: certs
 certs:
+	chmod -f +x scripts/make-certs.sh
 	bash scripts/make-certs.sh
 
 .PHONY: build-cpp
@@ -97,11 +106,11 @@ test-cpp: build-cpp
 	ctest --test-dir build --output-on-failure
 
 .PHONY: run-server
-run-server: setup
+run-server:
 	$(ACTIVATE); tlslp-server --log-level=DEBUG
 
 .PHONY: run-client
-run-client: setup
+run-client:
 	$(ACTIVATE); tlslp-client --log-level=DEBUG
 
 # set a default value if the user doesn't provide one

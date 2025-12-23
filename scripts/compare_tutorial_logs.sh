@@ -1,3 +1,5 @@
+set -euo pipefail
+
 if ! diff -u docs/tutorial/server.log ~/.local/state/tlslp/logs/server.log; then
   status=1
 fi
