@@ -1,10 +1,8 @@
-import datetime
-import json
 import logging
 import os
 import pathlib
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from logging.handlers import RotatingFileHandler
 
 
@@ -28,47 +26,15 @@ class LogRecordPayload:
     exc: str | None = None
 
 
-class JsonFormatter(logging.Formatter):
-    """Format logs as one JSON object per line."""
-
-    def format(self, record: logging.LogRecord) -> str:
-        # use UTC timestamp
-        ts = datetime.datetime.fromtimestamp(
-            record.created, tz=datetime.UTC
-        ).isoformat()
-
-        exc_type = None
-        exc_text = None
-        if record.exc_info:
-            exc_type = record.exc_info[0].__name__ if record.exc_info[0] else None
-            exc_text = self.formatException(record.exc_info)
-
-        payload = LogRecordPayload(
-            ts=ts,
-            level=record.levelname,
-            logger=record.name,
-            msg=record.getMessage(),
-            module=record.module,
-            func=record.funcName,
-            line=record.lineno,
-            pid=record.process,
-            exc_type=exc_type,
-            exc=exc_text,
+def _set_formatter(tutorial: bool, handler: logging.Handler) -> None:
+    date = "2000-01-01T00:00:00+0100" if tutorial else "{asctime}"
+    handler.setFormatter(
+        logging.Formatter(
+            fmt=date + " {levelname} {name}: {message}",
+            datefmt="%Y-%m-%dT%H:%M:%S%z",
+            style="{",
         )
-        return json.dumps(asdict(payload), ensure_ascii=False)
-
-
-def _set_formatter(json_logs: bool, handler: logging.Handler) -> None:
-    if json_logs:
-        handler.setFormatter(JsonFormatter())
-    else:
-        handler.setFormatter(
-            logging.Formatter(
-                fmt="{asctime} {levelname} {name}: {message}",
-                datefmt="%Y-%m-%dT%H:%M:%S%z",
-                style="{",
-            )
-        )
+    )
 
 
 def _default_log_dir() -> pathlib.Path:
@@ -90,7 +56,7 @@ def _default_log_dir() -> pathlib.Path:
 
 
 def configure_logging(
-    *, level: str = "INFO", json_logs: bool = False, node: str = "server"
+    *, level: str = "INFO", node: str = "server", tutorial: bool = False
 ) -> None:
     """
     Configure root logging for the application.
@@ -102,8 +68,9 @@ def configure_logging(
 
     Args:
         level (str): Logging level name (e.g., "DEBUG", "INFO").
-        json_logs (bool): If True, emit JSON lines, otherwise emit human-readable logs.
         node (str): Client or server
+        tutorial (bool): If True, we are in tutorial mode and want to reproduce exactly
+            the same logs.
     """
     # route Python warnings through logging.
     logging.captureWarnings(True)
@@ -128,26 +95,27 @@ def configure_logging(
     # create err handler (WARNING and above)
     handler = logging.StreamHandler(stream=sys.stderr)
     handler.setLevel("WARNING")
-    _set_formatter(json_logs, handler)
+    _set_formatter(tutorial, handler)
     root.addHandler(handler)
     warn_logger.addHandler(handler)
-
-    # we want to disable file logs for tests during installation.
-    # this option is selected in the Makefile
-    if os.getenv("TLSCC_DISABLE_FILE_LOGS", "").lower() in {"1", "true", "yes", "on"}:
-        return None
 
     # define and create folder for saving log
     log_file = pathlib.Path(node).with_suffix(".log")
     fn = _default_log_dir() / log_file
 
+    # for tutorial we don't want setup tests to be written to the log file, so we
+    # use write mode and only keep the last written log
+    if tutorial:
+        handler = logging.FileHandler(filename=fn, mode="w")
+    else:
+        handler = RotatingFileHandler(
+            filename=fn, mode="a", maxBytes=50 * 1024 * 1024, backupCount=2
+        )
+
     # create debug handler (all)
-    handler = RotatingFileHandler(
-        filename=fn, mode="a", maxBytes=50 * 1024 * 1024, backupCount=2
-    )
-    _set_formatter(json_logs, handler)
+    _set_formatter(tutorial, handler)
     root.addHandler(handler)
     handler.setLevel(numeric_level)
-    _set_formatter(json_logs, handler)
+    _set_formatter(tutorial, handler)
     root.addHandler(handler)
     warn_logger.addHandler(handler)

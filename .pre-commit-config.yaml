@@ -21,7 +21,17 @@ repos:
     hooks:
       - id: codespell      # no --write-changes => no rewrite
         args: ["--toml", "pyproject.toml"]
-
+        exclude: |
+            (?x)^(
+                docs/_static/|
+                docs/html/|
+                src/include/|
+                build/|
+                dist/|
+                \.venv/|
+                certificates/|
+                pyproject\.toml
+            )
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.13.0
     hooks:

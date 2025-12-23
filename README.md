@@ -35,8 +35,8 @@ and must not be changed in this project.  More details on how this project works
 
 - [Quickstart](#quickstart)
 - [Demo GIF](#demo-gif)
-- [Installation](#installation)
-- [Execution / Usage](#execution--usage)
+- [Installation](#installation-manual-for-development-or-troubleshooting)
+- [Execution / Usage](#execution--usage-manual-for-development-or-troubleshooting)
 - [Technologies](#technologies)
 - [Contributing](#contributing)
 - [Contributors](#contributors)
@@ -45,7 +45,7 @@ and must not be changed in this project.  More details on how this project works
 - [License](#license)
 
 ## Quickstart
-### TL;DR (local demo, no Docker)
+### Quickstart (recommended): Local (Linux/WSL)
 In a Linux/WSL terminal:
 ```bash
 git clone https://github.com/elliottbache/tls_line_protocol.git
@@ -63,36 +63,33 @@ explanation of what just happened.
 Note: requires (for the C++ WORK solver): CMake ≥ 3.16, a C++20 compiler (GCC/Clang), and OpenSSL development 
 headers/libs (e.g. libssl-dev on Ubuntu/Debian).
 
-### Downloading the repository
-The repository first must be cloned to your local machine.  In a Linux/WSL terminal:
-```bash
-git clone https://github.com/elliottbache/tls_line_protocol.git
-```
-or it can be downloaded as a .zip file at 
-```https://github.com/elliottbache/tls_line_protocol/archive/refs/heads/master.zip```.
+#### Tutorial mode and expected logs
+Optional: compare your logs to the expected tutorial run.  If you want a deterministic “known-good” run
+you can compare against (useful for demos, onboarding, and quick sanity checks), run the client/server
+in **tutorial mode** and compare the produced logs to the committed expected logs.
 
-Once downloaded (and unzipped if necessary), the user should enter the directory using the Linux/WSL terminal
-```bash
-cd tls_line_protocol
-```
+Expected tutorial logs live here:
+- `docs/tutorial/server.log`
+- `docs/tutorial/client.log`
 
-### Quick installation
-The following commands are made available by ```Makefile``` and a more detailed description of the various
-options may be found in [Make commands](#make-commands).
-```bash
-make setup
-```
+##### Run tutorial
 
-### Option A: No Docker
+In two terminals:
+  
 ```bash
-make run-server
-```
-In another terminal, run the client
-```bash
-make run-client
+# Terminal 1
+python -m tlslp.server --tutorial
+
+# Terminal 2
+python -m tlslp.client --tutorial
+
+# Either terminal
+bash scripts/compare_tutorial_logs.sh
 ```
 
-### Option B: Docker
+### Quickstart (alternative): Docker
+Use this if you prefer Docker.  Otherwise, use the [local quickstart](#quickstart-recommended-local-linuxwsl) 
+ above.
 #### Launch Docker daemon
 On WSL:
 ```bash
@@ -112,7 +109,9 @@ docker start <name>
 docker compose up --build
 ```
 
-## Installation
+## Installation (manual, for development or troubleshooting)
+If you used [Quickstart (make setup)](#quickstart), you can skip this section.
+
 This package is intended for use in Linux/WSL.  All installation and execution instructions are for these
 distributions.  
 
@@ -218,7 +217,8 @@ This creates ```server-cert.pem``` and ```server-key.pem```.
 
 
 
-## Execution / Usage
+## Execution / Usage (manual, for development or troubleshooting)
+If you used [Quickstart (make setup)](#quickstart), you can skip this section.
 
 This program was developed with Python 3.11.14.  It is intended for use in Linux/WSL, and some of the security 
 checks are not available in Windows (such as checking that the WORK challenge binary file launched with 
@@ -266,17 +266,43 @@ A typical command for development is:
 tlslp-client --log-level DEBUG
 ```
 ### Option B: Docker
+Docker users: see [Quickstart (alternative)](#quickstart-alternative-docker): Docker.
 
-3. Start a docker container
+## Compare your output to the expected tutorial logs
+
+Tutorial mode is designed to be deterministic so you can validate behavior by comparing your logs against committed “golden” logs.
+
+### Expected logs (golden files)
+
+The expected tutorial logs are stored in the repository at:
+
+- `docs/tutorial/server.log`
+- `docs/tutorial/client.log`
+
+### Where your local logs are written (Linux/WSL)
+
+On Linux/WSL, this project writes persistent logs under the XDG State directory:
+
+- `XDG_STATE_HOME/tlslp/logs/`
+
+If `XDG_STATE_HOME` is not set, it defaults to:
+
+- `~/.local/state/tlslp/logs/`
+
+So the default log files are:
+
+- `~/.local/state/tlslp/logs/server.log`
+- `~/.local/state/tlslp/logs/client.log`
+
+### Compare using the provided script
+
+From the repository root:
+
 ```bash
-docker start <name>
-```
-4. Then run
-```bash
-docker compose up --build
+bash scripts/compare_tutorial_logs.sh
 ```
 
-### What is happening?
+## What is happening?
 The client will connect to the server and answer the various commands sent by the server.  The server will first send a
 a handshake set of commands (HELLO and WORK).  Once the WORK challenge is solved by the client under 2 hours, the correct
 suffix will be sent to the server and a further 20 random commands will be sent.  If ERROR is randomly selected, the

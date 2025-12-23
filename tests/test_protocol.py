@@ -9,7 +9,7 @@ from tlslp import protocol
 
 class TestReceiveMessage:
     def test_receive_message(self, socket_pair, caplog):
-        logger = logging.getLogger("tlslp")
+        logger = logging.getLogger("test_protocol")
 
         s1, s2 = socket_pair
         message_to_receive = b"HELLOBACK\n"
@@ -26,7 +26,7 @@ class TestReceiveMessage:
         assert "Received HELLO" in caplog.text
 
     def test_receive_message_non_utf(self, socket_pair, readout, caplog):
-        logger = logging.getLogger("tlslp")
+        logger = logging.getLogger("test_protocol")
         s1, s2 = socket_pair
         message_to_receive = "æ\n".encode("cp1252")
 
@@ -37,7 +37,7 @@ class TestReceiveMessage:
         assert "Receive failed.  Invalid UTF-8" in str(e)
 
     def test_receive_message_no_newline(self, socket_pair, readout, caplog):
-        logger = logging.getLogger("tlslp")
+        logger = logging.getLogger("test_protocol")
         s1, s2 = socket_pair
         message_to_receive = b"HELLOBACK"
 
@@ -48,7 +48,7 @@ class TestReceiveMessage:
         assert "Receive timeout" in str(e)
 
     def test_receive_empty_message(self, socket_pair, readout):
-        logger = logging.getLogger("tlslp")
+        logger = logging.getLogger("test_protocol")
         s1, s2 = socket_pair
         s1.close()
 
@@ -58,14 +58,14 @@ class TestReceiveMessage:
         assert "Receive failed.  Received empty string" in str(e)
 
     def test_receive_non_bytes(self, socket_pair, readout):
-        logger = logging.getLogger("tlslp")
+        logger = logging.getLogger("test_protocol")
         sock = FakeSocket()
         with pytest.raises(protocol.ProtocolError) as e:
             protocol.receive_message(sock, logger)
         assert "Receive failed.  Unexpected type" in str(e)
 
     def test_receive_long_line(self, socket_pair, readout):
-        logger = logging.getLogger("tlslp")
+        logger = logging.getLogger("test_protocol")
         s1, s2 = socket_pair
         message_to_receive = bytes([3]) * 1001 + b"\n"
 
