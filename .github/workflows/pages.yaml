@@ -2,7 +2,7 @@ name: Deploy docs to GitHub Pages
 
 on:
   push:
-    branches: [master]
+    branches: [main, master]
   workflow_dispatch:
 
 permissions:
@@ -26,20 +26,20 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+          cache-dependency-path: |
+            docs/requirements.txt
+            pyproject.toml
 
-      - name: Install deps
+      - name: Install docs deps + project
         run: |
           python -m pip install -U pip
-          pip install -e .[dev]
-          pip install breathe "myst-parser>=3.0"
-          pip install sphinxcontrib.mermaid
-          pip install sphinx-rtd-theme
-          pip install pytest pytest-cov
+          pip install -r docs/requirements.txt
+          pip install -e .
 
       - name: Install Doxygen
         run: |
           sudo apt-get update
-          sudo apt-get install -y doxygen
+          sudo apt-get install -y --no-install-recommends doxygen
 
       - name: Run Doxygen (generate XML for Breathe)
         run: |
@@ -49,7 +49,6 @@ jobs:
       - name: Build docs
         run: |
           sphinx-build -b html docs docs/_build/html
-
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
