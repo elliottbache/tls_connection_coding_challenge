@@ -1,9 +1,13 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "tls-line-protocol"
 version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "GPL-3.0" }
+license = { file = "LICENSE" }
 authors = [{ name = "Elliott Bache" }]
 
 [project.optional-dependencies]
@@ -32,6 +36,9 @@ tlslp-server = "tlslp.server:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 # pyproject.toml
 [tool.ruff]
