@@ -48,7 +48,7 @@ and must not be changed in this project.  More details on how this project works
 ### Quickstart (recommended): Local (Ubuntu/WSL)
 In an Ubuntu/WSL terminal:
 ```bash
-apt install git
+sudo apt install -y git
 git clone https://github.com/elliottbache/tls_connection_coding_challenge.git
 cd tls_connection_coding_challenge
 make deps
