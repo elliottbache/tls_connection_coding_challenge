@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ ! -f pyproject.toml ]]; then
+  echo "Run this from the repo root (pyproject.toml not found)."
+  exit 1
+fi
+
 if ! command -v apt-get >/dev/null 2>&1; then
   echo "This helper supports Debian/Ubuntu/WSL with apt-get. Install Python deps manually on your distro"
   echo "or use Docker instead (see README)."
@@ -26,8 +31,6 @@ echo -e "\n***OK: Installed python3.11 and python3.11-venv.***\n"
 
 python3.11 -m venv .venv
 source .venv/bin/activate
-
 python -m pip install -U pip
-python -m pip install -e ".[dev]"
 
 echo -e "\n***OK: venv created at .venv and dependencies installed.***\n"
