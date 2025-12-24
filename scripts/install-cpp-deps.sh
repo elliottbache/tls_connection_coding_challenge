@@ -13,7 +13,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 $SUDO apt-get update
 
-$SUDO apt-get install -y \
+$SUDO apt-get install -y --no-install-recommends \
   build-essential \
   cmake \
   pkg-config \
