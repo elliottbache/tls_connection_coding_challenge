@@ -32,7 +32,7 @@ $(VENVDIR):
 	$(PY) -m venv $(VENVDIR)
 
 .PHONY: all
-all: clean install-dev certs build-cpp docs lint format typecheck
+all: clean deps install-dev certs build-cpp docs lint format typecheck
 	$(ACTIVATE); pytest -q
 	$(ACTIVATE); make bench --no-print-directory  # this flag keeps the directory private for video making
 
@@ -47,7 +47,13 @@ deps-cpp:
 setup: install-dev certs build-cpp
 
 .PHONY: ci
-ci: lint typecheck test
+ci: install-dev
+	$(ACTIVATE); ruff check .
+	$(ACTIVATE); isort --check-only --profile black src
+	$(ACTIVATE); black --check --diff .
+	$(ACTIVATE); codespell
+	$(ACTIVATE); mypy
+	$(ACTIVATE); pytest -q
 
 .PHONY: clean
 clean:
