@@ -1,5 +1,14 @@
 set -euo pipefail
 
+CERT_DIR="certificates"
+
+# if certs already exist, don't regenerate (prevents server/client mismatch)
+if [ -d "$CERT_DIR" ]; then
+    echo "Certificates already exist in $CERT_DIR; skipping generation."
+    echo "To force regeneration, delete $CERT_DIR/ manually."
+    exit 0
+fi
+
 # create directory and change directory
 mkdir -p certificates
 cd certificates
