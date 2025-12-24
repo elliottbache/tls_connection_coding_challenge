@@ -3,18 +3,18 @@ build:
   os: ubuntu-22.04
   tools: { python: "3.11" }
   apt_packages:
-  - doxygen
+    - doxygen
   jobs:
     pre_build:
       - mkdir -p docs/_build/doxygen && doxygen docs/Doxyfile
 sphinx:
   configuration: docs/conf.py
+
 python:
   install:
-    - requirements: docs/requirements.txt
-
-# Optional: build extra formats
+    - method: pip
+      path: .
+      extra_requirements:
+        - dev
 formats:
   - htmlzip
-  - pdf
-  - epub
