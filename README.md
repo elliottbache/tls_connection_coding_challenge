@@ -8,7 +8,7 @@
 [![License: GPL-3.0](https://img.shields.io/badge/license-%20%20GNU%20GPLv3%20-green?style=plastic)](https://github.com/elliottbache/tls_line_protocol/blob/main/LICENSE)
 
 > **60-second summary**
-> - Linux/WSL-based minimal client/server that perform a TLS handshake, then a **HELLO → WORK → info requests → DONE** flow.
+> - Ubuntu/WSL-based minimal client/server that perform a TLS handshake, then a **HELLO → WORK → info requests → DONE** flow.
 > - WORK solved by a fast C++ helper (multi-threaded) invoked from Python.
 > - Fully testable: unit tests for parsing & hashing; integration test creates a throwaway TLS server and exercises the full round-trip.
 ---
@@ -45,9 +45,10 @@ and must not be changed in this project.  More details on how this project works
 - [License](#license)
 
 ## Quickstart
-### Quickstart (recommended): Local (Linux/WSL)
-In a Linux/WSL terminal:
+### Quickstart (recommended): Local (Ubuntu/WSL)
+In an Ubuntu/WSL terminal:
 ```bash
+apt install git
 git clone https://github.com/elliottbache/tls_line_protocol.git
 cd tls_line_protocol
 make deps
@@ -88,14 +89,14 @@ bash scripts/compare_tutorial_logs.sh
 ```
 
 ### Quickstart (alternative): Docker
-Use this if you prefer Docker.  Otherwise, use the [local quickstart](#quickstart-recommended-local-linuxwsl) 
+Use this if you prefer Docker.  Otherwise, use the [local quickstart](#quickstart-recommended-local-ubuntuwsl) 
  above.
 #### Launch Docker daemon
 On WSL:
 ```bash
 sudo service docker start
 ```
-On Linux:
+On Ubuntu:
 ```bash
 sudo systemctl start docker
 ```
@@ -112,13 +113,13 @@ docker compose up --build
 ## Installation (manual, for development or troubleshooting)
 If you used [Quickstart (make setup)](#quickstart), you can skip this section.
 
-This package is intended for use in Linux/WSL.  All installation and execution instructions are for these
+This package is intended for use in Ubuntu/WSL.  All installation and execution instructions are for these
 distributions.  
 
 The quickest and easiest way to install the various components of this package can be found in [Quickstart](#quickstart).
 The following steps are for manual installation.
 ### Create a Python virtual environment with dependencies (skip this if using Docker)
-#### System requirements (Linux/WSL):
+#### System requirements (Ubuntu/WSL):
 - **Python**: Python **3.11** + venv support (```python3.11```, ```python3.11-venv```)
 - **C++ WORK solver**: CMake **≥ 3.16**, a **C++20** compiler (GCC/Clang), and OpenSSL dev libs (`libssl-dev`)
 - **Build tools**: ```build-essential``` (compiler + make)
@@ -153,7 +154,7 @@ cmake -S . -B build
 cmake --build build --config Release
 ```
 It can also be compiled directly without 
-CMake or the Makefile in a Linux terminal from the ```cpp``` folder, enter:
+CMake or the Makefile in an Ubuntu terminal from the ```cpp``` folder, enter:
 ```bash
 mkdir ../build
 g++ -O3 -std=c++17 pow_challenge.cpp pow_core.cpp -o ../build/pow_challenge -lssl -lcrypto -pthread
@@ -175,7 +176,7 @@ bash scripts/make-certs.sh
 
 #### Manual certificates creation
 A ```certificates``` folder should be created and
-these certificates should be placed in the ```certificates``` folder.  The steps are for typing in a Linux terminal from the
+these certificates should be placed in the ```certificates``` folder.  The steps are for typing in an Ubuntu terminal from the
 project root folder. 
 ```sh
 mkdir certificates
@@ -235,7 +236,7 @@ This creates ```server-cert.pem``` and ```server-key.pem```.
 ## Execution / Usage (manual, for development or troubleshooting)
 If you used [Quickstart (make setup)](#quickstart), you can skip this section.
 
-This program was developed with Python 3.11.14.  It is intended for use in Linux/WSL, and some of the security 
+This program was developed with Python 3.11.14.  It is intended for use in Ubuntu/WSL, and some of the security 
 checks are not available in Windows (such as checking that the WORK challenge binary file launched with 
 subprocess.run is not world writable).  
 
@@ -266,6 +267,7 @@ tlslp-server --help
 ```
 
 #### In another terminal, run the client
+From within th venv:
 ```bash
 tlslp-client
 ```
@@ -294,9 +296,9 @@ The expected tutorial logs are stored in the repository at:
 - `docs/tutorial/server.log`
 - `docs/tutorial/client.log`
 
-### Where your local logs are written (Linux/WSL)
+### Where your local logs are written (Ubuntu/WSL)
 
-On Linux/WSL, this project writes persistent logs under the XDG State directory:
+On Ubuntu/WSL, this project writes persistent logs under the XDG State directory:
 
 - `XDG_STATE_HOME/tlslp/logs/`
 
@@ -329,6 +331,7 @@ An in-depth description of the modules and functions of this program can be foun
 ### Make commands
 A list of make commands is made available through ``Makefile``.  The following list comes from using ``make help``:
 - make all: Makes all except run-server and run-client
+- make deps: Makes all dependency installation (Python & C++)
 - make setup: Makes those needed for initial setup
 - make ci: Makes those needed for CI (lint, typecheck, test)
 - make clean: Remove caches and build artifacts"
