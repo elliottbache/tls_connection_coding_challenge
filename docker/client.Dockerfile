@@ -1,30 +1,45 @@
 # docker/client.Dockerfile
-FROM python:3.11-slim
+# build stage
+# -----------
+FROM python:3.11-slim AS builder
 
 # For building or running the WORK helper:
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+    build-essential cmake pkg-config libssl-dev ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
+# Copy only what we need to build the C++ binary
+COPY cpp/ cpp/
+
+# Configure + build
+RUN cmake -S cpp -B build -DCMAKE_BUILD_TYPE=Release \
+ && cmake --build build --config Release
+
+# runtime stage
+# -----------
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy Python package source
 COPY pyproject.toml README.md ./
-COPY src/ src/
-COPY certificates/ certificates/
+COPY src/ ./src/
+
+# Put the compiled binary where the code expects it
+RUN mkdir -p /app/src/tlslp/_bin
+COPY --from=builder /app/build/pow_challenge /app/src/tlslp/_bin/pow_challenge
+RUN chmod +x /app/src/tlslp/_bin/pow_challenge
 
 # Copy certs the client needs (client cert + key, trusted CA, etc.)
 COPY certificates/ certificates/
 
-# Optional deps
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir -r requirements.txt || true
-
-# If you ALREADY have the pow_challenge binary in ./build, copy it in:
-COPY src/tlslp/_bin/pow_challenge src/tlslp/_bin/pow_challenge
-RUN chmod +x src/tlslp/_bin/pow_challenge || true
-
 # Install the project (creates tls-cc-client / tls-cc-server in PATH)
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir -e .
 
 CMD ["tlslp-client"]

@@ -1,11 +1,6 @@
 # docker/server.Dockerfile
 FROM python:3.11-slim
 
-# Install OS deps if you need them later (OpenSSL tools often helpful)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    openssl ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
 # Copy Python package source
@@ -15,13 +10,12 @@ COPY . .
 COPY certificates/ certificates/
 
 # Optional deps
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir -r requirements.txt || true
+COPY pyproject.toml README.md ./
 
 # Install the project (creates tls-cc-client / tls-cc-server in PATH)
 RUN pip install --no-cache-dir .
 
-# The server listens on this port (adjust to your actual server port)
+# The server listens on this port
 EXPOSE 1234
 
 # Run the server module
