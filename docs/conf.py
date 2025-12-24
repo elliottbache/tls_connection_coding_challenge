@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT / "src"))
 project = "TLS line protocol"
 copyright = "2025, Elliott Bache"
 author = "Elliott Bache"
-release = "0.0.1"
+release = "0.1.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -53,9 +53,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "sphinx_rtd_theme"
-# html_static_path = ["_static"]
-html_static_path = []
-
+html_static_path = ["_static"]
 
 # add C++ documentation
 # Sphinx (docs/conf.py)
