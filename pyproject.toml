@@ -55,7 +55,7 @@ fixable = ["E","UP","SIM","PERF","RUF"]
 "src/tests/**" = ["S101"]
 
 [tool.ruff.format]
-quote-style = "double"  # personal taste
+quote-style = "double"
 
 [tool.black]
 line-length = 88
@@ -82,7 +82,6 @@ module = "tests.*"
 ignore_errors = true
 
 [tool.codespell]
-# include both prefixed and non-prefixed paths for maximum compatibility.
 skip = "./docs/_build,./build,./dist,./.venv,./docs/html,./src/include,./docs/_static,pyproject.toml,./WD,./build*,./cpp/build,./PRIVATE,./htmlcov"
 ignore-words-list = "teh,nd,seh,atleast,atmost"
 

@@ -3,20 +3,20 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy Python package source
+# copy Python package source
 COPY . .
 
 # Copy certs the client needs (client cert + key, trusted CA, etc.)
 COPY certificates/ certificates/
 
-# Optional deps
+# optional deps
 COPY pyproject.toml README.md ./
 
-# Install the project (creates tls-cc-client / tls-cc-server in PATH)
+# install the project (creates tls-cc-client / tls-cc-server in PATH)
 RUN pip install --no-cache-dir .
 
-# The server listens on this port
+# the server listens on this port
 EXPOSE 1234
 
-# Run the server module
+# run the server module
 CMD ["tlslp-server"]

@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
 
-# Only set policies your CMake actually knows about
 if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
