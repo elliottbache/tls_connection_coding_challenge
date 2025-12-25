@@ -3,6 +3,6 @@
 __pycache__/
 *.pyc
 dist/
-build/           # (only ignore if you’re compiling via multi-stage)
+build/
 .docs_build/
 .cache/

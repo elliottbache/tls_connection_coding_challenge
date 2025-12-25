@@ -27,19 +27,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python package source
+# copy Python package source
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
 
-# Put the compiled binary where the code expects it
+# put the compiled binary where the code expects it
 RUN mkdir -p /app/src/tlslp/_bin
 COPY --from=builder /app/build/pow_challenge /app/src/tlslp/_bin/pow_challenge
 RUN chmod +x /app/src/tlslp/_bin/pow_challenge
 
-# Copy certs the client needs (client cert + key, trusted CA, etc.)
+# copy certs the client needs (client cert + key, trusted CA, etc.)
 COPY certificates/ certificates/
 
-# Install the project (creates tls-cc-client / tls-cc-server in PATH)
+# install the project (creates tls-cc-client / tls-cc-server in PATH)
 RUN pip install --no-cache-dir -e .
 
 CMD ["tlslp-client"]
