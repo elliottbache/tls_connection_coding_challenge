@@ -88,16 +88,23 @@ def configure_logging(
     # avoid duplicated logs if configure_logging is called more than once
     for h in list(root.handlers):
         root.removeHandler(h)
+        try:
+            h.close()
+        finally:
+            pass
 
     # base class for StreamHandler and RotatingFileHandler allowing both to type check out
     handler: logging.Handler
 
+    # let warnings flow to root handlers (avoid duplicates)
+    warn_logger.handlers.clear()
+    warn_logger.propagate = True
+
     # create err handler (WARNING and above)
-    handler = logging.StreamHandler(stream=sys.stderr)
-    handler.setLevel("WARNING")
-    _set_formatter(tutorial, handler)
-    root.addHandler(handler)
-    warn_logger.addHandler(handler)
+    err_handler = logging.StreamHandler(stream=sys.stderr)
+    err_handler.setLevel("WARNING")
+    _set_formatter(tutorial, err_handler)
+    root.addHandler(err_handler)
 
     # define and create folder for saving log
     log_file = pathlib.Path(node).with_suffix(".log")
@@ -112,10 +119,7 @@ def configure_logging(
             filename=fn, mode="a", maxBytes=50 * 1024 * 1024, backupCount=2
         )
 
-    # create debug handler (all)
+    # create debug handler (all messages)
     _set_formatter(tutorial, handler)
     root.addHandler(handler)
     handler.setLevel(numeric_level)
-    _set_formatter(tutorial, handler)
-    root.addHandler(handler)
-    warn_logger.addHandler(handler)
