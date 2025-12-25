@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: docker/server.Dockerfile
     network_mode: "host"
-    command: ["tlscc-server"]      # server binds 127.0.0.1:3481
+    command: ["tlscc-server"]
     environment:
       PYTHONUNBUFFERED: "1"
 
@@ -15,5 +15,5 @@ services:
     network_mode: "host"
     depends_on:
       - server
-    command: ["tlscc-client"]      # client connects to 127.0.0.1:3481
+    command: ["tlscc-client"]
 
