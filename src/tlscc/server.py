@@ -82,7 +82,7 @@ def build_server_parser() -> argparse.ArgumentParser:
     """Build the CLI argument parser for ``tlslp-server``.
 
     Returns:
-        argparse.ArgumentParser configured with server options.
+        (argparse.ArgumentParser) configured with server options.
 
     Examples:
         >>> p = build_server_parser()
@@ -184,10 +184,10 @@ def args_to_server_config(ns: argparse.Namespace) -> ServerConfig:
     """Convert parsed CLI args into a ``ServerConfig``.
 
     Args:
-        ns: Returned by ``ArgumentParser.parse_args``.
+        ns (argparse.Namespace): Returned by ``ArgumentParser.parse_args``.
 
     Returns:
-        The flags/parameters.
+        (ServerConfig): The flags/parameters.
     """
     return ServerConfig(
         server_host=ns.host,
@@ -210,12 +210,12 @@ def _check_suffix(to_send: str, token: str, received_message: str) -> bool:
     """Validate a WORK suffix against the requested difficulty.
 
     Args:
-        to_send: The original WORK command string (``"WORK <token> <difficulty>"``).
-        token: Authentication data used as the hash prefix.
-        received_message: Suffix returned by the client.
+        to_send (str): The original WORK command string (``"WORK <token> <difficulty>"``).
+        token (str): Authentication data used as the hash prefix.
+        received_message (str): Suffix returned by the client.
 
     Returns:
-        True if ``SHA256(token + suffix)`` starts with ``difficulty`` leading ``"0"``.
+        (bool): True if ``SHA256(token + suffix)`` starts with ``difficulty`` leading ``"0"``.
     """
     """Check if suffix has enough leading zeros."""
     difficulty = to_send.split(" ", maxsplit=2)[2]
@@ -233,12 +233,12 @@ def _check_cksum(to_send: str, token: str, received_message: str) -> bool:
     ``"<cksum> <value>"`` where ``cksum = SHA256(token + random_string)``.
 
     Args:
-        to_send: The original command string sent to the client.
-        token: Authentication data used as the hash prefix.
-        received_message: Client response string (``"<cksum> <value>"``).
+        to_send (str): The original command string sent to the client.
+        token (str): Authentication data used as the hash prefix.
+        received_message (str): Client response string (``"<cksum> <value>"``).
 
     Returns:
-        True if the returned checksum matches the expected value.
+        (bool): True if the returned checksum matches the expected value.
     """
 
     cksum = str(received_message).split(" ", maxsplit=1)[0]
@@ -261,13 +261,13 @@ def send_and_receive(
     - For ``ERROR`` commands, no reply is expected (returns ``""``).
 
     Args:
-        token: Authentication data used for checksum/suffix validation.
-        to_send: Command to send (newline will be ensured by ``send_message``).
-        secure_sock: Connected socket.
-        timeout: Receive timeout in seconds for this step.
+        token (str): Authentication data used for checksum/suffix validation.
+        to_send (str): Command to send (newline will be ensured by ``send_message``).
+        secure_sock (socket.socket): Connected socket.
+        timeout (float): Receive timeout in seconds for this step.
 
     Returns:
-        The received message (without trailing newline), or ``""`` for ``ERROR`` sends.
+        (str): The received message (without trailing newline), or ``""`` for ``ERROR`` sends.
 
     Raises:
         ProtocolError: If the peer violates protocol framing/encoding.
@@ -333,8 +333,8 @@ def send_error(to_send: str, secure_sock: socket.socket) -> None:
     Any exception while sending is caught and logged.
 
     Args:
-        to_send: Error message to send (typically starts with ``"ERROR"``).
-        secure_sock: Connected socket to send on.
+        to_send (str): Error message to send (typically starts with ``"ERROR"``).
+        secure_sock (socket.socket): Connected socket to send on.
     """
     try:
         send_message(to_send, secure_sock)
@@ -355,16 +355,16 @@ def prepare_server_socket(
     """Create a listening TCP socket and an SSL context for server-side TLS.
 
     Args:
-        server_host: Host interface to bind to (e.g., ``"localhost"``).
-        port: TCP port to bind to (0 means “choose an ephemeral port”).
-        ca_cert_path: CA certificate used to verify client certificates (mTLS).
-        server_cert_path: Server certificate (PEM).
-        server_key_path: Server private key (PEM).
-        is_secure: If True, require and verify a client certificate (mTLS). If False,
+        server_host (str): Host interface to bind to (e.g., ``"localhost"``).
+        port (int): TCP port to bind to (0 means “choose an ephemeral port”).
+        ca_cert_path (str): CA certificate used to verify client certificates (mTLS).
+        server_cert_path (str): Server certificate (PEM).
+        server_key_path (str): Server private key (PEM).
+        is_secure (bool): If True, require and verify a client certificate (mTLS). If False,
             the server does not request/verify a client certificate.
 
     Returns:
-        (server_socket, ssl_context) where ``server_socket`` is bound and listening.
+        (socket.socket, ssl.SSLContext): (server_socket, ssl_context) where ``server_socket`` is bound and listening.
 
     Raises:
         ValueError: If insecure mode is requested for a non-localhost bind.
@@ -425,9 +425,9 @@ def handle_one_session(
     finishes with ``DONE`` unless an ``ERROR`` condition is triggered.
 
     Args:
-        is_secure: True if mTLS is expected (client cert required).
-        cfg: Parsed and normalized server configuration.
-        secure_sock: TLS-wrapped client socket.
+        is_secure (bool): True if mTLS is expected (client cert required).
+        cfg (ServerConfig): Parsed and normalized server configuration.
+        secure_sock (ssl.SSLSocket): TLS-wrapped client socket.
 
     Raises:
         RuntimeError: If mTLS is enabled and the client presents no certificate.
@@ -515,10 +515,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run the ``tlslp-server`` CLI.
 
     Args:
-        argv: Optional argument vector (defaults to ``sys.argv[1:]``).
+        argv (Sequence[str] | None): Optional argument vector (defaults to ``sys.argv[1:]``).
 
     Returns:
-        Exit code (0 on success).
+        (int): Exit code (0 on success).
 
     Side effects:
         Binds a TCP port, accepts connections, writes logs, prints status lines.
