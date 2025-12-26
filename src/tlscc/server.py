@@ -90,7 +90,7 @@ def build_server_parser() -> argparse.ArgumentParser:
         "--port",
         default=DEFAULT_PORT,
         type=int,
-        help="comma-separated list of ports (e.g. 1234,8235)",
+        help="port to listen on",
     )
 
     parser.add_argument(
@@ -234,14 +234,11 @@ def send_and_receive(
 
     try:
         received_message = receive_message(secure_sock)
-    except TimeoutError as e:
-        send_error("ERROR receiving.", secure_sock)
-        raise TransportError(r"Receive timeout.") from e
-    except TransportError:
-        raise
+    except TransportError as e:
+        raise TransportError(f"ERROR receiving. {e}") from e
     except ProtocolError as e:
         send_error("ERROR receiving.", secure_sock)
-        raise ProtocolError(r"ERROR receiving.") from e
+        raise ProtocolError(f"ERROR receiving. {e}") from e
 
     # check WORK suffix
     if to_send.startswith("WORK") and not _check_suffix(
@@ -446,9 +443,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     is_secure = not cfg.insecure
 
-    logger.info(f"CA cert exists: {os.path.exists(cfg.ca_cert)!r}")
-    logger.info(f"Server cert exists: {os.path.exists(cfg.server_cert)!r}")
-    logger.info(f"Server key exists: {os.path.exists(cfg.server_key)!r}")
+    logger.debug(f"CA cert exists: {os.path.exists(cfg.ca_cert)!r}")
+    logger.debug(f"Server cert exists: {os.path.exists(cfg.server_cert)!r}")
+    logger.debug(f"Server key exists: {os.path.exists(cfg.server_key)!r}")
 
     server_socket, context = prepare_server_socket(
         cfg.server_host,
@@ -461,26 +458,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"Server listening on https://{cfg.server_host}:{cfg.port}")
     logger.info(f"Server listening on https://{cfg.server_host!r}:{cfg.port!r}")
 
-    try:
-        # Wait for a client to connect
-        while True:
-            client_socket, _ = server_socket.accept()
-            with context.wrap_socket(client_socket, server_side=True) as secure_sock:
+    # Wait for a client to connect
+    while True:
+        client_socket, _ = server_socket.accept()
+        with context.wrap_socket(client_socket, server_side=True) as secure_sock:
+            try:
                 handle_one_session(is_secure, cfg, secure_sock)
+            except Exception:
+                logger.exception("Unhandled exception in session")
 
-            logger.info("Connection closed")
-            print("Connection closed")
-
-            if cfg.tutorial:
-                break
-
-    except Exception:
-        logger.exception("Unhandled exception in session")
         logger.info("Connection closed")
         print("Connection closed")
 
-    finally:
-        server_socket.close()
+        if cfg.tutorial:
+            break
 
     return 0
 

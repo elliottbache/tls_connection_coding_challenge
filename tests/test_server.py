@@ -26,9 +26,9 @@ def server_config(token, timeout, random_string, difficulty):
     return ServerConfig(
         server_host=DEFAULT_SERVER_HOST,
         port=DEFAULT_PORT,
-        server_cert=DEFAULT_CA_CERT,
-        server_key=DEFAULT_SERVER_CERT,
-        ca_cert=DEFAULT_SERVER_KEY,
+        server_cert=DEFAULT_SERVER_CERT,
+        server_key=DEFAULT_SERVER_KEY,
+        ca_cert=DEFAULT_CA_CERT,
         pow_timeout=timeout,
         other_timeout=6,
         insecure=False,
@@ -93,7 +93,7 @@ class TestSendAndReceive:
         s1, s2 = socket_pair
         s2.close()
 
-        with pytest.raises(Exception) as e:
+        with pytest.raises(protocol.TransportError) as e:
             server.send_and_receive(token, random_string, s1)
 
         print(f"\ne: {e.value}")
@@ -201,8 +201,9 @@ class TestSendAndReceive:
     ):
         s1, _ = socket_pair
 
+        # TimeoutError in receive_message surfaces as a TranportError
         def raise_timeout_error(*args, **kwargs):
-            raise TimeoutError("bad")
+            raise protocol.TransportError("bad")
 
         monkeypatch.setattr(server, "receive_message", raise_timeout_error)
 
@@ -212,9 +213,9 @@ class TestSendAndReceive:
         with pytest.raises(protocol.TransportError) as e:
             server.send_and_receive(token, "MAILNUM X", s1, timeout=0.001)
 
-        assert "Receive timeout" in str(e.value)
+        assert "ERROR receiving." in str(e.value)
 
-        assert sent and sent[0].startswith("ERROR receiving.")
+        assert not sent
 
 
 class TestSendError:

@@ -46,7 +46,7 @@ class FakeWrappedSock:
         return False
 
     def getpeername(self):
-        return "127.0.0.1"
+        return ("127.0.0.1", 12345)
 
     def getpeercert(self):
         return {

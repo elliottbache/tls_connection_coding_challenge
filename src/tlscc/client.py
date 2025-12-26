@@ -771,8 +771,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     token = ""  # this will be set with WORK message from server
 
     # check paths
-    logger.info(f"Client cert exists: {os.path.exists(cfg.client_cert)!r}")
-    logger.info(f"Private key exists: {os.path.exists(cfg.private_key)!r}")
+    logger.debug(f"Client cert exists: {os.path.exists(cfg.client_cert)!r}")
+    logger.debug(f"Private key exists: {os.path.exists(cfg.private_key)!r}")
     try:
         bin_path = _resolved_bin_path(cfg.pow_binary)
         logger.info(
