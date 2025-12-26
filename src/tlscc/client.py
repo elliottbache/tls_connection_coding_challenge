@@ -1,34 +1,31 @@
-"""Opens a client node that will interact with a defined server.
+"""Open a TLS client that responds to server messages as per the coding-challenge rules.
 
-This follows a set of rules defined in the toy protocol demo. The
-specific rules and the external IP address are not quoted here for
-confidentiality reasons.  The client connects to the server and then
-listens for a list of commands that are answered one by one.  The
-first two commands are the handshake and contain 'HELLO' and 'WORK'.
-The WORK challenge must be resolved in 2 hours.  This challenge is
-resolved by a C++ code called pow_challenge.cpp.  Multithreading is
-used when calling this C++ code.
+This follows a set of rules defined in the toy protocol demo. The specific rules and
+the external IP address are not quoted here for confidentiality reasons.
 
-Functions:
+The client connects to a server, receives newline-delimited commands, and responds
+one-by-one. The handshake consists of ``HELLO`` followed by a ``WORK`` challenge. The
+WORK challenge must be resolved within 2 hours; it is solved by invoking a compiled
+C++ helper (``pow_challenge``).
+
+Main functions:
     prepare_client_socket:
-        Create a connection to the remote server.
+        Create a TLS-wrapped socket (secure or insecure).
 
     hasher:
-        Hash a string using SHA256.
+        Compute SHA256(token + payload) as a hex string.
 
     decipher_message:
-        Read message and do error checking.
+        Parse and validate a received command line.
 
     handle_pow_cpp:
-        Takes the token and difficulty and finds a suffix that will
-        reproduce a hash with the given number of leading zeros.
+        Run the WORK helper and parse its ``RESULT:<suffix>`` output line.
 
     define_response:
-        Create response to message depending on received message.
+        Create the protocol response for a single server command.
 
     main:
-        Main function.
-
+        CLI entry point.
 """
 
 import argparse
@@ -94,6 +91,12 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ClientConfig:
+    """Configuration for the TLS client CLI.
+
+    This is built from CLI arguments and passed through to connection and message
+    handling helpers.
+    """
+
     server_host: str
     ports: list[int]
     client_cert: str
@@ -118,6 +121,11 @@ def _parse_port(s: str) -> int:
 
 
 def build_client_parser() -> argparse.ArgumentParser:
+    """Build the argparse parser for the ``tlslp-client`` CLI.
+
+    Returns:
+        argparse.ArgumentParser: Configured parser.
+    """
     parser = argparse.ArgumentParser(
         prog="tlslp-client", description="TLS client for the toy protocol demo."
     )
@@ -196,7 +204,14 @@ def build_client_parser() -> argparse.ArgumentParser:
 
 
 def _merge_ports(ns: argparse.Namespace) -> list[int]:
-    """Take both flags (ports and port) and combine."""
+    """Return the effective list of ports to try.
+
+    Args:
+        ns (argparse.Namespace): Parsed CLI args.
+
+    Returns:
+        list[int]: Ports to try in order.
+    """
     if ns.ports:
         return ns.ports
     else:
@@ -204,6 +219,14 @@ def _merge_ports(ns: argparse.Namespace) -> list[int]:
 
 
 def args_to_client_config(ns: argparse.Namespace) -> ClientConfig:
+    """Convert parsed CLI args into a :class:`ClientConfig`.
+
+    Args:
+        ns (argparse.Namespace): Parsed CLI args.
+
+    Returns:
+        ClientConfig: Normalized configuration.
+    """
     return ClientConfig(
         server_host=ns.host,
         ports=_merge_ports(ns),
@@ -226,18 +249,31 @@ def prepare_client_socket(
     server_host: str,
     is_secure: bool = False,
 ) -> socket.socket:
-    """
-    Prepare a socket for connecting to the server.
+    """Create a TLS-wrapped client socket.
+
+    In secure mode (``is_secure=True``), the client verifies the server certificate
+    against ``ca_cert_path`` and enables hostname verification.
+
+    In insecure mode (``is_secure=False``), certificate verification is disabled and
+    hostname checks are disabled; to avoid accidental misuse, insecure mode is only
+    allowed for ``localhost``.
+
+    The returned socket has a default timeout of
+    ``min(DEFAULT_OTHER_TIMEOUT, DEFAULT_WORK_TIMEOUT)``; callers may override this via
+    ``settimeout(...)``.
 
     Args:
-        ca_cert_path (str): The path to the CA certificate.
-        client_cert_path (str): The path to the client certificate.
-        private_key_path (str): The path to the private key file.
-        server_host (str): The server_host to connect to.
-        is_secure (bool, optional): Whether the server is secure or not.
+        ca_cert_path (str): Path to CA certificate (PEM).
+        client_cert_path (str): Path to client certificate (PEM).
+        private_key_path (str): Path to client private key (PEM).
+        server_host (str): Server hostname.
+        is_secure (bool, optional): If True, verify the server certificate and hostname.
 
     Returns:
-        socket.socket: The socket object.
+        socket.socket: A TLS-wrapped socket ready to ``connect(...)``.
+
+    Raises:
+        ValueError: If insecure mode is requested for a non-local host.
     """
     # check that server_host is local if insecure mode, otherwise raise error so
     # that insecure connection isn't mistakenly used
@@ -281,22 +317,21 @@ def prepare_client_socket(
 def hasher(token: str, input_string: str) -> str:
     """Hash a string using SHA256.
 
-    Concatenates token and input_string and then hashes.
+    Concatenates ``token`` and ``input_string`` and returns the SHA256 digest in
+    lowercase hex.
 
     Args:
-        token (str): The token from the server.
-        input_string (str): An ASCII string.
+        token (str): Authentication data provided by the server.
+        input_string (str): ASCII payload provided by the server.
 
     Returns:
-        str: The hashed string.
+        str: SHA256(token + input_string) as lowercase hex.
 
     Examples:
-        >>> token = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu' \
-            + 'WROTeTaSmqFCAzuwkwLCRgIIq'
-        >>> input_string = 'LGTk'
-        >>> from src import hasher
-        >>> hasher(token, input_string)
-        'bd8de303197ac9997d5a721a11c46d9ed0450798'
+        >>> from tlslp.client import hasher
+        >>> auth = "AUTH"
+        >>> hasher(auth, "LGTk")
+        '189af41571a36ba3655451530a84e33f018bdca2'
     """
     to_be_hashed = token + input_string
     cksum_in_hex = hashlib.sha256(to_be_hashed.encode()).hexdigest()  # noqa: S324
@@ -305,28 +340,27 @@ def hasher(token: str, input_string: str) -> str:
 
 
 def decipher_message(message: str, valid_messages: set[str]) -> list[str]:
-    """Read message and do error checking.
+    """Parse and validate a server message.
+
+    Splits the message into whitespace-delimited tokens and validates that the first
+    token is a known command. If the server sends only a command (no argument), an
+    empty second token is appended so callers can uniformly access ``args[1]``.
 
     Args:
-        message (str): The message to read.
-        valid_messages (set[str]): A set of valid messages that can
-                                    be received from server.
+        message (str): The received message line (with or without trailing newline).
+        valid_messages (set[str]): Allowed command names.
 
     Returns:
-        Union[int, list[str]]: An error code 0 if no error, 1 if
-                               decoding error, and 2 if message is not
-                               valid the decoded message
-                               split into list.
+        list[str]: Parsed tokens, with at least two elements.
+
+    Raises:
+        ValueError: If the message is empty or the command is not in ``valid_messages``.
 
     Examples:
-        >>> message = b'MAILNUM LGTk\\n'
-        >>> valid_messages = {'HELLO', 'DONE', 'EMAIL2', 'BIRTHDATE', \
-         'MAILNUM', 'ADDRNUM', 'EMAIL1', 'ADDR_LINE2', 'WORK', 'ERROR', \
-         'SOCIAL', 'COUNTRY', 'ADDR_LINE1', 'FULL_NAME'}
-        >>> from src import decipher_message
-        >>> decipher_message(message, valid_messages)
-        Received MAILNUM LGTk
-        (0, ['MAILNUM', 'LGTk'])
+        >>> from tlslp.client import decipher_message
+        >>> vm = {"MAILNUM", "HELLO", "WORK", "DONE", "ERROR"}
+        >>> decipher_message("MAILNUM LGTk\\n", vm)
+        ['MAILNUM', 'LGTk']
     """
     args = message.split()
 
@@ -383,7 +417,25 @@ def _is_world_writable(path: Path) -> bool:
 
 
 def _validate_path(bin_path: Path, allowed_root: Path | None = None) -> bool:
-    """Resolve and vet path."""
+    """Validate that a binary path is safe to execute.
+
+    Checks:
+    - not a symlink
+    - executable bit set (POSIX)
+    - not world-writable (file or parent directory)
+    - (optional) located under ``allowed_root``
+
+    Args:
+        bin_path (Path): Path to the binary.
+        allowed_root (Path | None): If provided, require ``bin_path`` to be under this root.
+
+    Returns:
+        bool: True if all checks pass.
+
+    Raises:
+        PermissionError: If a safety check fails.
+    """
+
     # check if it's a symbolic link
     if bin_path.is_symlink():
         raise PermissionError(f"Refusing to execute symlink: {bin_path}")
@@ -405,7 +457,15 @@ def _validate_path(bin_path: Path, allowed_root: Path | None = None) -> bool:
 
 
 def _validate_string(s: str) -> None:
-    """Validate string."""
+    """Validate a protocol string for charset and length.
+
+    Args:
+        s (str): String to validate.
+
+    Raises:
+        TypeError: If ``s`` is not a str.
+        ValueError: If the string contains disallowed characters or exceeds limits.
+    """
     if not isinstance(s, str):
         raise TypeError(
             "Tested variable is not a string.  Exiting since hashing function "
@@ -420,7 +480,15 @@ def _validate_string(s: str) -> None:
 
 
 def _validate_difficulty(difficulty: str) -> None:
-    """Cast difficulty to int and error check."""
+    """Validate WORK difficulty.
+
+    Args:
+        difficulty (str): Difficulty string received from the server.
+
+    Raises:
+        TypeError: If difficulty cannot be converted to an int.
+        ValueError: If difficulty is outside the allowed range.
+    """
     try:
         idifficulty = int(difficulty)
     except (ValueError, TypeError) as e:
@@ -431,7 +499,16 @@ def _validate_difficulty(difficulty: str) -> None:
 
 
 def _check_inputs(token: str, difficulty: str) -> None:
+    """Validate WORK inputs before invoking the external solver.
 
+    Args:
+        token (str): Authentication data.
+        difficulty (str): WORK difficulty.
+
+    Raises:
+        TypeError: If types are invalid.
+        ValueError: If values are outside the accepted charset/range.
+    """
     # validate token
     _validate_string(token)
 
@@ -485,32 +562,32 @@ def handle_pow_cpp(
     bin_path: Path = Path(DEFAULT_CPP_BINARY_PATH),
     timeout: int = 7200,
 ) -> str:
-    """Find a hash with the given number of leading zeros.
+    """Solve the WORK challenge using the external C++ helper.
 
-    Takes the token and difficulty and find a suffix that will
-    reproduce a hash with the given number of leading zeros.
+    Runs the WORK binary and parses the first stdout line starting with ``RESULT:``.
+    The returned suffix includes a trailing newline to match the wire protocol.
 
     Args:
-        token (str): The token from the server.
-        difficulty (str): The number of leading zeroes required.
-        bin_path (Path): The path to the C++ program that solves
-            the WORK challenge.
+        token (str): Authentication data from the server.
+        difficulty (str): Required number of leading hex zeros.
+        bin_path (Path, optional): Path to the WORK solver binary.
+        timeout (int, optional): Subprocess timeout in seconds.
 
     Returns:
-        str: the suffix that solves the WORK challenge.
+        str: The suffix followed by ``"\\n"``.
+
+    Raises:
+        ValueError: If no ``RESULT:`` line is found or the suffix is empty.
+        subprocess.CalledProcessError: If the solver exits non-zero.
 
     Examples:
-        >>> import subprocess
-        >>> token = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu' \
-            + 'WROTeTaSmqFCAzuwkwLCRgIIq'
-        >>> difficulty = "6"
-        >>> cpp_binary_path = "build/pow_prepare_server_socket"
-        >>> from src import handle_pow_cpp
-        >>> handle_pow_cpp(token, difficulty, cpp_binary_path) \
-            # doctest: +ELLIPSIS
-        WORK difficulty: ...
-        WORK prepare_server_socket executable not found.
-        (4, b'\\n')
+        >>> from pathlib import Path
+        >>> import tlslp.client as c
+        >>> class R:  # fake CompletedProcess
+        ...     stdout = "RESULT:abcd\\n"
+        >>> c.run_pow_binary = lambda *a, **k: R()
+        >>> c.handle_pow_cpp("AUTH", "4", bin_path=Path("pow_challenge"))
+        'abcd\\n'
     """
     # run pre-compiled c++ code for finding suffix
     try:
@@ -542,45 +619,31 @@ def define_response(
     responses: dict[str, str] = DEFAULT_RESPONSES,
     bin_path: Path = Path(DEFAULT_CPP_BINARY_PATH),
 ) -> None:
-    """
-    Create response to message depending on received message.
+    """Create a response for a single server command and enqueue it.
 
-    is_err and result are added to results,
-    which are then queued for output in multiprocessing.
+    This computes the appropriate response for a parsed server message and places
+    a tuple ``(is_err, result)`` into ``queue``.
 
     Args:
-        args (list[str]): The list of arguments to pass to the client.
-        token (str): The token from the server.
-        valid_messages (set[str]): The list of valid messages that
-            the server can send.
-        responses (dict[str, str]): The list of responses to send.
-        bin_path (Path): The path to the C++ program that solves
-            the WORK challenge.
+        args (list[str]): Parsed server tokens (command is ``args[0]``).
+        token (str): Current authentication data (set after receiving ``WORK``).
+        valid_messages (set[str]): Allowed command names.
+        queue (multiprocessing.Queue): Queue-like object that supports ``put(...)``.
+        responses (dict[str, str], optional): Static responses for body commands.
+        bin_path (Path, optional): Path to the WORK solver binary.
 
     Returns:
-        None: results are added to "results" list where results[0]
-            = is_err and result (str) is the message to
-            send to the server.
+        None
 
-        Examples:
-            >>> args = ["HELLO"]
-            >>> token = 'gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzu' \
-            + 'WROTeTaSmqFCAzuwkwLCRgIIq'
-            >>> valid_messages = {'HELLO', 'DONE', 'EMAIL2', 'BIRTHDATE', \
-            'MAILNUM', 'ADDRNUM', 'EMAIL1', 'ADDR_LINE2', 'WORK', 'ERROR', \
-            'SOCIAL', 'COUNTRY', 'ADDR_LINE1', 'FULL_NAME'}
-            >>> cpp_binary_path = "build/pow_prepare_server_socket"
-            >>> responses = {}
-            >>> from src import define_response
-            >>> # a tiny queue we can inspect
-            >>> class Q:
-            ...     def __init__(self): self.items = []
-            ...     def put(self, x): self.items.append(x)
-            >>> queue = Q()
-            >>> define_response(args, token, valid_messages,
-            ...     queue, responses, cpp_binary_path)
-            >>> queue.items
-            [[0, b'HELLOBACK\\n']]
+    Examples:
+        >>> import tlslp.client as c
+        >>> class Q:
+        ...     def __init__(self): self.items = []
+        ...     def put(self, x): self.items.append(x)
+        >>> q = Q()
+        >>> c.define_response(["HELLO"], token="", valid_messages={"HELLO"}, queue=q, responses={})
+        >>> q.items
+        [(False, 'HELLOBACK\\n')]
     """
     if args[0] == "HELLO":
         is_err, result = False, "HELLOBACK\n"
@@ -654,7 +717,19 @@ def _receive_and_decipher_message(
     secure_sock: socket.socket,
     valid_messages: set[str],
 ) -> list[str]:
-    """Receive and decode message from server and return containing message."""
+    """Receive one message from the server and return parsed tokens.
+
+    Args:
+        secure_sock (socket.socket): Connected TLS socket.
+        valid_messages (set[str]): Allowed command names.
+
+    Returns:
+        list[str]: Parsed tokens as returned by :func:`decipher_message`.
+
+    Raises:
+        TransportError: If receiving fails at the transport layer.
+        ValueError: If the decoded message is invalid for this protocol.
+    """
     while True:
         message = receive_message(secure_sock)
         logger.info(f"Received {message!r}")
@@ -672,7 +747,28 @@ def _process_message_with_timeout(
     pow_timeout: float = DEFAULT_WORK_TIMEOUT,
     other_timeout: float = DEFAULT_OTHER_TIMEOUT,
 ) -> str:
-    """Process message received from server and return response, respecting timeout"""
+    """Process a single server command with a hard timeout.
+
+    This runs :func:`define_response` in a separate process to enforce timeouts:
+    - WORK commands use ``pow_timeout``
+    - all other commands use ``other_timeout``
+
+    Args:
+        args (list[str]): Parsed server tokens.
+        token (str): Current authentication data.
+        valid_messages (set[str]): Allowed command names.
+        responses (dict[str, str], optional): Static responses for body commands.
+        bin_path (Path, optional): Path to the WORK solver binary.
+        pow_timeout (float, optional): Timeout (seconds) for WORK handling.
+        other_timeout (float, optional): Timeout (seconds) for non-WORK handling.
+
+    Returns:
+        str: Response line to send (includes trailing newline).
+
+    Raises:
+        TimeoutError: If processing exceeds the command timeout or queue is empty.
+        Exception: If the worker reported an error.
+    """
     # Define timeouts and extract token
     this_timeout = (
         pow_timeout if args and args[0] and args[0] == "WORK" else other_timeout
@@ -711,7 +807,21 @@ def _process_message_with_timeout(
 
 
 def _resolved_bin_path(cpp_binary_path: str) -> Path:
-    """Resolve path and add .exe if Windows and no extension."""
+    """Resolve and validate the configured WORK binary path.
+
+    On Windows, if the provided path has no suffix, ``.exe`` is appended before
+    resolving.
+
+    Args:
+        cpp_binary_path (str): User-supplied path to the WORK binary.
+
+    Returns:
+        Path: Resolved path to an existing file.
+
+    Raises:
+        FileNotFoundError: If the binary cannot be resolved to an existing path.
+    """
+
     bin_path = Path(cpp_binary_path)
     if sys.platform.startswith("win") and bin_path.suffix == "":
         bin_path = bin_path.with_suffix(".exe")
