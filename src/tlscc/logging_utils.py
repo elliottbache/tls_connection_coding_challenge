@@ -88,10 +88,10 @@ def configure_logging(
     removed and closed before new handlers are installed.
 
     Args:
-        level: Logging level name (e.g., ``"DEBUG"``, ``"INFO"``).
-        node: Logical node name used for the log filename (e.g., ``"server"`` or
+        level (str): Logging level name (e.g., ``"DEBUG"``, ``"INFO"``).
+        node (str): Logical node name used for the log filename (e.g., ``"server"`` or
             ``"client"``).
-        tutorial: If True, use deterministic timestamps and overwrite the log
+        tutorial (bool): If True, use deterministic timestamps and overwrite the log
             file each run.
 
     Raises:
