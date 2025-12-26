@@ -4,7 +4,7 @@ from contextlib import closing
 
 import pytest
 
-from tests._helpers import FakeContext, FakeSocket, FakeSSLContext, FakeWrappedSock
+from tests._helpers import FakeContext, FakeSocket, FakeWrappedSock
 from tlslp import protocol, server
 from tlslp.protocol import DEFAULT_CA_CERT, DEFAULT_SERVER_HOST
 from tlslp.server import (
@@ -321,7 +321,7 @@ class TestMain:
     def test_main_tutorial(self, token, random_string, cksum, suffix, monkeypatch):
 
         fake_server_sock = FakeSocket()
-        fake_context = FakeSSLContext()
+        fake_context = FakeContext()
 
         prepare_calls = []
 
@@ -412,7 +412,7 @@ class TestMain:
 
     def test_main_closes_wrapped_socket_on_exception(self, monkeypatch, readout):
         fake_server_sock = FakeSocket()
-        fake_context = FakeSSLContext()
+        fake_context = FakeContext()
 
         monkeypatch.setattr(
             server,
