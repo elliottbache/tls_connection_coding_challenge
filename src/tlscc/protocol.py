@@ -1,10 +1,17 @@
-"""This contains tools that can be used by both server and client.
+"""Shared protocol helpers for the TLS client and server.
 
-Notes:
-    - Multiline messages are not supported since this was not part of the coding
-    challenge.  Each command sent by the server was meant to be answered with
-    a single-line.  Any more lines would fall outside the scope of the proper
-    functioning of this program and should thus be treated as an exception.
+The challenge protocol is **newline-delimited UTF-8**:
+
+- Every outbound message is a ``str`` that is UTF-8 encoded and ends with ``"\\n"``.
+- Every inbound message is read until a trailing newline is seen, then decoded
+  as UTF-8 and returned **without** the newline.
+- Multiline payloads are intentionally unsupported: a peer must send exactly one
+  logical command per line.
+
+This module raises:
+- ``ProtocolError`` when the peer violates message framing/encoding rules
+  (non-bytes from socket, invalid UTF-8, line too long, etc.).
+- ``TransportError`` for network/TLS failures (timeouts, disconnects, OS errors).
 """
 
 import argparse
@@ -44,6 +51,23 @@ logger = logging.getLogger(__name__)
 
 
 def _parse_positive_int(s: str) -> int:
+    """Parse a CLI argument as a positive integer (> 0).
+
+    Intended for use as an ``argparse`` ``type=...`` function.
+
+    Args:
+        s: Flag from the command line.
+
+    Returns:
+        Parsed positive integer.
+
+    Raises:
+        argparse.ArgumentTypeError: If ``s`` is not an integer or is <= 0.
+
+    Examples:
+        >>> _parse_positive_int("6")
+        6
+    """
     # no logging since errors here would be user input errors and probably shouldn't
     # congest persistent logs
     try:
@@ -56,44 +80,31 @@ def _parse_positive_int(s: str) -> int:
 
 
 def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
-    """Send string.
+    """Send one newline-delimited UTF-8 message.
 
-    This ensures that the string is UTF-8 and ends with a newline
-    character.
+    The function guarantees:
+    - the payload is a ``str`` (otherwise ``ProtocolError``),
+    - it ends with a newline (adds one if missing),
+    - it can be encoded as UTF-8,
+    - it is fully transmitted using ``sendall``.
 
     Args:
-        string_to_send (str): the string to send.
-        secure_sock (socket.socket): the secure socket to send to.
-
-    Returns:
-        None
+        string_to_send: Message to send (with or without a trailing ``"\\n"``).
+        secure_sock: Connected socket (plain or TLS-wrapped) to send on.
 
     Raises:
-        Exception if error in sending.
+        ProtocolError: If the payload is not a ``str`` or cannot be UTF-8 encoded.
+        TransportError: If the underlying socket/TLS layer fails while sending.
 
     Examples:
-        Basic usage with an in-process socketpair (no network):
-        >>> from src import send_message
-        >>> s1, s2 = socket.socketpair()
-        >>> try:
-        ...     _ = send_message("hello\\n", s1)   # returns 0 on success
-        ...     s2.recv(1024)
-        ... finally:
-        ...     s1.close(); s2.close()
-        <BLANKLINE>
-        Sending hello
-        b'hello\\n'
-
-        Newline is added if missing:
+        >>> import socket
         >>> a, b = socket.socketpair()
         >>> try:
-        ...     _ = send_message("OK", a)
-        ...     b.recv(3)
+        ...     send_message("HELLO", a)
+        ...     b.recv(16)
         ... finally:
         ...     a.close(); b.close()
-        <BLANKLINE>
-        Sending OK
-        b'OK\\n'
+        b'HELLO\\n'
     """
     # ensure it's a string object
     if not isinstance(string_to_send, str):
@@ -122,32 +133,32 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
 
 
 def receive_message(secure_sock: socket.socket) -> str:
-    """Receive string from the client.
+    """Receive one newline-delimited UTF-8 message.
 
-    This ensures that the string is UTF-8 and ends with a newline
-    character.
+    Reads from the socket until a newline byte is observed, then decodes as UTF-8
+    and returns the string without the trailing newline.
 
     Args:
-        secure_sock (socket.socket): the secure socket to receive from.
-        logger (logging.Logger): logger from the machine that is sending
-            the message (client or server)
+        secure_sock: Connected socket (plain or TLS-wrapped) to read from.
 
     Returns:
-        str: the string without newline if reception is successful.
+        The decoded message with the trailing newline removed.
 
     Raises:
-        Exception if error in receiving.
+        ProtocolError: If the peer sends non-bytes, invalid UTF-8, or a line that
+            exceeds ``MAX_LINE_LENGTH``.
+        TransportError: If the peer closes the connection, a timeout occurs, or
+            another network/TLS/OS error happens.
 
     Examples:
-        Basic usage with an in-process socketpair (no network):
-        >>> from src import receive_message
-        >>> s1, s2 = socket.socketpair()
+        >>> import socket
+        >>> a, b = socket.socketpair()
         >>> try:
-        ...     _ = s1.send(b"hello\\n")
-        ...     _ = receive_message(s2)
+        ...     a.sendall(b"HELLOBACK\\n")
+        ...     receive_message(b)
         ... finally:
-        ...     s1.close(); s2.close()
-        Received hello
+        ...     a.close(); b.close()
+        'HELLOBACK'
     """
     buf = bytearray()
     try:
