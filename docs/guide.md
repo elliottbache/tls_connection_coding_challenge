@@ -5,6 +5,8 @@ This project demonstrates a minimal **TLS client/server** that speaks a simple, 
 protocol and includes a **Proof-of-Work (WORK)** step solved by a fast **C++ helper**. You also 
 get a thorough **pytest** suite (unit + integration) and **Sphinx** docs/doctests.
 
+---
+
 ## How to run
 ![Demo](demo.gif)
 For complete instructions, see 
@@ -15,7 +17,7 @@ and [Execution and usage](https://github.com/elliottbache/tls_line_protocol/blob
 ---
 
 
-### High-level flow
+## High-level flow
 ```{mermaid}
 sequenceDiagram
   autonumber
@@ -39,7 +41,7 @@ README shows a static snapshot; this Mermaid diagram is the source.  Changes mad
 compiled in an online editor, exported as ```.svg```, and placed in ```docs/_static/``` to replace the 
 current diagram in README.md.
 
-### Key properties
+## Key properties
 - **TLS** for transport security (optionally mutual auth).
 - **Deterministic protocol** (plain text, newline-terminated).
 - **Time-bounded WORK** (2h cap) with multi-threaded C++ backend.
@@ -49,27 +51,36 @@ current diagram in README.md.
 
 ## Architecture
 ### Components
-- **Client** (src/client.py)
-  - ``prepare_client_socket(...)`` – Create SSL context and return a TLS-wrapped socket.
-  - ``connect_to_server(...)`` – Connect + error reporting.
-  - ``decipher_message(...)`` – Validate/parse incoming lines.
-  - ``hasher(...)`` – ``SHA256(token + payload)``.
-  - ``handle_pow_cpp(...)`` – Invoke ``build/pow_challenge`` (C++), parse ``RESULT:<suffix>``.
-  - ``define_response(...)`` – Handle commands. Returns bytes to send.
-  - ``main()`` – Orchestrates receive/dispatch with per-command timeouts.
-- **Server** (``src/server.py``)
-  - ``prepare_socket(...)`` – TLS server context w/ CA & server cert.
-  - ``send_message(...)`` / ``receive_message(...)`` – Protocol helpers.
-  - ``is_succeed_send_and_receive(...)`` – One-step request/response w/ validations.
-- **C++ WORK Solver** (``src/pow_challenge.cpp``)
-  - Counter-based suffix generator.
-  - Bit-precise leading-zero check (``difficulty * 4`` bits for hex).
-  - Multi-thread sharding, CPU only.
+- **Python package** (`src/tlslp/`)
+  - `tlslp.protocol`
+    - `send_message(...)` / `receive_message(...)` – newline-delimited UTF-8 transport helpers.
+    - `ProtocolError` / `TransportError` – consistent exceptions for protocol vs transport/TLS failures.
+    - `_parse_positive_int(...)` – CLI helper for positive integer arguments.
+  - `tlslp.server`
+    - `prepare_server_socket(...)` – bind/listen and create a TLS server `SSLContext`.
+    - `send_and_receive(...)` – one request/response with validation (checksum / WORK suffix).
+    - `handle_one_session(...)` – run handshake + message loop for one client connection.
+    - `main(...)` – CLI entrypoint.
+  - `tlslp.client`
+    - `prepare_client_socket(...)` – build TLS client context and return a wrapped socket.
+    - `connect_to_server(...)` – connect with clear error reporting.
+    - `decipher_message(...)` – validate/parse incoming line into tokens.
+    - `run_pow_binary(...)` / `handle_pow_cpp(...)` – run external WORK solver and parse `RESULT:<suffix>`.
+    - `define_response(...)` – generate a response string for a command.
+    - `_process_message_with_timeout(...)` – enforce per-command timeouts (WORK vs others).
+    - `main(...)` – CLI entrypoint.
+  - `tlslp.logging_utils`
+    - `configure_logging(...)` – root logger setup (file + stderr).
+
+- **C++ WORK solver** (`cpp/`)
+  - `pow_challenge.cpp` + `pow_core.*` – compiled to an executable that prints a `RESULT:<suffix>` line.
+  - Default runtime location is `src/tlslp/_bin/pow_challenge` (override with `--pow-binary`).
+
 
 ### Repository layout
 ```text
-.
 ├── .dockerignore
+├── .gitattributes
 ├── .github
 │   ├── ISSUE_TEMPLATE
 │   │   ├── bug_report.md
@@ -85,12 +96,19 @@ current diagram in README.md.
 ├── .gitignore
 ├── .pre-commit-config.yaml
 ├── .readthedocs.yaml
-├── CMakeLists.txt
 ├── CODE_OF_CONDUCT.md
 ├── CONTRIBUTING.md
 ├── LICENSE
 ├── Makefile
 ├── README.md
+├── cpp
+│   ├── CMakeLists.txt
+│   ├── pow_challenge.cpp
+│   ├── pow_core.cpp
+│   ├── pow_core.h
+│   ├── pow_core_internal.h
+│   └── tests
+│       └── pow_core_test.cpp
 ├── docker
 │   ├── client.Dockerfile
 │   └── server.Dockerfile
@@ -98,8 +116,12 @@ current diagram in README.md.
 ├── docs
 │   ├── Doxyfile
 │   ├── Makefile
+│   ├── _static
+│   │   └── flow_diagram.svg
 │   ├── conf.py
 │   ├── cpp_api.rst
+│   ├── demo.cast
+│   ├── demo.gif
 │   ├── guide.md
 │   ├── index.rst
 │   ├── intro.md
@@ -108,36 +130,41 @@ current diagram in README.md.
 │   └── requirements.txt
 ├── pyproject.toml
 ├── scripts
-│   ├── code-tools.sh
+│   ├── compare_tutorial_logs.sh
+│   ├── install-cpp-deps.sh
+│   ├── install-python-deps.sh
 │   └── make-certs.sh
-└── src
-    ├── client.py
-    ├── pow_challenge.cpp
-    ├── pow_core.cpp
-    ├── pow_core.h
-    ├── pow_core_internal.h
-    ├── protocol.py
-    ├── server.py
-    └── tests
-        ├── conftest.py
-        ├── helpers.py
-        ├── pow_core_test.cpp
-        ├── test_client.py
-        ├── test_protocol.py
-        ├── test_server.py
-        └── test_tls.py
+├── src
+│   └── tlslp
+│       ├── __init__.py
+│       ├── client.py
+│       ├── logging_utils.py
+│       ├── protocol.py
+│       └── server.py
+└── tests
+    ├── _helpers.py
+    ├── conftest.py
+    ├── test_client.py
+    ├── test_protocol.py
+    ├── test_server.py
+    └── test_tls.py
 ```
 Generated with:
 ```bash
 tree -a -L 4 -I ".git|.venv|__pycache__|*.egg-info|.pytest_cache|.mypy_cache|.ruff_cache|build|_build|_codeql_build_dir|certificates"
 ```
 
+---
+
 ## Dataflow (client-side)
-1. TLS connect → read command line.
-2. Parse.
-3. Reply, respecting per-command timeouts (multiprocessing).
-    - For ``WORK``, call binary → return suffix.
-    - For info commands, compute checksum and reply.
+1. Establish a TLS connection (optionally insecure for localhost development).
+2. Receive **exactly one line** (newline-delimited UTF-8) via `receive_message(...)`.
+3. Parse into tokens with `decipher_message(...)` and validate the command name.
+4. Generate a response, enforcing per-command timeouts:
+   - Non-WORK commands use a short timeout (default 6s, configurable).
+   - WORK can be long (default 2h, configurable) and is solved by an external binary.
+5. Send the response using `send_message(...)` (adds `\n` if missing).
+6. Stop on `ERROR` from the server or after responding to `DONE`.
 
 The following should be taken into account:
 - Multiline messages are not supported since this was not part of the coding
@@ -148,76 +175,114 @@ functioning of this program and should thus be treated as an exception.
 commands have a timeout of 6 seconds except the WORK challenge, which has a
 2-hour timeout.
 
+---
 
 ## Protocol
 - **Transport**: TLS.
 - **Encoding**: UTF-8 text.
-- **Line format**: ``COMMAND [ARG]...\n``
-- Hasher: SHA256.
+- **Framing**: newline-delimited (`\n`). `receive_message(...)` returns the line **without** the trailing newline.
+- **Size limits**: single line must not exceed `MAX_LINE_LENGTH` bytes.
+- **Hasher**: SHA256 is used by the challenge for checksums / WORK validity.
 
 ### Commands (server → client)
-- ``HELLO\n`` → client must reply ``HELLOBACK\n``.
-- ``WORK <token> <difficulty>\n`` → client replies with a valid ``<suffix>``.
-    - **Validity**: ``SHA256(token + suffix)`` starts with ``<difficulty>`` hex zeros.
-- Info requests (examples below use ``<arg>`` as server-provided string):
-  - ``FULL_NAME <arg>\n``
-  - ``MAILNUM <arg>\n``
-  - ``EMAIL1 <arg>\n``
-  - ``EMAIL2 <arg>\n``
-  - ``SOCIAL <arg>\n``
-  - ``BIRTHDATE <arg>\n``
-  - ``COUNTRY <arg>\n``
-  - ``ADDRNUM <arg>\n``
-  - ``ADDR_LINE1 <arg>\n``
-  - ``ADDR_LINE2 <arg>\n``
-- ``ERROR <reason>\n`` → client should stop.
-- ``DONE\n`` → client replies OK and closes.
+- `HELLO\n` → client replies `HELLOBACK\n`.
+- `WORK <token> <difficulty>\n` → client replies with a valid `<suffix>\n`.
+  - **Validity**: `SHA256(token + suffix)` starts with `<difficulty>` hex zeros.
+- Info requests (examples below use `<arg>` as server-provided string):
+  - `FULL_NAME <arg>\n`
+  - `MAILNUM <arg>\n`
+  - `EMAIL1 <arg>\n`
+  - `EMAIL2 <arg>\n`
+  - `SOCIAL <arg>\n`
+  - `BIRTHDATE <arg>\n`
+  - `COUNTRY <arg>\n`
+  - `ADDRNUM <arg>\n`
+  - `ADDR_LINE1 <arg>\n`
+  - `ADDR_LINE2 <arg>\n`
+- `ERROR <reason>\n` → client should stop.
+- `DONE\n` → client replies `OK\n` and closes.
 
 ### Client responses
 Client reply format:
-- ``HELLOBACK\n`` for ``HELLO\n``.
-- ``<suffix>\n`` for ``WORK\n``.
-- ``<sha256(token + arg)> <value>\n`` for info commands.
-- ``OK\n`` for ``DONE\n``.
+- `HELLOBACK\n` for `HELLO\n`.
+- `<suffix>\n` for `WORK\n`.
+- `<sha256(token + arg)> <value>\n` for info commands.
+- `OK\n` for `DONE\n`.
 
 ### Error handling
-- Malformed input, invalid commands, UTF-8 failure, or missing newline → treat as 
-error and close.
-- Command timeouts: ``WORK`` 7200s; others 6s.
-- Socket timeout: 24h.
+- Invalid UTF-8, missing newline (typically surfaces as a timeout), overlong line, or unexpected tokenization → treat as a protocol/transport error and stop.
+- Timeouts are enforced **per operation**:
+  - Client: WORK vs non-WORK handling is bounded (`--pow-timeout` / `--other-timeout`).
+  - Server: socket timeouts are set per request/response step.
+
 
 ---
 
 ## TLS Setup
 
-You can run **insecure** (disabled verification) for development purposes and 
-**mutual TLS (mTLS)**  for production. Basic TLS can be set by:
-- Using the ```--insecure``` flag on the CLI
-- Making ``DEFAULT_IS_SECURE = False`` in ```src/protocol.py``` or
-- Changing from ``is_secure = DEFAULT_IS_SECURE`` to ``is_secure = False`` in ```src/server.py```
-and ```src/client.py```.
+This repo supports two modes:
 
+### Insecure mode (local dev)
+Enable with `--insecure`.
 
-### Basic TLS for quick testing
-- Client: ``verify_mode = ssl.CERT_NONE``, ``check_hostname = False``.
-- Server: ``verify_mode = ssl.CERT_NONE``.
-- Use **only** for local tests!
+- Client disables server certificate verification:
+  - `verify_mode = ssl.CERT_NONE`
+  - `check_hostname = False`
+- Server does not require a client certificate:
+  - `verify_mode = ssl.CERT_NONE`
 
-### mTLS for production testing
-- Client: ``verify_mode = ssl.CERT_REQUIRED``, ``check_hostname = True``, ``cafile=ca_cert_path``.
-- Server: ``verify_mode = ssl.CERT_REQUIRED``, ``cafile=ca_cert_path``.
+Use this **only** for localhost development and tests where you explicitly want to skip verification.
+
+### Secure mode (mTLS)
+Default mode (when `--insecure` is not set).
+
+- Client verifies the server certificate against the provided CA cert **and** presents a client cert:
+  - `verify_mode = ssl.CERT_REQUIRED`
+  - `check_hostname = True`
+  - `cafile = <ca_cert_path>`
+  - `load_cert_chain(client_cert, private_key)`
+- Server requires and verifies a client certificate:
+  - `verify_mode = ssl.CERT_REQUIRED`
+  - `load_verify_locations(cafile=<ca_cert_path>)`
+
+Important: in secure mode, `--host` must match the server certificate’s hostname/SAN, because hostname verification is enabled.
 
 ### What’s tested (and why it matters)
 
-The test suite can validate the key security properties:
+The test suite validates the key security properties:
 
-- **Server authentication**: the client trusts a local CA and verifies the server certificate
-  (including hostname/SAN).
-- **Client authentication (mTLS)**: the server requires a client certificate and rejects clients
-  that don’t present one.
-- **Ephemeral certs in tests**: integration tests can generate short-lived CA/server/client certs
-  at runtime (e.g., with `trustme`), keeping the repo free of committed keys.
-- A guide for **certificate generation** ca be found at [Installation](https://github.com/elliottbache/tls_line_protocol/blob/master/README.md#installation).
+- **Server authentication**: a client trusts a CA and verifies the server certificate (including hostname via `server_hostname`).
+- **Client authentication (mTLS)**: the server requires a client certificate and rejects clients that don’t present one.
+- **Ephemeral certs in tests**: integration tests generate short-lived CA/server/client certs at runtime (via `trustme`), keeping the repo free of committed keys.
+- A guide for certificate generation is linked from the README installation section.
+
+---
+
+## Testing
+This repo uses **pytest** for unit tests. The goal is fast feedback locally while still validating 
+the core TLS behaviors end-to-end.
+### Run everything
+```make test```
+or
+```pytest```
+
+What this covers:
+- Protocol helpers (```send_message```, ```receive_message```) using ```socket.socketpair()``` (no network).
+- Client/server logic using faked sockets and faked SSL contexts.
+- WORK handling by mocking ```subprocess.run``` (no real C++ binary execution).
+ 
+### Sphinx doctests
+Doctests are treated as **documentation checks**, not full integration coverage.
+When running doctests:
+- It is preferred to run them as part of the docs build (Sphinx doctest) or with pytest configured to 
+include doctests.
+- Doctests are kept deterministic, they avoid:
+  - needing real certificate files
+  - binding to real ports
+  - time-based output
+
+If a doctest needs TLS objects, a **mocked contexts** approach is used (e.g. FakeContext) rather than
+real files on disk.
 
 ---
 
@@ -226,23 +291,24 @@ This repo is a coding-challenge/demo, but it’s still useful to treat it as if 
 In the future, extended this repo to a production-grade project will be easier this way.  The goal is to 
 fail closed: treat all network input as untrusted, validate aggressively, and stop on protocol violations.
 
+### Security Notes
+- In production:
+  - **Don’t** disable verification in production. Use CERT_REQUIRED and verify hostnames.
+  - Keep keys/PEMs with restricted file permissions.
+  - Treat **all server input** as untrusted; never eval or exec remote data.
+- The WORK solver uses only deterministic hashing—no code execution.
+
 ### Timeouts
-**Why**: Prevent hangs (slowloris-style reads, stuck handshakes, blocked subprocesses), and make failure 
-modes predictable.
+**Why**: Prevent hangs (slowloris-style reads, stuck handshakes, blocked subprocesses), and make failure modes predictable.
 
 **How** this is done:
-- Set **Socket timeout** for the whole connection (done via socket.settimeout(TIMEOUT) where
-TIMEOUT is 24h by default).
-- Enforce **per-operation timeouts**:
-  - WORK can be long (e.g., 2h) but still bounded.
-  - Everything else should have a short upper bound (e.g., 6s).
-- Treat timeout as a **hard error** (close connection; do not continue parsing).
+- Use **per-operation socket timeouts** rather than an unbounded read loop.
+  - Server: each request/response step sets a timeout appropriate to the step (WORK vs non-WORK).
+  - Client: command handling is bounded with a hard timeout (WORK vs non-WORK) enforced in `_process_message_with_timeout(...)`.
+- Bound the WORK solver execution time:
+  - `subprocess.run(..., timeout=...)` inside `run_pow_binary(...)`.
 
-Typical places:
-- On connect: ```socket.create_connection(..., timeout=...)```
-- On read loop: ```sock.settimeout(...) + receive_message()``` bounded by timeouts
-- On WORK solver: ```subprocess.run(..., timeout=...)``` 
-- On per-command handling: multiprocessing join timeout
+Defaults are chosen for the challenge (short for non-WORK, long for WORK), and are configurable via CLI flags.
 
 ### Message size limits
 **Why**: Avoid memory growth / DoS by sending huge lines.
@@ -261,34 +327,27 @@ If you read “until newline”, a “no newline” input will typically surface
 a “no newline” error. This situation is tested in the pytest suite (src.test_protocol.test_receive_message_no_newline).
 
 ### Validating server commands
-**Why**: The server controls the client’s behavior. Tight validation prevents weird edge cases and reduces 
-attack surface.
+**Why**: The server controls the client’s behavior. Tight validation prevents weird edge cases and reduces attack surface.
 
 **How** this is done:
 - Parse exactly one line, then:
-    - split into tokens
-    - require ```COMMAND``` in ```DEFAULT_VALID_MESSAGES```
-    - enforce expected argument count:
-        - ```HELLO``` → 1 token
-        - ```DONE``` → 1 token
-        - ```WORK <token> <difficulty>``` → 3 tokens
-        - ```<INFO> <arg>``` → 2 tokens
-        - ```ERROR <reason...>``` → at least 1 token ($n$ are accepted, but nothing is executed)
-    - Reject unknown commands and **close**.
-Also:
-- Validate **token** (charset and length) and ```difficulty``` bounds before using them (done for 
-WORK + hashing).
-- Treat protocol violations as ```ProtocolError``` and network/TLS failures as ```TransportError```
-(defined in a separate file ```protocol.py```).
+  - split into tokens
+  - require the command token to be in the allowlist (`DEFAULT_VALID_MESSAGES`)
+- Treat protocol violations as `ProtocolError` and network/TLS failures as `TransportError`.
+- Validate sensitive inputs before using them for hashing / subprocess calls:
+  - `token` character set / length
+  - `difficulty` is an integer in a reasonable range
+- On server side, validate:
+  - WORK suffix correctness
+  - checksum correctness for info replies
 
-### Retry + backoff
-**Why**: Make connection behavior stable under transient errors without turning retries into a self-DoS or brute force loop.
+### Retry strategy
+**Why**: The client may be asked to try multiple ports.
 
 **How** this is done:
-- Retry only on **connect-stage** failures that come from trying different ports defined by user.
-- Do **not** retry on:
-    - protocol violations (invalid UTF-8, invalid command, invalid checksum/suffix)
-    - certificate verification failures (that’s a security boundary)
+- The client iterates the configured port list and attempts to connect until one succeeds.
+- There is no exponential backoff (kept intentionally simple for the challenge).
+- The client does not “retry” after protocol violations during an established session.
 
 ### Subprocess safety
 The WORK solver is intentionally an external executable.  It is treated like untrusted input/output.
@@ -375,14 +434,26 @@ bool has_leading_zeros(const uint8_t* d, int bits) {
   to find a hex that has 5 leading zeros. 
   
 ### Build
+The Python client expects an executable WORK solver. By default, it looks for it at:
+`src/tlslp/_bin/pow_challenge` (override with `--pow-binary`).
+#### Recommended
+```bash
+make build-cpp
+```
+#### Manual build
+If you build manually (alternative to [Recommended](#recommended)) from cpp/, compile and then copy 
+the binary into the package’s _bin/ directory (so the default path works).  From root:
 ```bash
 mkdir -p build
+cd cpp
 g++ -O3 -std=c++17 pow_challenge.cpp pow_core.cpp -o ../build/pow_challenge -lssl -lcrypto -pthread
+cp ../build/pow_challenge ../src/tlslp/_bin/pow_challenge
 ```
 
 ### Run:
+From root:
 ```bash
-pow_challenge <token> <difficulty>
+./src/tlslp/_bin/pow_challenge <token> <difficulty>
 # stdout line: RESULT:<suffix>\n
 ```
 ### Benchmarking 
@@ -396,54 +467,6 @@ shown in the following table.
 | **Average run time (s)**    |   0.05    |  0.09     |  0.25     |   7.87    |   46.78    |   247.64    |
 
 ---
-
-## Testing
-### Unit tests (fast, isolated)
-- **Mock** ``subprocess.run`` to avoid invoking a real binary.
-- **Mock SSL context creation** to assert cert loading without tying to OS.
-- **Socketpair** for local in-process send/recv without a network.
-- ``capsys`` to assert stdout/stderr.
-
-Example (mocking subprocess):
-```python
-def test_handle_pow_cpp_success(monkeypatch):
-    from types import SimpleNamespace
-    monkeypatch.setattr(client.subprocess, "run",
-        lambda *a, **k: SimpleNamespace(stdout="RESULT:sfx\n", stderr="", returncode=0))
-    err, resp = client.handle_pow_cpp("AUTH", "5", "x", "2")
-    assert err == 0 and resp == b"sfx\n"
-```
-
-### Integration tests (end-to-end)
-- Start a **real TLS server** on an ephemeral port (use ``trustme`` for throwaway certs).
-- Patch client defaults and a **fake WORK binary** (a tiny Python 
-script that prints ``RESULT:testsuffix``).
-- TODO!!! Run client ``main()`` and assert the session transcript.
-
-### Sphinx doctests
-- Use ``# doctest: +ELLIPSIS`` for variable output.
-- Use ``# doctest: +SKIP`` for platform-specific paths/binaries.
-
----
-
-## Security Notes
-- In production:
-  - **Don’t** disable verification in production. Use CERT_REQUIRED and verify hostnames.
-  - Keep keys/PEMs with restricted file permissions.
-  - Treat **all server input** as untrusted; never eval or exec remote data.
-- The WORK solver uses only deterministic hashing—no code execution.
-
----
-
-## Add to Sphinx
-
-If you’re using ``.rst``:
-```rst
-.. toctree::
-   :maxdepth: 2
-
-   guide
-```
 
 ## Future work
 - Create integration test asserting full transcript from main().
