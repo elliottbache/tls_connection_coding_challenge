@@ -97,7 +97,7 @@ Expected tutorial logs live here:
 ### Compare using the provided script
 From the repository root:
 ```bash
-bash scripts/compare_tutorial_logs.sh
+bash scripts/compare-tutorial-logs.sh
 ```
 
 ### Quickstart (alternative): Docker
@@ -320,7 +320,7 @@ python -m tlslp.server --tutorial
 python -m tlslp.client --tutorial
 
 # Either terminal
-bash scripts/compare_tutorial_logs.sh
+bash scripts/compare-tutorial-logs.sh
 ```
 
 ### Expected logs (golden files)
