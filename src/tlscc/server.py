@@ -7,7 +7,7 @@ command protocol over TLS. The server:
 2) Performs a small handshake:
    - Sends ``HELLO`` and expects ``HELLOBACK``.
    - Sends ``WORK <token> <difficulty>`` and expects a suffix that yields a SHA256
-     hash with the required number of leading zeros.
+   hash with the required number of leading zeros.
 3) Sends a sequence of body requests (e.g., ``FULL_NAME``, ``MAILNUM``, ...). The client
    responds with ``<cksum> <value>`` where ``cksum = SHA256(token + random_string)``.
 4) Finishes with ``DONE`` and expects ``OK``.
