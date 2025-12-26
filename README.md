@@ -377,7 +377,7 @@ A list of make commands is made available through ``Makefile``.  The following l
 
 ## Demo GIF
 The ```.cast``` file is available for easy regeneration of the GIF file.  The following commands were used 
-to create the [GIF](#short-demo-server--client-solving-pow-and-answering-requests).
+to create the [GIF](#short-demo-server--client-solving-pow-and-answering-requests) from a clean folder.
 ```bash
 asciinema rec -i 3 --overwrite -t "TLSCC demo" -c "tmux new-session -A -s tlscc-demo" demo.cast
 git clone https://github.com/elliottbache/tls_connection_coding_challenge.git
@@ -397,8 +397,10 @@ ctrl + B ->
 cat ~/.local/state/tlscc/logs/client.log
 exit
 exit
-asciinema-agg docs/demo.cast docs/demo.gif
+asciinema-agg demo.cast demo.gif
+rm -rf tls_connection_coding_challenge
 ```
+The resulting .cast and .gif files must then be copied into the docs/ folder of the original git clone folder.
 
 ### Sphinx in PyCharm
 In order to create Sphinx documentation from the docstrings in PyCharm, a new run task must be created: 
