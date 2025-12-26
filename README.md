@@ -8,9 +8,10 @@
 [![License: GPL-3.0](https://img.shields.io/badge/license-%20%20GNU%20GPLv3%20-green?style=plastic)](https://github.com/elliottbache/tls_line_protocol/blob/main/LICENSE)
 
 > **60-second summary**
-> - Ubuntu/WSL-based minimal client/server that perform a TLS handshake, then a **HELLO → WORK → info requests → DONE** flow.
+> - Ubuntu/WSL-focused minimal client/server that perform a TLS handshake, then a **HELLO → WORK → info requests → DONE** flow.
 > - WORK solved by a fast C++ helper (multi-threaded) invoked from Python.
-> - Fully testable: unit tests for parsing & hashing; integration test creates a throwaway TLS server and exercises the full round-trip.
+> - Fully testable: unit tests for protocol/parsing/hashing and mocked SSL/subprocess, generating throwaway certs.
+
 ---
 
 ## High-level flow
@@ -23,13 +24,20 @@
 ---
 
 ## Short description
+This repo implements a small TLS client/server pair that:
 
-This is a toy protocol demo that requires the client to connect to a server,
-complete a WORK challenge with 9 leading hex zeros using SHA256 in under 2 hours, and reply to multiple queries.
-This is designed to be run in an interactive session, printing output to the
-stdout.  The choice of this hasher was made by the entity who created the challenge
-and must not be changed in this project.  More details on how this project works may be found in the
-[Guide](docs/guide.md).
+- performs a simple line-based handshake (`HELLO` then `WORK`)
+- solves a Proof-of-Work challenge where the client must find a suffix so that `SHA256(token + suffix)` has 
+a required number of **leading hex zeros**
+- answers a sequence of server “info request” commands until `DONE` (or `ERROR`).
+
+The hasher (SHA256) is an explicit constraint from the challenge and **must not be changed** in
+this project.
+
+The WORK difficulty is configurable (see `--difficulty` on the server). The challenge target
+may be higher than the defaults used for local demos.
+
+More details on how the project works are in the [Guide](docs/guide.md).
 
 ## Table of Contents
 
@@ -45,6 +53,14 @@ and must not be changed in this project.  More details on how this project works
 - [License](#license)
 
 ## Quickstart
+### Download repo
+In an Ubuntu/WSL terminal:
+```bash
+sudo apt install -y git
+git clone https://github.com/elliottbache/tls_line_protocol.git
+cd tls_line_protocol
+```
+
 ### Quickstart (recommended): Local (Ubuntu/WSL)
 In an Ubuntu/WSL terminal:
 ```bash
@@ -61,8 +77,6 @@ make run-client
 ```
 That's it, you’ve run the TLS toy protocol demo end-to-end!  Keep reading for a more in-depth 
 explanation of what just happened.  
-
-
 
 #### Tutorial mode and expected logs
 Optional: compare your logs to the expected tutorial run.  If you want a deterministic “known-good” run
@@ -91,6 +105,11 @@ bash scripts/compare_tutorial_logs.sh
 ### Quickstart (alternative): Docker
 Use this if you prefer Docker.  Otherwise, use the [local quickstart](#quickstart-recommended-local-ubuntuwsl) 
  above.
+#### Prepare C++ binary
+Run:
+```bash
+make certs
+```
 #### Launch Docker daemon
 On WSL:
 ```bash
@@ -109,6 +128,8 @@ docker start <name>
 ```bash
 docker compose up --build
 ```
+Docker Compose uses network_mode: host (Linux/WSL). On Mac/Windows, use local make run-* or adjust 
+compose networking/certs.
 
 ## Installation (manual, for development or troubleshooting)
 If you used [Quickstart (make setup)](#quickstart), you can skip this section.
@@ -273,7 +294,7 @@ tlslp-client
 ```
 Various flags are available for running in CLI.  e.g.
 ```sh
-# Connect to same host/port, using pow_challenge in non-default folder
+# For quick localhost development only (skips certificate verification):
 tlslp-client --host localhost --ports 1234 \
   --pow-bin bin/pow_challenge --insecure
 ```
@@ -353,7 +374,7 @@ A list of make commands is made available through ``Makefile``.  The following l
 The ```.cast``` file is available for easy regeneration of the GIF file.  The following commands were used 
 to create the [GIF](#short-demo-server--client-solving-pow-and-answering-requests).
 ```bash
-asciinema rec -i 3 --overwrite -t "TLSCC demo" -c "tmux new-session -A -s tlslp-demo" docs/demo.cast
+asciinema rec -i 3 --overwrite -t "TLSCC demo" -c "tmux new-session -A -s tlslp-demo" demo.cast
 git clone https://github.com/elliottbache/tls_line_protocol.git
 cd tls_line_protocol/
 make setup
@@ -384,7 +405,7 @@ selecting the Sphinx task name.
 
 ### Testing
 #### Python code
-The Python tests can be run from the root directory with
+The Python tests can be run from the repo root with
 ```bash
 pytest -q
 ```
@@ -399,7 +420,12 @@ To run the C++ tests, you can simply use
 make test-cpp token=<token> difficulty=<difficulty>
 ```
 where token is by default "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq",
-and difficulty is by default 5.  To run the CTest manually, you can use:
+and difficulty is by default 7.  To run the CTest manually, you can build with:
+```bash
+cmake -S . -B build
+cmake --build build --config Release
+```
+and run with:
 ```bash
 ctest src/tlslp/_bin/pow_core_test <token> <difficulty>
 ```
@@ -420,19 +446,17 @@ There is also a flag that allows for basic, unverified TLS to simplify running t
 
 ### Basic TLS vs. mTLS
 
-This repo includes a flag allowing to choose between basic TLS and mTLS:
+By default, this repo is configured to run in **secure (mTLS)** mode:
+- The **server** requires a client certificate (```ssl.CERT_REQUIRED```) and verifies it against 
+the configured CA.
+- The **client** verifies the server certificate against the configured CA and performs 
+hostname/SAN checks.
 
-- **mTLS for client authentication**: the server can be configured to require a client certificate
-  (`ssl.CERT_REQUIRED`) and verify it against a local CA.
-- **No secrets committed**: tests generate throwaway certificates at runtime (via `trustme`), so
-  no real private keys/PEMs need to live in the repo.
-- **Integration test proves mTLS**: one test asserts the handshake **fails** without a client cert,
-  and another asserts it **succeeds** when the client presents a cert trusted by the server’s CA.
-- **Docker demo option**: run client/server in two containers on the same network where the server
-  hostname is validated via **SAN** (e.g., `DNS:server`) and both sides trust the same CA 
-  (see [Quickstart](#quickstart)).
-- Basic TLS can be set by making ``DEFAULT_IS_SECURE = False`` in ```src/protocol.py``` or by changing
-  from ``is_secure = DEFAULT_IS_SECURE`` to ``is_secure = False`` in ```src/server.py``` and ```src/client.py```.
+For quick localhost development, you can run **in insecure mode** using `--insecure`:
+- The server does **not** verify client certificates.
+- The client does **not** verify the server certificate and disables hostname checks.
+
+**Important:** `--insecure` should only be used for local testing.
 
 ## Contributing
 
