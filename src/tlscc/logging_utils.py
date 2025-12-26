@@ -1,3 +1,19 @@
+"""Logging helpers used by both the TLS client and server.
+
+This module configures the **root** logger so application code can simply call
+``logging.getLogger(__name__)`` and emit messages.
+
+Behavior:
+- A file handler is attached at the requested level (default: ``INFO``) and
+  writes to an OS-appropriate directory (``XDG_STATE_HOME`` on Linux/WSL or
+  ``LOCALAPPDATA`` on Windows).
+- A stderr handler is attached at ``WARNING`` and above.
+- Python warnings are routed through logging (via ``logging.captureWarnings``).
+
+In tutorial mode (``tutorial=True``), log timestamps are made deterministic so
+test outputs and tutorial logs are reproducible.
+"""
+
 import logging
 import os
 import pathlib
@@ -58,19 +74,34 @@ def _default_log_dir() -> pathlib.Path:
 def configure_logging(
     *, level: str = "INFO", node: str = "server", tutorial: bool = False
 ) -> None:
-    """
-    Configure root logging for the application.
+    """Configure root logging for the application.
 
-    Creates 2 handlers:
-    1. Takes ```level``` (default ```INFO```) and sends to a log file in the
-    XDG_STATE_HOME/tlslp/ (~/.local/state/tlslp in Linux)
-    2. Takes "WARNING" and above and sends to stderr
+    This attaches two handlers to the **root** logger:
+
+    1) A file handler at ``level`` writing to ``<state-dir>/tlslp/logs/<node>.log``.
+       - On Linux/WSL: ``$XDG_STATE_HOME`` (fallback: ``~/.local/state``)
+       - On Windows: ``%LOCALAPPDATA%`` (fallback: ``~/AppData/Local``)
+
+    2) A stderr handler at ``WARNING`` and above.
+
+    Calling this function multiple times is safe: existing root handlers are
+    removed and closed before new handlers are installed.
 
     Args:
-        level (str): Logging level name (e.g., "DEBUG", "INFO").
-        node (str): Client or server
-        tutorial (bool): If True, we are in tutorial mode and want to reproduce exactly
-            the same logs.
+        level: Logging level name (e.g., ``"DEBUG"``, ``"INFO"``).
+        node: Logical node name used for the log filename (e.g., ``"server"`` or
+            ``"client"``).
+        tutorial: If True, use deterministic timestamps and overwrite the log
+            file each run.
+
+    Raises:
+        ValueError: If ``level`` is not a valid logging level name.
+
+    Examples:
+        >>> import logging
+        >>> from tlslp.logging_utils import configure_logging
+        >>> configure_logging(level="INFO", node="demo", tutorial=True)
+        >>> logging.getLogger("demo").info("hello")
     """
     # route Python warnings through logging.
     logging.captureWarnings(True)
