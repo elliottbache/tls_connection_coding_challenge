@@ -1,0 +1,27 @@
+2000-01-01T00:00:00+0100 INFO tlscc.server: Server starting
+2000-01-01T00:00:00+0100 INFO tlscc.server: Server listening on https://'localhost':3481
+2000-01-01T00:00:00+0100 INFO tlscc.server: Connection from address: '127.0.0.1'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Step: handshake
+2000-01-01T00:00:00+0100 INFO tlscc.server: Step: 'name'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Received 'Elliott Bache'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Step: 'mailnum'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Received '2'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Step: 'mail1'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Received 'elliottbache@gmail.com'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Step: 'mail2'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Received 'elliottbache2@gmail.com'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Step: 'skype'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Received 'elliottbache@hotmail.com'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Step: 'birthdate'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Received '99.99.1982'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Step: 'country'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Received 'USA'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Step: 'addrnum'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Received '2'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Step: 'addrline1'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Received '234 Evergreen Terrace'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Step: 'addrline2'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Received 'Springfield'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Step: end
+2000-01-01T00:00:00+0100 INFO tlscc.server: Received 'OK'
+2000-01-01T00:00:00+0100 INFO tlscc.server: Connection closed

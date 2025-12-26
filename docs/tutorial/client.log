@@ -1,0 +1,33 @@
+2000-01-01T00:00:00+0100 INFO tlscc.client: POW binary exists: True
+2000-01-01T00:00:00+0100 WARNING tlscc.client: Can't connect to 'localhost':3336: Failed to connect to localhost:3336
+2000-01-01T00:00:00+0100 WARNING tlscc.client: Can't connect to 'localhost':8083: Failed to connect to localhost:8083
+2000-01-01T00:00:00+0100 WARNING tlscc.client: Can't connect to 'localhost':8446: Failed to connect to localhost:8446
+2000-01-01T00:00:00+0100 WARNING tlscc.client: Can't connect to 'localhost':49155: Failed to connect to localhost:49155
+2000-01-01T00:00:00+0100 INFO tlscc.client: Connected to 3481
+2000-01-01T00:00:00+0100 INFO tlscc.client: Received 'HELO'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Sending to server: ''
+2000-01-01T00:00:00+0100 INFO tlscc.client: Received 'POW gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq 7'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Sending to server: ''
+2000-01-01T00:00:00+0100 INFO tlscc.client: Received 'NAME LGTk'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Sending to server: 'Elliott Bache\n'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Received 'MAILNUM LGTk'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Sending to server: '2\n'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Received 'MAIL1 LGTk'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Sending to server: 'elliottbache@gmail.com\n'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Received 'MAIL2 LGTk'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Sending to server: 'elliottbache2@gmail.com\n'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Received 'SKYPE LGTk'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Sending to server: 'elliottbache@hotmail.com\n'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Received 'BIRTHDATE LGTk'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Sending to server: '99.99.1982\n'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Received 'COUNTRY LGTk'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Sending to server: 'USA\n'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Received 'ADDRNUM LGTk'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Sending to server: '2\n'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Received 'ADDRLINE1 LGTk'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Sending to server: '234 Evergreen Terrace\n'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Received 'ADDRLINE2 LGTk'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Sending to server: 'Springfield\n'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Received 'END'
+2000-01-01T00:00:00+0100 INFO tlscc.client: Sending to server: ''
+2000-01-01T00:00:00+0100 INFO tlscc.client: Connection closed.
