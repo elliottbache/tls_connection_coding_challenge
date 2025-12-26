@@ -56,10 +56,10 @@ def _parse_positive_int(s: str) -> int:
     Intended for use as an ``argparse`` ``type=...`` function.
 
     Args:
-        s: Flag from the command line.
+        s (str): Flag from the command line.
 
     Returns:
-        Parsed positive integer.
+        (int): Parsed positive integer.
 
     Raises:
         argparse.ArgumentTypeError: If ``s`` is not an integer or is <= 0.
@@ -89,8 +89,8 @@ def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
     - it is fully transmitted using ``sendall``.
 
     Args:
-        string_to_send: Message to send (with or without a trailing ``"\\n"``).
-        secure_sock: Connected socket (plain or TLS-wrapped) to send on.
+        string_to_send (str): Message to send (with or without a trailing ``"\\n"``).
+        secure_sock (socket.socket): Connected socket (plain or TLS-wrapped) to send on.
 
     Raises:
         ProtocolError: If the payload is not a ``str`` or cannot be UTF-8 encoded.
@@ -139,10 +139,10 @@ def receive_message(secure_sock: socket.socket) -> str:
     and returns the string without the trailing newline.
 
     Args:
-        secure_sock: Connected socket (plain or TLS-wrapped) to read from.
+        secure_sock (socket.socket): Connected socket (plain or TLS-wrapped) to read from.
 
     Returns:
-        The decoded message with the trailing newline removed.
+        (str): The decoded message with the trailing newline removed.
 
     Raises:
         ProtocolError: If the peer sends non-bytes, invalid UTF-8, or a line that
