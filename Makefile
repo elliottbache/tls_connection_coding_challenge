@@ -1,3 +1,5 @@
+# Use ?= to provide a default value if none is passed
+FLAGS ?= "--log-level=DEBUG"
 PY ?= python3.11
 PIP ?= $(PY) -m pip
 VENVDIR ?= .venv
@@ -113,11 +115,11 @@ test-cpp: build-cpp
 
 .PHONY: run-server
 run-server:
-	$(ACTIVATE); tlslp-server --log-level=DEBUG
+	$(ACTIVATE); tlslp-server $(FLAGS)
 
 .PHONY: run-client
 run-client:
-	$(ACTIVATE); tlslp-client --log-level=DEBUG
+	$(ACTIVATE); tlslp-client $(FLAGS)
 
 # set a default value if the user doesn't provide one
 token ?= gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq

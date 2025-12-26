@@ -1,0 +1,33 @@
+2000-01-01T00:00:00+0100 INFO tlslp.client: WORK binary exists: True
+2000-01-01T00:00:00+0100 WARNING tlslp.client: Can't connect to 'localhost':3115: Failed to connect to localhost:3115
+2000-01-01T00:00:00+0100 WARNING tlslp.client: Can't connect to 'localhost':7883: Failed to connect to localhost:7883
+2000-01-01T00:00:00+0100 WARNING tlslp.client: Can't connect to 'localhost':8235: Failed to connect to localhost:8235
+2000-01-01T00:00:00+0100 WARNING tlslp.client: Can't connect to 'localhost':38154: Failed to connect to localhost:38154
+2000-01-01T00:00:00+0100 INFO tlslp.client: Connected to 1234
+2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'HELLO'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: ''
+2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'WORK gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq 7'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: ''
+2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'FULL_NAME LGTk'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: 'Elliott Bache\n'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'MAILNUM LGTk'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: '2\n'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'EMAIL1 LGTk'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: 'elliottbache@gmail.com\n'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'EMAIL2 LGTk'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: 'elliottbache2@gmail.com\n'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'SOCIAL LGTk'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: 'elliottbache@hotmail.com\n'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'BIRTHDATE LGTk'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: '99.99.1982\n'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'COUNTRY LGTk'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: 'USA\n'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'ADDRNUM LGTk'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: '2\n'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'ADDR_LINE1 LGTk'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: '234 Evergreen Terrace\n'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'ADDR_LINE2 LGTk'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: 'Springfield\n'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'DONE'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: ''
+2000-01-01T00:00:00+0100 INFO tlslp.client: Connection closed.
