@@ -158,7 +158,7 @@ def build_client_parser() -> argparse.ArgumentParser:
         "--pow-binary",
         default=DEFAULT_CPP_BINARY_PATH,
         type=str,
-        help="path to pow_prepare_server_socket executable",
+        help="path to pow_binary executable",
     )
 
     parser.add_argument(
@@ -184,12 +184,6 @@ def build_client_parser() -> argparse.ArgumentParser:
         "--log-level",
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-    )
-
-    parser.add_argument(
-        "--json-logs",
-        action="store_true",
-        help="Emit logs as JSON (one object per line).",
     )
 
     parser.add_argument(
@@ -231,7 +225,6 @@ def prepare_client_socket(
     private_key_path: str,
     server_host: str,
     is_secure: bool = False,
-    timeout: int = 6,
 ) -> socket.socket:
     """
     Prepare a socket for connecting to the server.
@@ -667,10 +660,7 @@ def _receive_and_decipher_message(
         logger.info(f"Received {message!r}")
 
         # Error check message and create list from message
-        try:
-            return decipher_message(message, valid_messages)
-        except Exception:
-            raise
+        return decipher_message(message, valid_messages)
 
 
 def _process_message_with_timeout(
@@ -722,8 +712,12 @@ def _process_message_with_timeout(
 
 def _resolved_bin_path(cpp_binary_path: str) -> Path:
     """Resolve path and add .exe if Windows and no extension."""
+    bin_path = Path(cpp_binary_path)
+    if sys.platform.startswith("win") and bin_path.suffix == "":
+        bin_path = bin_path.with_suffix(".exe")
+
     try:
-        bin_path = Path(cpp_binary_path).resolve(strict=True)
+        bin_path = bin_path.resolve(strict=True)
     except (FileNotFoundError, OSError) as e:
         raise FileNotFoundError(
             f"WORK binary not a regular file: {cpp_binary_path!r}.\nIf it is "
@@ -735,12 +729,6 @@ def _resolved_bin_path(cpp_binary_path: str) -> Path:
             f" cpp/; cp ../build/pow_challenge ../src/tlslp/_bin/"
         ) from e
 
-    if (
-        sys.platform.startswith("win")
-        and bin_path.suffix == ""
-        and not bin_path.exists()
-    ):
-        bin_path = bin_path.with_suffix(".exe")
     return bin_path
 
 
@@ -762,7 +750,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     cfg = args_to_client_config(ns)
 
     configure_logging(level=cfg.log_level, node="client", tutorial=cfg.tutorial)
-    logger.warning("Windows ACLs not checked.  Skipping world-writable test.")
+    if os.name == "nt":
+        logger.warning("Windows ACLs not checked.  Skipping world-writable test.")
 
     is_secure = not cfg.insecure
 
@@ -797,7 +786,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                     cfg.private_key,
                     cfg.server_host,
                     is_secure,
-                    cfg.other_timeout,
                 )
                 is_connected = connect_to_server(secure_sock, cfg.server_host, port)
                 break
@@ -805,7 +793,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 logger.warning(f"Can't connect to {cfg.server_host!r}:{port!r}: {e}")
 
     if not is_connected:
-        logger.exception("Not able to connect to any port.  Exiting")
+        logger.critical("Not able to connect to any port.  Exiting")
         sys.exit(1)
 
     logger.info(f"Connected to {port!r}")
@@ -839,7 +827,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cfg.other_timeout,
             )
             end = time.time()
-            logger.debug(f"The time of execution is : {(end - start)!r})s")
+            logger.debug(f"The time of execution is : {(end - start)!r}s")
 
             if args[0] == "WORK":
                 this_hash = hashlib.sha256(  # noqa: S324
@@ -849,7 +837,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 # only log first part of token
                 half_len_token = math.ceil(len(args[1]) / 2)
                 logger.debug(
-                    f"Authentication data: {half_len_token!r}..., Difficulty: {args[2]!r}"
+                    f"Authentication data: {args[1][:half_len_token]!r}..., Difficulty: {args[2]!r}"
                 )
                 logger.debug(f"Valid suffix: {response!r}")
                 logger.debug(f"Hash: {this_hash!r}")

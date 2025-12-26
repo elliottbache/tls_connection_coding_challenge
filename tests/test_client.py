@@ -540,9 +540,15 @@ class TestConnectToServer:
         ],
     )
     def test_connect_to_server_exception(self, monkeypatch, exc, expected_err, err_msg):
-
         def fake_connect(*a, **k):
-            raise exc
+            if isinstance(exc, (socket.gaierror, ssl.SSLCertVerificationError)):
+                raise exc(0, err_msg)
+            elif isinstance(exc, ssl.SSLError):
+                raise exc("SSL", "CERTIFICATE_VERIFY_FAILED")
+            elif isinstance(exc, OSError):
+                raise exc(0, 0)
+            else:
+                raise exc
 
         sock = FakeSocket()
         monkeypatch.setattr(sock, "connect", fake_connect)
