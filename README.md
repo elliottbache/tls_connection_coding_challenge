@@ -81,24 +81,22 @@ explanation of what just happened.
 #### Tutorial mode and expected logs
 Optional: compare your logs to the expected tutorial run.  If you want a deterministic “known-good” run
 you can compare against (useful for demos, onboarding, and quick sanity checks), run the client/server
-in **tutorial mode** and compare the produced logs to the committed expected logs.
+in **tutorial mode** and compare the produced logs to the committed expected logs.  This can be achieved
+by adding the ```FLAGS="--tutorial"``` to ```make run-server``` and ```make run-client``` above.
+```bash
+# Terminal 1
+make run-server FLAGS="--tutorial"
 
+# Terminal 2
+make run-client FLAGS="--tutorial"
+```
 Expected tutorial logs live here:
 - `docs/tutorial/server.log`
 - `docs/tutorial/client.log`
 
-##### Run tutorial
-
-In two terminals:
-  
+### Compare using the provided script
+From the repository root:
 ```bash
-# Terminal 1
-python -m tlslp.server --tutorial
-
-# Terminal 2
-python -m tlslp.client --tutorial
-
-# Either terminal
 bash scripts/compare_tutorial_logs.sh
 ```
 
@@ -308,7 +306,22 @@ Docker users: see [Quickstart (alternative)](#quickstart-alternative-docker): Do
 
 ## Compare your output to the expected tutorial logs
 
-Tutorial mode is designed to be deterministic so you can validate behavior by comparing your logs against committed “golden” logs.
+Tutorial mode is designed to be deterministic so you can validate behavior by comparing your logs
+against committed “golden” logs.
+
+### Run tutorial manually
+
+In two terminals:
+```bash
+# Terminal 1
+python -m tlslp.server --tutorial
+
+# Terminal 2
+python -m tlslp.client --tutorial
+
+# Either terminal
+bash scripts/compare_tutorial_logs.sh
+```
 
 ### Expected logs (golden files)
 
@@ -331,14 +344,6 @@ So the default log files are:
 
 - `~/.local/state/tlslp/logs/server.log`
 - `~/.local/state/tlslp/logs/client.log`
-
-### Compare using the provided script
-
-From the repository root:
-
-```bash
-bash scripts/compare_tutorial_logs.sh
-```
 
 ## What is happening?
 The client will connect to the server and answer the various commands sent by the server.  The server will first send a
