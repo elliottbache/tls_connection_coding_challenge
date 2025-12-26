@@ -82,12 +82,13 @@ module = "tests.*"
 ignore_errors = true
 
 [tool.codespell]
-skip = "./docs/_build,./build,./dist,./.venv,./docs/html,./src/include,./docs/_static,pyproject.toml,./WD,./build*,./cpp/build,./PRIVATE,./htmlcov"
+skip = "./docs/_build,./build,./dist,./.venv,./docs/html,./src/include,./docs/_static,pyproject.toml,./WD,./build*,./cpp/build,./PRIVATE,./htmlcov,./certificates"
 ignore-words-list = "teh,nd,seh,atleast,atmost"
 
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = [
   "-q",
   "--cov=src",
