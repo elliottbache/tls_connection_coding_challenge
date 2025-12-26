@@ -9,8 +9,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from helpers import FakeContext, FakeSocket, FakeWrappedSock
 
+from tests._helpers import FakeContext, FakeSocket, FakeWrappedSock
 from tlslp import client, protocol
 
 
@@ -741,7 +741,7 @@ class TestMain:
 
         sent = []
 
-        def fake_send_message(msg, sock, logger):
+        def fake_send_message(msg, sock):
             sent.append((msg, sock))
 
         monkeypatch.setattr(client, "send_message", fake_send_message)
@@ -808,7 +808,7 @@ class TestMain:
         monkeypatch.setattr(client, "prepare_client_socket", lambda *a, **k: fake_sock)
         monkeypatch.setattr(client, "connect_to_server", lambda sock, host, port: True)
 
-        # drive the main loop with 2 messages then DONE
+        # drive the main loop with HELLO then ERROR
         seq = iter([["HELLO", ""], ["ERROR", ""]])
         monkeypatch.setattr(
             client, "_receive_and_decipher_message", lambda *a, **k: next(seq)
@@ -825,12 +825,14 @@ class TestMain:
 
         sent = []
 
-        def fake_send_message(msg, sock, logger):
+        def fake_send_message(msg, sock):
             sent.append((msg, sock))
 
         monkeypatch.setattr(client, "send_message", fake_send_message)
 
         client.main([])
+
+        print(f"\nsent:{sent}")
 
         assert sent == [("HELLOBACK\n", fake_sock)]
         assert fake_sock.closed
