@@ -42,28 +42,45 @@ See "Quickstart" and "Installation" sections of [README.md](README.md) for more 
 
 ## Running integration locally
 Ensure your TLS materials exist in ```certificates/``` (see [README.md](README.md) "Installation" section).
-- **Docker (host network)**:
-```bash
-docker compose up --build
-```
-See "Quickstart" section of [README.md](README.md) for more details.
-
-- **Direct Python** (two terminals):
+- **Direct Python** (two terminals, after `pip install -e .`):
 ```bash
 # Terminal A
 python -m src.server
 # Terminal B
 python -m src.client
 ```
+- **Docker (host network)**:
+```bash
+docker compose up --build
+```
+See "Quickstart" section of [README.md](README.md) for more details.
+
+Notes:
+- By default the project runs in **secure (mTLS)** mode. For quick localhost testing you can 
+add ```--insecure``` on both sides to skip certificate verification.
+
 ## C++ WORK helper
-- Place the compiled ```build/pow_challenge``` in ```build/``` (Linux/macOS), or adjust ```DEFAULT_CPP_BINARY_PATH```.
-- Add a quick ctest/pytest smoke test if you change the binary interface.
+The client resolves the WORK challenge by calling an external executable that prints a line like:
+`RESULT:<suffix>`
+
+Defaults:
+- Expected location: `src/tlslp/_bin/pow_challenge` (override with `--pow-binary`)
+- The client also validates the binary path for basic safety (must not be a symlink, must be executable on POSIX,
+  and must not be world-writable, and must live under the allowed root by default).
+
+Build (recommended):
+```bash
+make build-cpp
+```
+
+If you change the binary interface/output format, update tlslp.client.handle_pow_cpp(...) and the unit tests
+that mock subprocess.run.
 
 ## Test matrix & quality gates
 The CI runs on every push/PR:
-- ```pre-commit``` (ruff, black, isort, mypy, codespell)
-- ```pytest```
-- ```sphinx-build```
+- `pre-commit` (format/lint/type checks as configured in `.pre-commit-config.yaml`)
+- `pytest`
+- `sphinx-build`
 
 Please run these locally before opening a PR:
 ```bash
