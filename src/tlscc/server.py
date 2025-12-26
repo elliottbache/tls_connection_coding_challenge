@@ -223,7 +223,7 @@ def send_and_receive(
     """
     secure_sock.settimeout(timeout)
     try:
-        send_message(to_send, secure_sock, logger)
+        send_message(to_send, secure_sock)
     except Exception:
         send_error("ERROR sending.", secure_sock)
         raise
@@ -233,7 +233,7 @@ def send_and_receive(
         return ""
 
     try:
-        received_message = receive_message(secure_sock, logger)
+        received_message = receive_message(secure_sock)
     except TimeoutError as e:
         send_error("ERROR receiving.", secure_sock)
         raise TransportError(r"Receive timeout.") from e
@@ -275,7 +275,7 @@ def send_error(to_send: str, secure_sock: socket.socket) -> None:
     """
 
     try:
-        send_message(to_send, secure_sock, logger)
+        send_message(to_send, secure_sock)
     except Exception:
         logger.exception("Error could not be sent.")
     finally:

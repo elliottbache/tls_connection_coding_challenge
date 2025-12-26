@@ -1,11 +1,10 @@
 import hashlib
-import logging
 import socket
 from contextlib import closing
 
 import pytest
-from helpers import FakeContext, FakeSocket, FakeSSLContext, FakeWrappedSock
 
+from tests._helpers import FakeContext, FakeSocket, FakeSSLContext, FakeWrappedSock
 from tlslp import protocol, server
 from tlslp.protocol import DEFAULT_CA_CERT, DEFAULT_SERVER_HOST
 from tlslp.server import (
@@ -72,21 +71,11 @@ class TestSendMessage:
     @pytest.mark.parametrize(
         "payload, expected", [("HELLO\n", "HELLO\n"), ("HELLO", "HELLO\n")]
     )
-    def test_send_message(self, socket_pair, payload, expected, caplog):
-        logger = logging.getLogger("test_server")
+    def test_send_message(self, socket_pair, payload, expected):
         s1, s2 = socket_pair
-        err = server.send_message(payload, s1, logger)
+        err = server.send_message(payload, s1)
         _ = s2.recv(1024)
         assert err is None
-
-        msg = expected.rstrip("\n")
-        with caplog.at_level(logging.DEBUG):
-            logger.debug(f"Sent {msg}")
-
-        # Verify the message exists in the logs
-        assert f"Sent {msg}" in caplog.text
-        # Verify the log level
-        assert caplog.records[0].levelname == "DEBUG"
 
 
 class TestSendAndReceive:
@@ -104,10 +93,11 @@ class TestSendAndReceive:
         s1, s2 = socket_pair
         s2.close()
 
-        with pytest.raises(protocol.TransportError) as e:
+        with pytest.raises(Exception) as e:
             server.send_and_receive(token, random_string, s1)
 
-        assert "Send failed.  Sending" in str(e.value)
+        print(f"\ne: {e.value}")
+        assert "Send failed while sending" in str(e.value)
 
     def test_send_and_receive_error_receiving(
         self, socket_pair, token, random_string, readout

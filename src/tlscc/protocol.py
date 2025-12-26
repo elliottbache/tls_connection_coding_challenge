@@ -22,7 +22,6 @@ class TransportError(RuntimeError):
 
 
 MAX_LINE_LENGTH = 1000
-DEFAULT_IS_SECURE = True  # if we connect from localhost to localhost, this is False
 DEFAULT_CA_CERT = "certificates/ca_cert.pem"
 DEFAULT_OTHER_TIMEOUT = 6
 DEFAULT_WORK_TIMEOUT = 7200
@@ -45,20 +44,18 @@ logger = logging.getLogger(__name__)
 
 
 def _parse_positive_int(s: str) -> int:
+    # no logging since errors here would be user input errors and probably shouldn't
+    # congest persistent logs
     try:
         n = int(s)
     except ValueError as e:
-        logger.exception(f"must be an integer: {e}")
         raise argparse.ArgumentTypeError("must be an integer") from e
     if n <= 0:
-        logger.exception("must be > 0")
         raise argparse.ArgumentTypeError("must be > 0")
     return n
 
 
-def send_message(
-    string_to_send: str, secure_sock: socket.socket, logger: logging.Logger
-) -> None:
+def send_message(string_to_send: str, secure_sock: socket.socket) -> None:
     """Send string.
 
     This ensures that the string is UTF-8 and ends with a newline
@@ -67,8 +64,6 @@ def send_message(
     Args:
         string_to_send (str): the string to send.
         secure_sock (socket.socket): the secure socket to send to.
-        logger (logging.Logger): logger from the machine that is sending
-            the message (client or server)
 
     Returns:
         None
@@ -102,7 +97,9 @@ def send_message(
     """
     # ensure it's a string object
     if not isinstance(string_to_send, str):
-        raise ProtocolError(f"Send failed.  Unexpected type: {type(string_to_send)}")
+        raise ProtocolError(
+            f"Send failed: expected str, got {type(string_to_send).__name__}"
+        )
 
     # ensure that the string ends with endline
     if not string_to_send.endswith("\n"):
@@ -112,7 +109,7 @@ def send_message(
     try:
         bstring_to_send = string_to_send.encode("utf-8")
     except UnicodeEncodeError as e:
-        raise ProtocolError("Send failed. Failed encoding.") from e
+        raise ProtocolError(f"Send failed: could not encode UTF-8: {e}") from e
 
     # send message
     try:
@@ -120,11 +117,11 @@ def send_message(
     except (TimeoutError, ssl.SSLEOFError, ssl.SSLError, OSError, BrokenPipeError) as e:
         string_to_send_no_newline = string_to_send.rstrip("\n")
         raise TransportError(
-            f"Send failed.  Sending {string_to_send_no_newline}. {type(e)}"
+            f"Send failed while sending {string_to_send_no_newline!r}: {type(e).__name__}: {e}"
         ) from e
 
 
-def receive_message(secure_sock: socket.socket, logger: logging.Logger) -> str:
+def receive_message(secure_sock: socket.socket) -> str:
     """Receive string from the client.
 
     This ensures that the string is UTF-8 and ends with a newline
@@ -159,19 +156,17 @@ def receive_message(secure_sock: socket.socket, logger: logging.Logger) -> str:
 
             # test for empty string
             if not chunk or chunk == b"":
-                raise ProtocolError(
-                    "Receive failed.  Received empty string. Peer probably closed."
-                )
+                raise TransportError("Receive failed: peer closed connection")
 
             # ensure it's a bytes-like object
             if not isinstance(chunk, bytes):
                 raise ProtocolError(
-                    f"Receive failed.  Unexpected type: " f"{type(chunk)}"
+                    f"Receive failed: expected bytes, got {type(chunk).__name__}"
                 )
 
             buf += chunk
             if len(buf) > MAX_LINE_LENGTH:
-                raise ProtocolError("Line too long")
+                raise ProtocolError("Receive failed: line too long")
 
             # read until newline
             if buf.endswith(b"\n"):
@@ -181,16 +176,13 @@ def receive_message(secure_sock: socket.socket, logger: logging.Logger) -> str:
         try:
             return buf.decode("utf-8").rstrip("\n")
         except UnicodeDecodeError as e:
-            raise ProtocolError("Receive failed.  Invalid UTF-8") from e
+            raise ProtocolError(f"Receive failed: invalid UTF-8: {e}") from e
 
     except TimeoutError as e:
-        raise TransportError("Receive timeout") from e
+        raise TransportError(f"Receive timeout: {e}") from e
 
-    except (ssl.SSLError, OSError) as e:
-        raise TransportError("Receive failed") from e
-
-    except ProtocolError:
-        raise
+    except ProtocolError as e:
+        raise ProtocolError(f"Receive failed: {type(e).__name__}: {e}") from e
 
     except Exception as e:
-        raise TransportError from e
+        raise TransportError(f"Receive failed: {type(e).__name__}: {e}") from e
