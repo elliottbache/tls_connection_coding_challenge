@@ -495,6 +495,8 @@ these fellows have put into the project's growth and improvement.
 
 - v0.1.0
     - TLS Client/Server Challenge with WORK, PyTest Suite & Sphinx Docs
+- v1.0.0
+    - Updated TLS Client/Server, converting into a package, implementing CI and Docker, adding logging and much more
 
 ## License
 
