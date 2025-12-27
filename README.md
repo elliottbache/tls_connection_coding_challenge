@@ -64,9 +64,6 @@ cd tls_line_protocol
 ### Quickstart (recommended): Local (Ubuntu/WSL)
 In an Ubuntu/WSL terminal:
 ```bash
-sudo apt install -y git
-git clone https://github.com/elliottbache/tls_line_protocol.git
-cd tls_line_protocol
 make deps
 make setup
 make run-server
