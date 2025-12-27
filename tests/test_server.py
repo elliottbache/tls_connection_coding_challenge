@@ -73,9 +73,9 @@ class TestSendMessage:
     )
     def test_send_message(self, socket_pair, payload, expected):
         s1, s2 = socket_pair
-        err = server.send_message(payload, s1)
-        _ = s2.recv(1024)
-        assert err is None
+        server.send_message(payload, s1)
+        received_message = s2.recv(1024)
+        assert received_message == expected.encode("utf-8")
 
 
 class TestSendAndReceive:
@@ -223,10 +223,10 @@ class TestSendError:
         s1, s2 = socket_pair
         message_to_send = "ERROR test message"
 
-        err = server.send_error(message_to_send, s1)
-        _ = s2.recv(1024)
+        server.send_error(message_to_send, s1)
+        received_message = s2.recv(1024)
 
-        assert err is None
+        assert received_message == (message_to_send + "\n").encode("utf-8")
 
     def test_send_error_fail(self, socket_pair, caplog):
         s1, _ = socket_pair
