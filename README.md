@@ -64,9 +64,6 @@ cd tls_connection_coding_challenge
 ### Quickstart (recommended): Local (Ubuntu/WSL)
 In an Ubuntu/WSL terminal:
 ```bash
-sudo apt install -y git
-git clone https://github.com/elliottbache/tls_connection_coding_challenge.git
-cd tls_connection_coding_challenge
 make deps
 make setup
 make run-server
