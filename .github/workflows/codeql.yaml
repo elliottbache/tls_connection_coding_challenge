@@ -57,7 +57,7 @@ jobs:
 
       - name: Build (CMake project in cpp/)
         run: |
-          cmake -S cpp -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -S cpp -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
           cmake --build build -j 4
 
       - name: Perform CodeQL Analysis
