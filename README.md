@@ -42,7 +42,7 @@ More details on how the project works are in the [Guide](docs/guide.md).
 ## Table of Contents
 
 - [Quickstart](#quickstart)
-- [Demo GIF](#demo-gif)
+- [Demo GIF](#short-demo-server--client-solving-pow-and-answering-requests)
 - [Installation](#installation-manual-for-development-or-troubleshooting)
 - [Execution / Usage](#execution--usage-manual-for-development-or-troubleshooting)
 - [Technologies](#technologies)
