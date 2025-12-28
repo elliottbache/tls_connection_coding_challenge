@@ -45,7 +45,9 @@ More details on how the project works are in the [Guide](docs/guide.md).
 - [Demo GIF](#short-demo-server--client-solving-pow-and-answering-requests)
 - [Installation](#installation-manual-for-development-or-troubleshooting)
 - [Execution / Usage](#execution--usage-manual-for-development-or-troubleshooting)
+- [Development](#development)
 - [Technologies](#technologies)
+- [Security](#security)
 - [Contributing](#contributing)
 - [Contributors](#contributors)
 - [Author](#author)
@@ -301,12 +303,12 @@ tlslp-client --log-level DEBUG
 ### Option B: Docker
 Docker users: see [Quickstart (alternative)](#quickstart-alternative-docker): Docker.
 
-## Compare your output to the expected tutorial logs
+### Compare your output to the expected tutorial logs
 
 Tutorial mode is designed to be deterministic so you can validate behavior by comparing your logs
 against committed “golden” logs.
 
-### Run tutorial manually
+#### Run tutorial manually
 
 In two terminals:
 ```bash
@@ -320,14 +322,14 @@ python -m tlslp.client --tutorial
 bash scripts/compare-tutorial-logs.sh
 ```
 
-### Expected logs (golden files)
+#### Expected logs (golden files)
 
 The expected tutorial logs are stored in the repository at:
 
 - `docs/tutorial/server.log`
 - `docs/tutorial/client.log`
 
-### Where your local logs are written (Ubuntu/WSL)
+#### Where your local logs are written (Ubuntu/WSL)
 
 On Ubuntu/WSL, this project writes persistent logs under the XDG State directory:
 
@@ -342,7 +344,7 @@ So the default log files are:
 - `~/.local/state/tlslp/logs/server.log`
 - `~/.local/state/tlslp/logs/client.log`
 
-## What is happening?
+### What is happening?
 The client will connect to the server and answer the various commands sent by the server.  The server will first send a
 a handshake set of commands (HELLO and WORK).  Once the WORK challenge is solved by the client under 2 hours, the correct
 suffix will be sent to the server and a further 20 random commands will be sent.  If ERROR is randomly selected, the
@@ -372,7 +374,7 @@ A list of make commands is made available through ``Makefile``.  The following l
 - make run-client: Run client (local)
 - make bench: Quick benchmark for pow (example)
 
-## Demo GIF
+### Demo GIF
 The ```.cast``` file is available for easy regeneration of the GIF file.  The following commands were used 
 to create the [GIF](#short-demo-server--client-solving-pow-and-answering-requests) from a clean folder.
 ```bash
