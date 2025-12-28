@@ -91,7 +91,7 @@ Expected tutorial logs live here:
 - `docs/tutorial/server.log`
 - `docs/tutorial/client.log`
 
-### Compare using the provided script
+#### Compare using the provided script
 From the repository root:
 ```bash
 bash scripts/compare-tutorial-logs.sh
@@ -497,6 +497,6 @@ these fellows have put into the project's growth and improvement.
 
 ## License
 
-TLS line protocol is distributed under the GPL-3.0 license. 
+TLS line protocol is distributed under the GPL-3.0 license.  For more info, see [`LICENSE`](LICENSE).
 
 <!-- docs:end -->
