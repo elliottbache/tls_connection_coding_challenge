@@ -42,7 +42,6 @@ More details on how the project works are in the [Guide](docs/guide.md).
 ## Table of Contents
 
 - [Quickstart](#quickstart)
-- [Demo GIF](#short-demo-server--client-solving-pow-and-answering-requests)
 - [Installation](#installation-manual-for-development-or-troubleshooting)
 - [Execution / Usage](#execution--usage-manual-for-development-or-troubleshooting)
 - [Development](#development)
@@ -437,11 +436,44 @@ ctest src/tlslp/_bin/pow_core_test <token> <difficulty>
 ```
 
 ## Technologies
+This project is built with:
 
-TLS line protocol uses the following technologies and tools:
+**Languages**
 
-- [![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://www.python.org/)
-- [![Sphinx](https://img.shields.io/badge/Sphinx-3B4D92?style=for-the-badge&logo=sphinx&logoColor=white)](https://www.sphinx-doc.org/en/master/)
+- Python 3.11
+- C++20
+
+**Python ecosystem**
+
+- pandas – tabular data wrangling
+
+**C++ / native tooling**
+
+- CMake – cross-platform C++ build system
+- CTest – test runner integrated with CMake
+- GoogleTest – C++ unit testing framework
+
+**Testing & quality**
+
+- pytest – Python unit & integration tests
+- mypy – static type checking for Python
+- flake8 – linting
+- black – code formatting
+
+**Documentation**
+
+- Sphinx – API & narrative documentation
+- MyST – Markdown support for Sphinx
+- autodoc / autosummary – auto-generated API docs from docstrings
+- Read the Docs – hosted documentation
+
+**Environment & automation**
+
+- pip / pipx – installation
+- Make (helper commands: `make setup`, `make run`, `make tutorial`, …)
+- Docker / docker-compose (optional containerized environment)
+- GitHub Actions (CI pipeline)
+- codecov (test coverage reporting)
 
 ## Security
 
