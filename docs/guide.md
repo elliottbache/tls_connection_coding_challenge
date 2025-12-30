@@ -31,7 +31,7 @@ sequenceDiagram
   C->>C: find suffix so that SHA256(token+suffix) has N hex zeros
   C->>S: <suffix>\n
 
-  S->>C: MAILNUM <arg>\n (and other info requests)
+  S->>C: EEMAIL1 <arg>\n (and other info requests)
   C->>S: <sha256(token+arg)> <response>\n
 
   S->>C: DONE\n
@@ -65,7 +65,7 @@ current diagram in README.md.
     - `prepare_client_socket(...)` – build TLS client context and return a wrapped socket.
     - `connect_to_server(...)` – connect with clear error reporting.
     - `decipher_message(...)` – validate/parse incoming line into tokens.
-    - `run_pow_binary(...)` / `handle_pow_cpp(...)` – run external WORK solver and parse `RESULT:<suffix>`.
+    - `run_work_binary(...)` / `handle_work_cpp(...)` – run external WORK solver and parse `RESULT:<suffix>`.
     - `define_response(...)` – generate a response string for a command.
     - `_process_message_with_timeout(...)` – enforce per-command timeouts (WORK vs others).
     - `main(...)` – CLI entrypoint.
@@ -73,8 +73,8 @@ current diagram in README.md.
     - `configure_logging(...)` – root logger setup (file + stderr).
 
 - **C++ WORK solver** (`cpp/`)
-  - `pow_challenge.cpp` + `pow_core.*` – compiled to an executable that prints a `RESULT:<suffix>` line.
-  - Default runtime location is `src/tlslp/_bin/pow_challenge` (override with `--pow-binary`).
+  - `work_challenge.cpp` + `work_core.*` – compiled to an executable that prints a `RESULT:<suffix>` line.
+  - Default runtime location is `src/tlslp/_bin/work_challenge` (override with `--work-binary`).
 
 
 ### Repository layout
@@ -103,12 +103,12 @@ current diagram in README.md.
 ├── README.md
 ├── cpp
 │   ├── CMakeLists.txt
-│   ├── pow_challenge.cpp
-│   ├── pow_core.cpp
-│   ├── pow_core.h
-│   ├── pow_core_internal.h
+│   ├── work_challenge.cpp
+│   ├── work_core.cpp
+│   ├── work_core.h
+│   ├── work_core_internal.h
 │   └── tests
-│       └── pow_core_test.cpp
+│       └── work_core_test.cpp
 ├── docker
 │   ├── client.Dockerfile
 │   └── server.Dockerfile
@@ -164,7 +164,7 @@ tree -a -L 4 -I ".git|.venv|__pycache__|*.egg-info|.pytest_cache|.mypy_cache|.ru
    - Non-WORK commands use a short timeout (default 6s, configurable).
    - WORK can be long (default 2h, configurable) and is solved by an external binary.
 5. Send the response using `send_message(...)` (adds `\n` if missing).
-6. Stop on `ERROR` from the server or after responding to `DONE`.
+6. Stop on `FAIL` from the server or after responding to `DONE`.
 
 The following should be taken into account:
 - Multiline messages are not supported since this was not part of the coding
@@ -189,17 +189,15 @@ commands have a timeout of 6 seconds except the WORK challenge, which has a
 - `WORK <token> <difficulty>\n` → client replies with a valid `<suffix>\n`.
   - **Validity**: `SHA256(token + suffix)` starts with `<difficulty>` hex zeros.
 - Info requests (examples below use `<arg>` as server-provided string):
-  - `FULL_NAME <arg>\n`
-  - `MAILNUM <arg>\n`
-  - `EMAIL1 <arg>\n`
-  - `EMAIL2 <arg>\n`
+  - `FULL_FULL_NAME <arg>\n`
+  - `EEMAIL1 <arg>\n`
+  - `EEMAIL2 <arg>\n`
   - `SOCIAL <arg>\n`
   - `BIRTHDATE <arg>\n`
   - `COUNTRY <arg>\n`
-  - `ADDRNUM <arg>\n`
   - `ADDR_LINE1 <arg>\n`
   - `ADDR_LINE2 <arg>\n`
-- `ERROR <reason>\n` → client should stop.
+- `FAIL <reason>\n` → client should stop.
 - `DONE\n` → client replies `OK\n` and closes.
 
 ### Client responses
@@ -212,7 +210,7 @@ Client reply format:
 ### Error handling
 - Invalid UTF-8, missing newline (typically surfaces as a timeout), overlong line, or unexpected tokenization → treat as a protocol/transport error and stop.
 - Timeouts are enforced **per operation**:
-  - Client: WORK vs non-WORK handling is bounded (`--pow-timeout` / `--other-timeout`).
+  - Client: WORK vs non-WORK handling is bounded (`--work-timeout` / `--other-timeout`).
   - Server: socket timeouts are set per request/response step.
 
 
@@ -306,7 +304,7 @@ fail closed: treat all network input as untrusted, validate aggressively, and st
   - Server: each request/response step sets a timeout appropriate to the step (WORK vs non-WORK).
   - Client: command handling is bounded with a hard timeout (WORK vs non-WORK) enforced in `_process_message_with_timeout(...)`.
 - Bound the WORK solver execution time:
-  - `subprocess.run(..., timeout=...)` inside `run_pow_binary(...)`.
+  - `subprocess.run(..., timeout=...)` inside `run_work_binary(...)`.
 
 Defaults are chosen for the challenge (short for non-WORK, long for WORK), and are configurable via CLI flags.
 
@@ -354,7 +352,7 @@ The WORK solver is intentionally an external executable.  It is treated like unt
 
 **How** this is done:
 - Never use ```shell=True```.
-- Pass args as a list: ```["/abs/path/pow_benchmark", token, difficulty]``` (you do this).
+- Pass args as a list: ```["/abs/path/work_challenge", token, difficulty]``` (you do this).
 - Resolve and vet the binary path:
     - ```Path(...).resolve(strict=True)``` (prevents PATH tricks)
     - refuse symlinks
@@ -435,7 +433,7 @@ bool has_leading_zeros(const uint8_t* d, int bits) {
   
 ### Build
 The Python client expects an executable WORK solver. By default, it looks for it at:
-`src/tlslp/_bin/pow_challenge` (override with `--pow-binary`).
+`src/tlslp/_bin/work_challenge` (override with `--work-binary`).
 #### Recommended
 ```bash
 make build-cpp
@@ -446,14 +444,14 @@ the binary into the package’s _bin/ directory (so the default path works).  Fr
 ```bash
 mkdir -p build
 cd cpp
-g++ -O3 -std=c++17 pow_challenge.cpp pow_core.cpp -o ../build/pow_challenge -lssl -lcrypto -pthread
-cp ../build/pow_challenge ../src/tlslp/_bin/pow_challenge
+g++ -O3 -std=c++17 work_challenge.cpp work_core.cpp -o ../build/work_challenge -lssl -lcrypto -pthread
+cp ../build/work_challenge ../src/tlslp/_bin/work_challenge
 ```
 
 ### Run:
 From root:
 ```bash
-./src/tlslp/_bin/pow_challenge <token> <difficulty>
+./src/tlslp/_bin/work_challenge <token> <difficulty>
 # stdout line: RESULT:<suffix>\n
 ```
 ### Benchmarking 

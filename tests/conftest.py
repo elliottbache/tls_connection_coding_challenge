@@ -25,13 +25,13 @@ def readerr(capsys) -> Callable[[], Any]:
 
 
 @pytest.fixture
-def path_to_pow_challenge():
-    return "path/to/pow_challenge"
+def path_to_work_challenge():
+    return "path/to/work_challenge"
 
 
 @pytest.fixture
 def valid_messages():
-    return {"MAILNUM", "HELLO", "WORK", "ERROR"}
+    return {"EEMAIL1", "HELLO", "WORK", "FAIL"}
 
 
 @pytest.fixture
@@ -45,7 +45,7 @@ def suffix():
 
 
 @pytest.fixture
-def pow_hash(token, suffix):
+def work_hash(token, suffix):
     return hashlib.sha256((token + suffix).encode()).hexdigest()  # noqa: S324
 
 

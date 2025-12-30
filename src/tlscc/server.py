@@ -8,7 +8,7 @@ command protocol over TLS. The server:
    - Sends ``HELLO`` and expects ``HELLOBACK``.
    - Sends ``WORK <token> <difficulty>`` and expects a suffix that yields a SHA256
    hash with the required number of leading zeros.
-3) Sends a sequence of body requests (e.g., ``FULL_NAME``, ``MAILNUM``, ...). The client
+3) Sends a sequence of body requests (e.g., ``FULL_FULL_NAME``, ``EEMAIL1``, ...). The client
    responds with ``<cksum> <value>`` where ``cksum = SHA256(token + random_string)``.
 4) Finishes with ``DONE`` and expects ``OK``.
 
@@ -41,8 +41,8 @@ from tlslp.protocol import (
     DEFAULT_BODY_MESSAGES,
     DEFAULT_CA_CERT,
     DEFAULT_OTHER_TIMEOUT,
-    DEFAULT_WORK_TIMEOUT,
     DEFAULT_SERVER_HOST,
+    DEFAULT_WORK_TIMEOUT,
     ProtocolError,
     TransportError,
     _parse_positive_int,
@@ -68,7 +68,7 @@ class ServerConfig:
     server_cert: str
     server_key: str
     ca_cert: str
-    pow_timeout: int
+    work_timeout: int
     other_timeout: int
     insecure: bool
     token: str
@@ -127,7 +127,7 @@ def build_server_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--pow-timeout",
+        "--work-timeout",
         default=DEFAULT_WORK_TIMEOUT,
         type=_parse_positive_int,
         help=f"timeout (s) for WORK (default: {DEFAULT_WORK_TIMEOUT})",
@@ -195,7 +195,7 @@ def args_to_server_config(ns: argparse.Namespace) -> ServerConfig:
         server_cert=ns.server_cert,
         server_key=ns.server_key,
         ca_cert=ns.ca_cert,
-        pow_timeout=ns.pow_timeout,
+        work_timeout=ns.work_timeout,
         other_timeout=ns.other_timeout,
         insecure=ns.insecure,
         token=ns.token,
@@ -258,7 +258,7 @@ def send_and_receive(
     - Receives a single-line reply using ``tlslp.protocol.receive_message``.
     - For ``WORK`` commands, validates the suffix difficulty requirement.
     - For body commands, validates the checksum.
-    - For ``ERROR`` commands, no reply is expected (returns ``""``).
+    - For ``FAIL`` commands, no reply is expected (returns ``""``).
 
     Args:
         token (str): Authentication data used for checksum/suffix validation.
@@ -267,7 +267,7 @@ def send_and_receive(
         timeout (float): Receive timeout in seconds for this step.
 
     Returns:
-        (str): The received message (without trailing newline), or ``""`` for ``ERROR`` sends.
+        (str): The received message (without trailing newline), or ``""`` for ``FAIL`` sends.
 
     Raises:
         ProtocolError: If the peer violates protocol framing/encoding.
@@ -292,11 +292,11 @@ def send_and_receive(
     try:
         send_message(to_send, secure_sock)
     except Exception:
-        send_error("ERROR sending.", secure_sock)
+        send_fail("FAIL sending.", secure_sock)
         raise
 
     # no waiting to receive a message from client
-    if to_send.startswith("ERROR"):
+    if to_send.startswith("FAIL"):
         return ""
 
     try:
@@ -304,42 +304,42 @@ def send_and_receive(
     except TransportError as e:
         raise TransportError(f"ERROR receiving. {e}") from e
     except ProtocolError as e:
-        send_error("ERROR receiving.", secure_sock)
+        send_fail("FAIL receiving.", secure_sock)
         raise ProtocolError(f"ERROR receiving. {e}") from e
 
     # check WORK suffix
     if to_send.startswith("WORK") and not _check_suffix(
         to_send, token, received_message
     ):
-        send_error("ERROR Invalid suffix returned from client.", secure_sock)
+        send_fail("FAIL Invalid suffix returned from client.", secure_sock)
         raise ValueError(r"Invalid suffix returned from client.")
     # check checksum for rest of possible messages
     elif not (
         to_send.startswith("WORK")
         or to_send.startswith("HELLO")
-        or to_send.startswith("ERROR")
+        or to_send.startswith("FAIL")
         or to_send.startswith("DONE")
     ) and not _check_cksum(to_send, token, received_message):
-        send_error("ERROR Invalid checksum received.", secure_sock)
+        send_fail("FAIL Invalid checksum received.", secure_sock)
         raise ValueError(r"Invalid checksum received.")
 
     return received_message
 
 
-def send_error(to_send: str, secure_sock: socket.socket) -> None:
-    """Best-effort send of an ``ERROR ...`` message.
+def send_fail(to_send: str, secure_sock: socket.socket) -> None:
+    """Best-effort send of an ``FAIL ...`` message.
 
     This is used to notify the client after a failure (e.g., bad checksum).
     Any exception while sending is caught and logged.
 
     Args:
-        to_send (str): Error message to send (typically starts with ``"ERROR"``).
+        to_send (str): Error message to send (typically starts with ``"FAIL"``).
         secure_sock (socket.socket): Connected socket to send on.
     """
     try:
         send_message(to_send, secure_sock)
     except Exception:
-        logger.exception("Error could not be sent.")
+        logger.exception("FAIL could not be sent.")
     finally:
         pass
 
@@ -422,7 +422,7 @@ def handle_one_session(
     """Handle a single connected client session.
 
     Runs the handshake (HELLO + WORK), then sends a series of body requests, and
-    finishes with ``DONE`` unless an ``ERROR`` condition is triggered.
+    finishes with ``DONE`` unless a ``FAIL`` condition is triggered.
 
     Args:
         is_secure (bool): True if mTLS is expected (client cert required).
@@ -460,7 +460,7 @@ def handle_one_session(
         cfg.token,
         "WORK " + str(cfg.token) + " " + str(cfg.difficulty),
         secure_sock,
-        cfg.pow_timeout,
+        cfg.work_timeout,
     )
     logger.debug(f"Valid suffix returned from client: {msg!r}")
     this_hash = hashlib.sha256((cfg.token + msg).encode()).hexdigest()  # noqa: S324
@@ -473,7 +473,7 @@ def handle_one_session(
         n_body_messages = len(body_messages)
     else:
         n_body_messages = 20
-        body_messages.append("ERROR")
+        body_messages.append("FAIL")
 
     for idx in range(n_body_messages):
         # in tutorial mode, send each message once, else in normal mode, randomly select requests
@@ -494,7 +494,7 @@ def handle_one_session(
         )
 
         # if internal server error, break and close connection
-        if choice.startswith("ERROR"):
+        if choice.startswith("FAIL"):
             break
 
         split_msg = msg.split(" ", maxsplit=1)
@@ -504,8 +504,8 @@ def handle_one_session(
         logger.debug(f"Checksum received: {cksum!r}")
 
     # end message
-    if choice is not None and not choice.startswith("ERROR"):
-        logger.info("Step: end")
+    if choice is not None and not choice.startswith("FAIL"):
+        logger.info("Step: done")
         logger.debug("Sending DONE")
         msg = send_and_receive(cfg.token, "DONE", secure_sock, cfg.other_timeout)
         logger.info(f"Received {msg!r}")
