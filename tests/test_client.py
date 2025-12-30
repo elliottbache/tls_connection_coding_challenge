@@ -91,7 +91,7 @@ def fake_bin(tmp_path):
     new_path = tmp_path
     # switch off others write access
     new_path.chmod(new_path.stat().st_mode & ~stat.S_IWOTH)
-    new_bin = new_path / "pow_challenge"
+    new_bin = new_path / "work_challenge"
     new_bin.touch()
     # switch off others write access
     new_bin.chmod(new_bin.stat().st_mode & ~stat.S_IWOTH)
@@ -200,10 +200,10 @@ class TestDecipherMessage:
     @pytest.mark.parametrize(
         "message, is_err, expected, err_type, err_message",
         [
-            ("MAILNUM LGTk\n", False, ["MAILNUM", "LGTk"], None, ""),
+            ("EEMAIL1 LGTk\n", False, ["EEMAIL1", "LGTk"], None, ""),
             ("", True, [], ValueError, "No args in the response"),
             ("INCORRECT LGTk\n", True, [], ValueError, "This response is not valid:"),
-            ("MAILNUM\n", False, ["MAILNUM", ""], None, ""),
+            ("EEMAIL1\n", False, ["EEMAIL1", ""], None, ""),
         ],
     )
     def test_decipher_message_cases(
@@ -219,15 +219,15 @@ class TestDecipherMessage:
                 assert arg == expect
 
 
-class TestRunPowBinary:
-    def test_run_pow_binary_success(
+class TestRunWorkBinary:
+    def test_run_work_binary_success(
         self,
         fake_bin,
         token,
         difficulty,
         suffix,
-        pow_hash,
-        path_to_pow_challenge,
+        work_hash,
+        path_to_work_challenge,
         monkeypatch,
         readout,
     ):
@@ -251,7 +251,7 @@ class TestRunPowBinary:
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
-        result = client.run_pow_binary(fake_bin, token, difficulty)
+        result = client.run_work_binary(fake_bin, token, difficulty)
 
         assert isinstance(result, FakeCompleted)
         assert result.returncode == 0
@@ -270,23 +270,23 @@ class TestRunPowBinary:
         assert calls["cwd"] == os.fspath(fake_bin.parent)
         assert calls["env"] == {"LC_ALL": "C"}
 
-    def test_run_pow_binary_non_str_token(
-        self, fake_bin, difficulty, path_to_pow_challenge, monkeypatch
+    def test_run_work_binary_non_str_token(
+        self, fake_bin, difficulty, path_to_work_challenge, monkeypatch
     ):
         wrong_token = 5.3
 
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
         with pytest.raises(TypeError, match=r"Tested variable is not a string."):
-            client.run_pow_binary(fake_bin, wrong_token, difficulty)
+            client.run_work_binary(fake_bin, wrong_token, difficulty)
 
-    def test_run_pow_binary_invalid_token(self, difficulty, fake_bin, monkeypatch):
+    def test_run_work_binary_invalid_token(self, difficulty, fake_bin, monkeypatch):
         wrong_token = "poiasfdlkas+/"
 
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
         with pytest.raises(
             ValueError, match="String contains disallowed characters or length"
         ):
-            client.run_pow_binary(fake_bin, wrong_token, difficulty)
+            client.run_work_binary(fake_bin, wrong_token, difficulty)
 
         wrong_token = (
             "poiasfdlkaspppppppppppppppppppppppppppppppppppppppppppppppp"
@@ -296,39 +296,39 @@ class TestRunPowBinary:
         with pytest.raises(
             ValueError, match="String contains disallowed characters or length"
         ):
-            client.run_pow_binary(fake_bin, wrong_token, difficulty)
+            client.run_work_binary(fake_bin, wrong_token, difficulty)
 
-    def test_run_pow_binary_non_int_difficulty(self, token, fake_bin, monkeypatch):
+    def test_run_work_binary_non_int_difficulty(self, token, fake_bin, monkeypatch):
         wrong_difficulty = "five"
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
         with pytest.raises(TypeError, match="WORK difficulty is not an integer"):
-            client.run_pow_binary(fake_bin, token, wrong_difficulty)
+            client.run_work_binary(fake_bin, token, wrong_difficulty)
 
-    def test_run_pow_binary_invalid_difficulty(self, token, fake_bin, monkeypatch):
+    def test_run_work_binary_invalid_difficulty(self, token, fake_bin, monkeypatch):
         wrong_difficulty = 65
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
         with pytest.raises(ValueError, match="WORK difficulty is out of range"):
-            client.run_pow_binary(fake_bin, token, wrong_difficulty)
+            client.run_work_binary(fake_bin, token, wrong_difficulty)
 
-    def test_run_pow_binary_error(
+    def test_run_work_binary_error(
         self, token, difficulty, suffix, fake_bin, monkeypatch
     ):
         def fake_subprocess_run(*a, **k):
             raise subprocess.CalledProcessError(
                 returncode=1,
                 stderr="Big, bad error",
-                cmd="pow_challenge gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFC"
+                cmd="work_challenge gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFC"
                 + "AzuwkwLCRgIIq 6",
             )
 
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
         with pytest.raises(subprocess.CalledProcessError):
-            client.run_pow_binary(fake_bin, token, difficulty)
+            client.run_work_binary(fake_bin, token, difficulty)
 
-    def test_run_pow_binary_timeout(
+    def test_run_work_binary_timeout(
         self, token, difficulty, suffix, fake_bin, monkeypatch
     ):
         timeout = 1
@@ -338,26 +338,26 @@ class TestRunPowBinary:
                 timeout=timeout,
                 output="",
                 stderr="",
-                cmd="pow_challenge gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFC"
+                cmd="work_challenge gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFC"
                 + "AzuwkwLCRgIIq 6",
             )
 
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
         with pytest.raises(subprocess.TimeoutExpired):
-            client.run_pow_binary(fake_bin, token, difficulty)
+            client.run_work_binary(fake_bin, token, difficulty)
 
 
-class TestHandlePowCpp:
-    def test_handle_pow_cpp_success(
+class TestHandleWorkCpp:
+    def test_handle_work_cpp_success(
         self,
         fake_bin,
         token,
         difficulty,
         timeout,
         suffix,
-        pow_hash,
-        path_to_pow_challenge,
+        work_hash,
+        path_to_work_challenge,
         monkeypatch,
         readout,
     ):
@@ -370,11 +370,11 @@ class TestHandlePowCpp:
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
-        suffix_output = client.handle_pow_cpp(token, difficulty, fake_bin)
+        suffix_output = client.handle_work_cpp(token, difficulty, fake_bin)
 
         assert suffix_output == suffix + "\n"
 
-    def test_handle_pow_cpp_no_result(
+    def test_handle_work_cpp_no_result(
         self, token, difficulty, timeout, fake_bin, monkeypatch
     ):
 
@@ -385,57 +385,57 @@ class TestHandlePowCpp:
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
         with pytest.raises(ValueError, match=r"No RESULT found in WORK output."):
-            client.handle_pow_cpp(token, difficulty, fake_bin, timeout)
+            client.handle_work_cpp(token, difficulty, fake_bin, timeout)
 
 
 class TestDefineResponse:
     def test_define_response_success_helo(
-        self, token, valid_messages, path_to_pow_challenge, readout
+        self, token, valid_messages, path_to_work_challenge, readout
     ):
         q = queue.Queue()
         responses = {}
         client.define_response(
-            ["HELLO"], token, valid_messages, q, responses, path_to_pow_challenge
+            ["HELLO"], token, valid_messages, q, responses, path_to_work_challenge
         )
         assert q.get() == (False, "HELLOBACK\n")
 
         out = readout()
         assert out == ""
 
-    def test_define_response_success_end(
-        self, token, valid_messages, path_to_pow_challenge, readout
+    def test_define_response_success_done(
+        self, token, valid_messages, path_to_work_challenge, readout
     ):
         q = queue.Queue()
         responses = {}
         client.define_response(
-            ["DONE"], token, valid_messages, q, responses, path_to_pow_challenge
+            ["DONE"], token, valid_messages, q, responses, path_to_work_challenge
         )
         assert q.get() == (False, "OK\n")
 
-    def test_define_response_success_error(
-        self, token, valid_messages, path_to_pow_challenge
+    def test_define_response_success_fail(
+        self, token, valid_messages, path_to_work_challenge
     ):
         q = queue.Queue()
         responses = {}
         client.define_response(
-            ["ERROR", "test", "args"],
+            ["FAIL", "test", "args"],
             token,
             valid_messages,
             q,
             responses,
-            path_to_pow_challenge,
+            path_to_work_challenge,
         )
         assert q.get() == (False, "\n")
 
     def test_define_response_success(
-        self, token, random_string, valid_messages, path_to_pow_challenge
+        self, token, random_string, valid_messages, path_to_work_challenge
     ):
         q = queue.Queue()
-        responses = {"MAILNUM": "2"}
-        args = ["MAILNUM", random_string]
+        responses = {"EEMAIL1": "elliottbache@gmail.com"}
+        args = ["EEMAIL1", random_string]
 
         client.define_response(
-            args, token, valid_messages, q, responses, path_to_pow_challenge
+            args, token, valid_messages, q, responses, path_to_work_challenge
         )
         out_string = (
             hashlib.sha256((token + args[1]).encode()).hexdigest()  # noqa: S324
@@ -445,37 +445,37 @@ class TestDefineResponse:
         )
         assert q.get() == (False, out_string)
 
-    def test_define_response_success_pow(
+    def test_define_response_success_work(
         self,
         token,
         difficulty,
         random_string,
         suffix,
         valid_messages,
-        path_to_pow_challenge,
+        path_to_work_challenge,
         monkeypatch,
     ):
         q = queue.Queue()
-        responses = {"MAILNUM": "2"}
+        responses = {"EEMAIL1": "elliottbache@gmail.com"}
         args = ["WORK", token, difficulty]
 
-        def fake_handle_pow_cpp(*args, **kwargs):
+        def fake_handle_work_cpp(*args, **kwargs):
             return suffix + "\n"
 
-        monkeypatch.setattr(client, "handle_pow_cpp", fake_handle_pow_cpp)
+        monkeypatch.setattr(client, "handle_work_cpp", fake_handle_work_cpp)
 
         client.define_response(
-            args, token, valid_messages, q, responses, path_to_pow_challenge
+            args, token, valid_messages, q, responses, path_to_work_challenge
         )
         assert q.get() == (False, suffix + "\n")
 
     def test_define_response_success_invalid(
-        self, token, valid_messages, path_to_pow_challenge
+        self, token, valid_messages, path_to_work_challenge
     ):
         q = queue.Queue()
         responses = {}
         client.define_response(
-            ["HELLOP"], token, valid_messages, q, responses, path_to_pow_challenge
+            ["HELLOP"], token, valid_messages, q, responses, path_to_work_challenge
         )
         assert q.get() == (True, "\n")
 
@@ -486,20 +486,20 @@ class TestDefineResponse:
         random_string,
         suffix,
         valid_messages,
-        path_to_pow_challenge,
+        path_to_work_challenge,
         monkeypatch,
     ):
         q = queue.Queue()
-        responses = {"MAILNUM": "2"}
+        responses = {"EEMAIL1": "elliottbache@gmail.com"}
         args = ["WORK", token, difficulty]
 
-        def fake_handle_pow_cpp(*args, **kwargs):
+        def fake_handle_work_cpp(*args, **kwargs):
             return suffix
 
-        monkeypatch.setattr(client, "handle_pow_cpp", fake_handle_pow_cpp)
+        monkeypatch.setattr(client, "handle_work_cpp", fake_handle_work_cpp)
 
         client.define_response(
-            args, token, valid_messages, q, responses, path_to_pow_challenge
+            args, token, valid_messages, q, responses, path_to_work_challenge
         )
         assert q.get() == (False, suffix)
 
@@ -563,21 +563,21 @@ class TestReceiveAndDecipherMessage:
 
         def fake_receive_message(sock, *args):
             fake_sock.calls["sock"] = sock
-            return "MAILNUM LGTk"
+            return "EEMAIL1 LGTk"
 
         def fake_decipher_message(message, vm):
             fake_sock.calls["message"] = message
             fake_sock.calls["valid_messages"] = vm
-            return ["MAILNUM", "LGTk"]
+            return ["EEMAIL1", "LGTk"]
 
         monkeypatch.setattr(client, "receive_message", fake_receive_message)
         monkeypatch.setattr(client, "decipher_message", fake_decipher_message)
 
         args = client._receive_and_decipher_message(fake_sock, valid_messages)
 
-        assert args == ["MAILNUM", "LGTk"]
+        assert args == ["EEMAIL1", "LGTk"]
         assert fake_sock.calls["sock"] is fake_sock
-        assert fake_sock.calls["message"] == "MAILNUM LGTk"
+        assert fake_sock.calls["message"] == "EEMAIL1 LGTk"
         assert fake_sock.calls["valid_messages"] is valid_messages
 
     def test_receive_and_decipher_message_decipher_error(
@@ -625,14 +625,14 @@ class TestProcessMessageWithTimeout:
             valid_messages=valid_messages,
             responses={},
             bin_path=Path("/path/to/challenge"),
-            pow_timeout=999,
+            work_timeout=999,
             other_timeout=123,
         )
 
         assert response == "HELLOBACK\n"
         assert q.created["p"].join_timeouts[0] == 123
 
-    def test_process_message_with_timeout_success_uses_pow_timeout(
+    def test_process_message_with_timeout_success_uses_work_timeout(
         self, monkeypatch, token, valid_messages, suffix
     ):
         q = FakeMPQueue()
@@ -641,12 +641,12 @@ class TestProcessMessageWithTimeout:
             return q
 
         def fake_process_ctor(target, args):
-            # run target immediately; it will call handle_pow_cpp, so patch that
+            # run target immediately; it will call handle_work_cpp, so patch that
             p = FakeProcess(target=target, args=args, run_target=True, alive=False)
             q.created["p"] = p
             return p
 
-        monkeypatch.setattr(client, "handle_pow_cpp", lambda *a, **k: suffix + "\n")
+        monkeypatch.setattr(client, "handle_work_cpp", lambda *a, **k: suffix + "\n")
         monkeypatch.setattr(client.multiprocessing, "Queue", fake_queue_ctor)
         monkeypatch.setattr(client.multiprocessing, "Process", fake_process_ctor)
 
@@ -656,7 +656,7 @@ class TestProcessMessageWithTimeout:
             valid_messages=valid_messages,
             responses=client.DEFAULT_RESPONSES,
             bin_path=Path("/path/to/challenge"),
-            pow_timeout=777,
+            work_timeout=777,
             other_timeout=1,
         )
 
@@ -679,14 +679,14 @@ class TestProcessMessageWithTimeout:
         monkeypatch.setattr(client.multiprocessing, "Queue", fake_queue_ctor)
         monkeypatch.setattr(client.multiprocessing, "Process", fake_process_ctor)
 
-        with pytest.raises(TimeoutError, match=r"MAILNUM function timed out\."):
+        with pytest.raises(TimeoutError, match=r"EEMAIL1 function timed out\."):
             client._process_message_with_timeout(
-                args=["MAILNUM", "LGTk"],
+                args=["EEMAIL1", "LGTk"],
                 token=token,
                 valid_messages=valid_messages,
                 responses=client.DEFAULT_RESPONSES,
                 bin_path=Path("/path/to/challenge"),
-                pow_timeout=1,
+                work_timeout=1,
                 other_timeout=1,
             )
 
@@ -707,14 +707,14 @@ class TestProcessMessageWithTimeout:
             ),
         )
 
-        with pytest.raises(Exception, match=r"MAILNUM failed: bad"):
+        with pytest.raises(Exception, match=r"EEMAIL1 failed: bad"):
             client._process_message_with_timeout(
-                args=["MAILNUM", "LGTk"],
+                args=["EEMAIL1", "LGTk"],
                 token=token,
                 valid_messages=valid_messages,
                 responses=client.DEFAULT_RESPONSES,
                 bin_path=Path("/path/to/challenge"),
-                pow_timeout=1,
+                work_timeout=1,
                 other_timeout=1,
             )
 
@@ -734,7 +734,7 @@ class TestMain:
         monkeypatch.setattr(client, "prepare_client_socket", lambda *a, **k: fake_sock)
         monkeypatch.setattr(client, "connect_to_server", lambda sock, host, port: True)
 
-        # drive the main loop with 2 messages then DONE
+        # drive the main loop with 1 message then DONE
         seq = iter([["HELLO", ""], ["DONE", ""]])
         monkeypatch.setattr(
             client, "_receive_and_decipher_message", lambda *a, **k: next(seq)
@@ -759,7 +759,7 @@ class TestMain:
         assert sent == [("HELLOBACK\n", fake_sock), ("OK\n", fake_sock)]
         assert fake_sock.closed
 
-    def test_main_no_pow_binary(self, monkeypatch, valid_messages, readerr, tmp_path):
+    def test_main_no_work_binary(self, monkeypatch, valid_messages, readerr, tmp_path):
 
         bin_path = tmp_path / "non_existent_file.txt"
         monkeypatch.setattr(client, "DEFAULT_CPP_BINARY_PATH", str(bin_path))
@@ -772,7 +772,7 @@ class TestMain:
     @pytest.mark.skipif(
         sys.platform.startswith("win"), reason="POSIX chmod not supported on Windows"
     )
-    def test_main_pow_binary_not_executable(
+    def test_main_work_binary_not_executable(
         self, monkeypatch, valid_messages, readerr, fake_bin
     ):
 
@@ -788,7 +788,7 @@ class TestMain:
     @pytest.mark.skipif(
         sys.platform.startswith("win"), reason="POSIX chmod not supported on Windows"
     )
-    def test_main_pow_binary_writable_linux_executable(
+    def test_main_work_binary_writable_linux_executable(
         self, monkeypatch, valid_messages, readerr, fake_bin
     ):
         bin_path = fake_bin
@@ -800,7 +800,7 @@ class TestMain:
 
         assert "Insecure permissions" in str(e.value)
 
-    def test_main_server_error(self, monkeypatch, valid_messages, fake_bin):
+    def test_main_server_fail(self, monkeypatch, valid_messages, fake_bin):
 
         monkeypatch.setattr(client.os.path, "exists", lambda p: True)
 
@@ -814,8 +814,8 @@ class TestMain:
         monkeypatch.setattr(client, "prepare_client_socket", lambda *a, **k: fake_sock)
         monkeypatch.setattr(client, "connect_to_server", lambda sock, host, port: True)
 
-        # drive the main loop with HELLO then ERROR
-        seq = iter([["HELLO", ""], ["ERROR", ""]])
+        # drive the main loop with HELLO then FAIL
+        seq = iter([["HELLO", ""], ["FAIL", ""]])
         monkeypatch.setattr(
             client, "_receive_and_decipher_message", lambda *a, **k: next(seq)
         )

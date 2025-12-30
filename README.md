@@ -29,7 +29,7 @@ This repo implements a small TLS client/server pair that:
 - performs a simple line-based handshake (`HELLO` then `WORK`)
 - solves a Proof-of-Work challenge where the client must find a suffix so that `SHA256(token + suffix)` has 
 a required number of **leading hex zeros**
-- answers a sequence of server “info request” commands until `DONE` (or `ERROR`).
+- answers a sequence of server “info request” commands until `DONE` (or `FAIL`).
 
 The hasher (SHA256) is an explicit constraint from the challenge and **must not be changed** in
 this project.
@@ -163,7 +163,7 @@ pip install -e .[dev]
 ```
 
 ### Compile C++ WORK challenge binary
-The C++ code ```pow_challenge.cpp``` is used to find a checksum with enough leading zeroes for specified difficulty.  C++
+The C++ code ```work_challenge.cpp``` is used to find a checksum with enough leading zeroes for specified difficulty.  C++
 is used rather than Python due to its speed.
 #### Build binary
 ```bash
@@ -174,13 +174,13 @@ It can also be compiled directly without
 CMake or the Makefile in an Ubuntu terminal from the ```cpp``` folder, enter:
 ```bash
 mkdir ../build
-g++ -O3 -std=c++17 pow_challenge.cpp pow_core.cpp -o ../build/pow_challenge -lssl -lcrypto -pthread
+g++ -O3 -std=c++17 work_challenge.cpp work_core.cpp -o ../build/work_challenge -lssl -lcrypto -pthread
 ```
 
 #### Move files to binary directory
 ```bash
 mkdir -p src/tlslp/_bin
-cp build/pow_challenge src/tlslp/_bin/
+cp build/work_challenge src/tlslp/_bin/
 ```
 
 ### Create client and server side certificates
@@ -292,7 +292,7 @@ Various flags are available for running in CLI.  e.g.
 ```sh
 # For quick localhost development only (skips certificate verification):
 tlslp-client --host localhost --ports 1234 \
-  --pow-bin bin/pow_challenge --insecure
+  --work-bin bin/work_challenge --insecure
 ```
 A typical command for development is:
 ```bash
@@ -346,7 +346,7 @@ So the default log files are:
 ### What is happening?
 The client will connect to the server and answer the various commands sent by the server.  The server will first send a
 a handshake set of commands (HELLO and WORK).  Once the WORK challenge is solved by the client under 2 hours, the correct
-suffix will be sent to the server and a further 20 random commands will be sent.  If ERROR is randomly selected, the
+suffix will be sent to the server and a further 20 random commands will be sent.  If FAIL is randomly selected, the
 connection will close.  Otherwise, the final command will be DONE.
 
 ## Development
@@ -371,11 +371,11 @@ A list of make commands is made available through ``Makefile``.  The following l
 - make test-cpp: Run CTest
 - make run-server: Run server (local)
 - make run-client: Run client (local)
-- make bench: Quick benchmark for pow (example)
+- make bench: Quick benchmark for WORK (example)
 
 ### Demo GIF
 The ```.cast``` file is available for easy regeneration of the GIF file.  The following commands were used 
-to create the [GIF](#short-demo-server--client-solving-pow-and-answering-requests) from a clean folder.
+to create the [GIF](#short-demo-server--client-solving-work-and-answering-requests) from a clean folder.
 ```bash
 asciinema rec -i 3 --overwrite -t "TLSCC demo" -c "tmux new-session -A -s tlslp-demo" demo.cast
 git clone https://github.com/elliottbache/tls_line_protocol.git
@@ -432,7 +432,7 @@ cmake --build build --config Release
 ```
 and run with:
 ```bash
-ctest src/tlslp/_bin/pow_core_test <token> <difficulty>
+ctest src/tlslp/_bin/work_core_test <token> <difficulty>
 ```
 
 ## Technologies

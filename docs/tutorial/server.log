@@ -2,26 +2,22 @@
 2000-01-01T00:00:00+0100 INFO tlslp.server: Server listening on https://'localhost':1234
 2000-01-01T00:00:00+0100 INFO tlslp.server: Connection from address: '127.0.0.1'
 2000-01-01T00:00:00+0100 INFO tlslp.server: Step: handshake
-2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'name'
+2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'full_name'
 2000-01-01T00:00:00+0100 INFO tlslp.server: Received 'Elliott Bache'
-2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'mailnum'
-2000-01-01T00:00:00+0100 INFO tlslp.server: Received '2'
-2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'mail1'
+2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'email1'
 2000-01-01T00:00:00+0100 INFO tlslp.server: Received 'elliottbache@gmail.com'
-2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'mail2'
+2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'email2'
 2000-01-01T00:00:00+0100 INFO tlslp.server: Received 'elliottbache2@gmail.com'
-2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'skype'
+2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'social'
 2000-01-01T00:00:00+0100 INFO tlslp.server: Received 'elliottbache@hotmail.com'
 2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'birthdate'
 2000-01-01T00:00:00+0100 INFO tlslp.server: Received '99.99.1982'
 2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'country'
 2000-01-01T00:00:00+0100 INFO tlslp.server: Received 'USA'
-2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'addrnum'
-2000-01-01T00:00:00+0100 INFO tlslp.server: Received '2'
-2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'addrline1'
+2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'addr_line1'
 2000-01-01T00:00:00+0100 INFO tlslp.server: Received '234 Evergreen Terrace'
-2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'addrline2'
+2000-01-01T00:00:00+0100 INFO tlslp.server: Step: 'addr_line2'
 2000-01-01T00:00:00+0100 INFO tlslp.server: Received 'Springfield'
-2000-01-01T00:00:00+0100 INFO tlslp.server: Step: end
+2000-01-01T00:00:00+0100 INFO tlslp.server: Step: done
 2000-01-01T00:00:00+0100 INFO tlslp.server: Received 'OK'
 2000-01-01T00:00:00+0100 INFO tlslp.server: Connection closed

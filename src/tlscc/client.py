@@ -6,7 +6,7 @@ the external IP address are not quoted here for confidentiality reasons.
 The client connects to a server, receives newline-delimited commands, and responds
 one-by-one. The handshake consists of ``HELLO`` followed by a ``WORK`` challenge. The
 WORK challenge must be resolved within 2 hours; it is solved by invoking a compiled
-C++ helper (``pow_challenge``).
+C++ helper (``work_challenge``).
 
 Main functions:
     prepare_client_socket:
@@ -18,7 +18,7 @@ Main functions:
     decipher_message:
         Parse and validate a received command line.
 
-    handle_pow_cpp:
+    handle_work_cpp:
         Run the WORK helper and parse its ``RESULT:<suffix>`` output line.
 
     define_response:
@@ -52,8 +52,8 @@ from tlslp.protocol import (
     DEFAULT_BODY_MESSAGES,
     DEFAULT_CA_CERT,
     DEFAULT_OTHER_TIMEOUT,
-    DEFAULT_WORK_TIMEOUT,
     DEFAULT_SERVER_HOST,
+    DEFAULT_WORK_TIMEOUT,
     MAX_LINE_LENGTH,
     TransportError,
     _parse_positive_int,
@@ -62,18 +62,16 @@ from tlslp.protocol import (
 )
 
 DEFAULT_CPP_BINARY_PATH = str(
-    Path(__file__).parent / "_bin/pow_challenge"
+    Path(__file__).parent / "_bin/work_challenge"
 )  # path to C++ executable
 DEFAULT_ALLOWED_ROOT = str(Path(__file__).parent / "_bin")
 DEFAULT_RESPONSES = {
-    "FULL_NAME": "Elliott Bache",
-    "MAILNUM": "2",
-    "EMAIL1": "elliottbache@gmail.com",
-    "EMAIL2": "elliottbache2@gmail.com",
+    "FULL_FULL_NAME": "Elliott Bache",
+    "EEMAIL1": "elliottbache@gmail.com",
+    "EEMAIL2": "elliottbache2@gmail.com",
     "SOCIAL": "elliottbache@hotmail.com",
     "BIRTHDATE": "99.99.1982",
     "COUNTRY": "USA",
-    "ADDRNUM": "2",
     "ADDR_LINE1": "234 Evergreen Terrace",
     "ADDR_LINE2": "Springfield",
 }
@@ -81,7 +79,7 @@ DEFAULT_VALID_MESSAGES = set(DEFAULT_BODY_MESSAGES)
 DEFAULT_VALID_MESSAGES.add("HELLO")
 DEFAULT_VALID_MESSAGES.add("WORK")
 DEFAULT_VALID_MESSAGES.add("DONE")
-DEFAULT_VALID_MESSAGES.add("ERROR")
+DEFAULT_VALID_MESSAGES.add("FAIL")
 DEFAULT_PORTS = [3115, 7883, 8235, 38154, 1234, 55532]
 DEFAULT_PRIVATE_KEY_PATH = "certificates/ec_private_key.pem"
 DEFAULT_CLIENT_CERT_PATH = "certificates/client_cert.pem"
@@ -102,8 +100,8 @@ class ClientConfig:
     client_cert: str
     private_key: str
     ca_cert: str
-    pow_binary: str
-    pow_timeout: int
+    work_binary: str
+    work_timeout: int
     other_timeout: int
     insecure: bool
     log_level: str
@@ -163,14 +161,14 @@ def build_client_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--pow-binary",
+        "--work-binary",
         default=DEFAULT_CPP_BINARY_PATH,
         type=str,
-        help="path to pow_binary executable",
+        help="path to work_binary executable",
     )
 
     parser.add_argument(
-        "--pow-timeout",
+        "--work-timeout",
         default=DEFAULT_WORK_TIMEOUT,
         type=_parse_positive_int,
         help=f"timeout (s) for WORK (default: {DEFAULT_WORK_TIMEOUT})",
@@ -233,8 +231,8 @@ def args_to_client_config(ns: argparse.Namespace) -> ClientConfig:
         client_cert=ns.client_cert,
         private_key=ns.private_key,
         ca_cert=ns.ca_cert,
-        pow_binary=ns.pow_binary,
-        pow_timeout=ns.pow_timeout,
+        work_binary=ns.work_binary,
+        work_timeout=ns.work_timeout,
         other_timeout=ns.other_timeout,
         insecure=ns.insecure,
         log_level=ns.log_level,
@@ -358,9 +356,9 @@ def decipher_message(message: str, valid_messages: set[str]) -> list[str]:
 
     Examples:
         >>> from tlslp.client import decipher_message
-        >>> vm = {"MAILNUM", "HELLO", "WORK", "DONE", "ERROR"}
-        >>> decipher_message("MAILNUM LGTk\\n", vm)
-        ['MAILNUM', 'LGTk']
+        >>> vm = {"EEMAIL1", "HELLO", "WORK", "DONE", "FAIL"}
+        >>> decipher_message("EEMAIL1 LGTk\\n", vm)
+        ['EEMAIL1', 'LGTk']
     """
     args = message.split()
 
@@ -516,7 +514,7 @@ def _check_inputs(token: str, difficulty: str) -> None:
     _validate_difficulty(difficulty)
 
 
-def run_pow_binary(
+def run_work_binary(
     bin_path: Path, token: str, difficulty: str, timeout: int = 7200
 ) -> subprocess.CompletedProcess:
     """Run the WORK challenge C++ binary.
@@ -556,7 +554,7 @@ def run_pow_binary(
     )
 
 
-def handle_pow_cpp(
+def handle_work_cpp(
     token: str,
     difficulty: str,
     bin_path: Path = Path(DEFAULT_CPP_BINARY_PATH),
@@ -585,13 +583,13 @@ def handle_pow_cpp(
         >>> import tlslp.client as c
         >>> class R:  # fake CompletedProcess
         ...     stdout = "RESULT:abcd\\n"
-        >>> c.run_pow_binary = lambda *a, **k: R()
-        >>> c.handle_pow_cpp("AUTH", "4", bin_path=Path("pow_challenge"))
+        >>> c.run_work_binary = lambda *a, **k: R()
+        >>> c.handle_work_cpp("AUTH", "4", bin_path=Path("work_challenge"))
         'abcd\\n'
     """
     # run pre-compiled c++ code for finding suffix
     try:
-        result = run_pow_binary(bin_path, token, difficulty, timeout)
+        result = run_work_binary(bin_path, token, difficulty, timeout)
 
         # Extract the single result line
         suffix = None
@@ -649,12 +647,12 @@ def define_response(
         is_err, result = False, "HELLOBACK\n"
     elif args[0] == "DONE":
         is_err, result = False, "OK\n"
-    elif args[0] == "ERROR":
+    elif args[0] == "FAIL":
         is_err, result = False, "\n"
     elif args[0] == "WORK":
         difficulty = args[2]
 
-        result = handle_pow_cpp(token, difficulty, bin_path)
+        result = handle_work_cpp(token, difficulty, bin_path)
         _validate_string(result.rstrip("\n"))
         is_err = False
 
@@ -744,13 +742,13 @@ def _process_message_with_timeout(
     valid_messages: set[str],
     responses: dict[str, str] = DEFAULT_RESPONSES,
     bin_path: Path = Path(DEFAULT_CPP_BINARY_PATH),
-    pow_timeout: float = DEFAULT_WORK_TIMEOUT,
+    work_timeout: float = DEFAULT_WORK_TIMEOUT,
     other_timeout: float = DEFAULT_OTHER_TIMEOUT,
 ) -> str:
     """Process a single server command with a hard timeout.
 
     This runs :func:`define_response` in a separate process to enforce timeouts:
-    - WORK commands use ``pow_timeout``
+    - WORK commands use ``work_timeout``
     - all other commands use ``other_timeout``
 
     Args:
@@ -759,7 +757,7 @@ def _process_message_with_timeout(
         valid_messages (set[str]): Allowed command names.
         responses (dict[str, str], optional): Static responses for body commands.
         bin_path (Path, optional): Path to the WORK solver binary.
-        pow_timeout (float, optional): Timeout (seconds) for WORK handling.
+        work_timeout (float, optional): Timeout (seconds) for WORK handling.
         other_timeout (float, optional): Timeout (seconds) for non-WORK handling.
 
     Returns:
@@ -771,7 +769,7 @@ def _process_message_with_timeout(
     """
     # Define timeouts and extract token
     this_timeout = (
-        pow_timeout if args and args[0] and args[0] == "WORK" else other_timeout
+        work_timeout if args and args[0] and args[0] == "WORK" else other_timeout
     )
 
     # use multiprocessing for setting timeout.  Only 1 process is used
@@ -831,12 +829,12 @@ def _resolved_bin_path(cpp_binary_path: str) -> Path:
     except (FileNotFoundError, OSError) as e:
         raise FileNotFoundError(
             f"WORK binary not a regular file: {cpp_binary_path!r}.\nIf it is "
-            f"elsewhere, use --pow-binary flag to define its path.  If "
+            f"elsewhere, use --work-binary flag to define its path.  If "
             f"not yet installed, try installing"
             f" it with 'make build-cpp' from the root directory.\n"
-            f"Otherwise, g++ -O3 -std=c++17 pow_challenge.cpp pow_core.cpp"
-            f" -o ../build/pow_challenge -lssl -lcrypto -pthread from"
-            f" cpp/; cp ../build/pow_challenge ../src/tlslp/_bin/"
+            f"Otherwise, g++ -O3 -std=c++17 work_challenge.cpp work_core.cpp"
+            f" -o ../build/work_challenge -lssl -lcrypto -pthread from"
+            f" cpp/; cp ../build/work_challenge ../src/tlslp/_bin/"
         ) from e
 
     return bin_path
@@ -873,7 +871,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     logger.debug(f"Client cert exists: {os.path.exists(cfg.client_cert)!r}")
     logger.debug(f"Private key exists: {os.path.exists(cfg.private_key)!r}")
     try:
-        bin_path = _resolved_bin_path(cfg.pow_binary)
+        bin_path = _resolved_bin_path(cfg.work_binary)
         logger.info(
             f"WORK binary exists: {_validate_path(bin_path, Path(DEFAULT_ALLOWED_ROOT))!r}"
         )
@@ -920,7 +918,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 logger.warning("Problem deciphering message. Continuing.")
                 continue
 
-            if args[0] == "ERROR":
+            if args[0] == "FAIL":
                 break
 
             if args[0] == "WORK":
@@ -933,7 +931,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 valid_messages,
                 responses,
                 bin_path,
-                cfg.pow_timeout,
+                cfg.work_timeout,
                 cfg.other_timeout,
             )
             end = time.time()
