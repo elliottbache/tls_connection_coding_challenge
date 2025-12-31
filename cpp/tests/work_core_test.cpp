@@ -189,7 +189,7 @@ TEST(RunWork, LowNBits_ProducesValidSuffix)
     std::span<unsigned char> input_span(input, len_token + result.suffix.size());
     std::array<unsigned char, 32> output_hash = sha256(input_span);
 
-    EXPECT_EQ(n_bits, trailing_zero_bits(output_hash.data(), SHA256_DIGEST_LENGTH));
+    EXPECT_LE(n_bits, trailing_zero_bits(output_hash.data(), SHA256_DIGEST_LENGTH));
 }
 
 TEST(RunWork, LongToken_Excepts)

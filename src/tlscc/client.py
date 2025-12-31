@@ -1,12 +1,11 @@
-"""Open a TLS client that responds to server messages as per the coding-challenge rules.
+"""Open a TLS client that responds to server messages.
 
-This follows a set of rules defined in the toy protocol demo. The specific rules and
-the external IP address are not quoted here for confidentiality reasons.
+A set of default valid messages and responses are included.
 
 The client connects to a server, receives newline-delimited commands, and responds
 one-by-one. The handshake consists of ``HELLO`` followed by a ``WORK`` challenge. The
-WORK challenge must be resolved within 2 hours; it is solved by invoking a compiled
-C++ helper (``work_challenge``).
+WORK challenge must be resolved within 30 minutes with n_bits=36; it is solved by
+invoking a compiled C++ helper (``work_challenge``).
 
 Main functions:
     prepare_client_socket:
@@ -138,7 +137,7 @@ def build_client_parser() -> argparse.ArgumentParser:
         "--ports",
         default=DEFAULT_PORTS,
         type=lambda s: [_parse_port(x) for x in s.split(",")],
-        help="comma-separated list of ports (e.g. 1234,8235)",
+        help="comma-separated list of ports (e.g. 1234,5678)",
     )
 
     parser.add_argument(
@@ -515,7 +514,7 @@ def _check_inputs(token: str, n_bits: str) -> None:
 
 
 def run_work_binary(
-    bin_path: Path, token: str, n_bits: str, timeout: int = 7200
+    bin_path: Path, token: str, n_bits: str, timeout: int = DEFAULT_WORK_TIMEOUT
 ) -> subprocess.CompletedProcess:
     """Run the WORK challenge C++ binary.
 
@@ -536,7 +535,7 @@ def run_work_binary(
               (text=True, capture_output=True)
             - the exit status is returned and a CalledProcessError
               exception is raised if non-zero (check=True)
-            - the timeout is set at 2 hours (timeout=timeout)
+            - the timeout is set at 30 minutes (timeout=timeout)
             - the current working directory is set as the binary's
               directory to avoid flakiness in tests
               (cwd=str(cpp_binary_path.parent))
@@ -558,7 +557,7 @@ def handle_work_cpp(
     token: str,
     n_bits: str,
     bin_path: Path = Path(DEFAULT_CPP_BINARY_PATH),
-    timeout: int = 7200,
+    timeout: int = DEFAULT_WORK_TIMEOUT,
 ) -> str:
     """Solve the WORK challenge using the external C++ helper.
 

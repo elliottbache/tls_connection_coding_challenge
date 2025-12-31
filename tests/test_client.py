@@ -266,7 +266,7 @@ class TestRunWorkBinary:
         assert calls["text"] is True
         assert calls["capture_output"] is True
         assert calls["check"] is True
-        assert calls["timeout"] == 7200
+        assert calls["timeout"] == 1800
         assert calls["cwd"] == os.fspath(fake_bin.parent)
         assert calls["env"] == {"LC_ALL": "C"}
 
@@ -876,5 +876,5 @@ class TestBuildClientParser:
 
     def test_build_client_parser_custom_ports(self):
         p = client.build_client_parser()
-        ns = p.parse_args(["--ports", "1234,7883,8235"])
-        assert ns.ports == [1234, 7883, 8235]
+        ns = p.parse_args(["--ports", "1234,5678,1357"])
+        assert ns.ports == [1234, 5678, 1357]
