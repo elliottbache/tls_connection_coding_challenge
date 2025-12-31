@@ -1,4 +1,4 @@
-"""TLS server for the coding-challenge protocol.
+"""TLS server for querying a client's information.
 
 This CLI starts a TCP listener and sends a simple newline-delimited UTF-8
 command protocol over TLS. The server:
@@ -13,8 +13,8 @@ command protocol over TLS. The server:
 4) Finishes with ``DONE`` and expects ``OK``.
 
 Timeouts:
-- WORK has a long timeout (default: 2 hours).
-- Other steps use a shorter timeout (default: 6 seconds).
+- WORK has a long timeout (default: 30 minutes).
+- Other steps use a shorter timeout (default: 10 seconds).
 
 The server is primarily intended for localhost/dev usage and a deterministic
 ``--tutorial`` mode that sends each body message once and then exits.
@@ -358,7 +358,7 @@ def prepare_server_socket(
 
     Args:
         server_host (str): Host interface to bind to (e.g., ``"localhost"``).
-        port (int): TCP port to bind to (0 means “choose an ephemeral port”).
+        port (int): TCP port to bind to.
         ca_cert_path (str): CA certificate used to verify client certificates (mTLS).
         server_cert_path (str): Server certificate (PEM).
         server_key_path (str): Server private key (PEM).

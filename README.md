@@ -31,8 +31,7 @@ This repo implements a small TLS client/server pair that:
 a required number of **trailing zero bits**
 - answers a sequence of server “info request” commands until `DONE` (or `FAIL`).
 
-The WORK number of bits is configurable (see `--n_bits` on the server). The challenge target
-may be higher than the defaults used for local demos.
+The WORK number of bits is configurable (see `--n_bits` on the server). 
 
 More details on how the project works are in the [Guide](docs/guide.md).
 
@@ -70,7 +69,7 @@ Open another terminal in the same folder and run:
 ```bash
 make run-client
 ```
-That's it, you’ve run the TLS toy protocol demo end-to-end!  Keep reading for a more in-depth 
+That's it, you’ve run the TLS line protocol end-to-end!  Keep reading for a more in-depth 
 explanation of what just happened.  
 
 #### Tutorial mode and expected logs
@@ -342,7 +341,7 @@ So the default log files are:
 
 ### What is happening?
 The client will connect to the server and answer the various commands sent by the server.  The server will first send a
-a handshake set of commands (HELLO and WORK).  Once the WORK challenge is solved by the client under 2 hours, the correct
+a handshake set of commands (HELLO and WORK).  Once the WORK challenge is solved by the client under 30 minutes, the correct
 suffix will be sent to the server and a further 20 random commands will be sent.  If FAIL is randomly selected, the
 connection will close.  Otherwise, the final command will be DONE.
 
@@ -474,8 +473,8 @@ This project is built with:
 
 ## Security
 
-This project is a toy protocol demo/demo. The default configuration uses 
-**local, mutual TLS (mTLS)** between client and server.  
+This project is a simple demo. The default configuration uses **local, mutual TLS (mTLS)** between 
+client and server.  
 
 There is also a flag that allows for basic, unverified TLS to simplify running the sample.
 
@@ -522,7 +521,7 @@ these fellows have put into the project's growth and improvement.
 ## Change log
 
 - v0.1.0
-    - TLS Client/Server Challenge with WORK, PyTest Suite & Sphinx Docs
+    - TLS Client/Server Protocol with WORK, PyTest Suite & Sphinx Docs
 - v1.0.0
     - Updated TLS Client/Server, converting into a package, implementing CI and Docker, adding logging and much more
 

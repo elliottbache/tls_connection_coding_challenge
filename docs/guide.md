@@ -44,7 +44,7 @@ current diagram in README.md.
 ## Key properties
 - **TLS** for transport security (optionally mutual auth).
 - **Deterministic protocol** (plain text, newline-terminated).
-- **Time-bounded WORK** (2h cap) with multi-threaded C++ backend.
+- **Time-bounded WORK** (30mn cap) with multi-threaded C++ backend.
 - **Portable tests** that mock subprocess/SSL or use a throwaway TLS server.
 
 ---
@@ -161,19 +161,18 @@ tree -a -L 4 -I ".git|.venv|__pycache__|*.egg-info|.pytest_cache|.mypy_cache|.ru
 2. Receive **exactly one line** (newline-delimited UTF-8) via `receive_message(...)`.
 3. Parse into tokens with `decipher_message(...)` and validate the command name.
 4. Generate a response, enforcing per-command timeouts:
-   - Non-WORK commands use a short timeout (default 6s, configurable).
-   - WORK can be long (default 2h, configurable) and is solved by an external binary.
+   - Non-WORK commands use a short timeout (default 10s, configurable).
+   - WORK can be long (default 30mn, configurable) and is solved by an external binary.
 5. Send the response using `send_message(...)` (adds `\n` if missing).
 6. Stop on `FAIL` from the server or after responding to `DONE`.
 
 The following should be taken into account:
-- Multiline messages are not supported since this was not part of the coding
-challenge.  Each command sent by the server was meant to be answered with 
+- Multiline messages are not supported.  Each command sent by the server was meant to be answered with 
 a single-line.  Any more lines would fall outside the scope of the proper
 functioning of this program and should thus be treated as an exception.
 - Multiprocessing is used to take into account the imposed timeouts.  All 
-commands have a timeout of 6 seconds except the WORK challenge, which has a
-2-hour timeout.
+commands have a timeout of 10 seconds except the WORK challenge, which has a
+30 minute timeout.
 
 ---
 
@@ -285,8 +284,8 @@ real files on disk.
 ---
 
 ## Security implementation
-This repo is a coding-challenge/demo, but it’s still useful to treat it as if it exposed beyond localhost.  
-In the future, extended this repo to a production-grade project will be easier this way.  The goal is to 
+This repo is a demo, but it’s still useful to treat it as if it exposed beyond localhost.  
+In the future, extending this repo to a production-grade project will be easier this way.  The goal is to 
 fail closed: treat all network input as untrusted, validate aggressively, and stop on protocol violations.
 
 ### Security Notes
@@ -306,7 +305,7 @@ fail closed: treat all network input as untrusted, validate aggressively, and st
 - Bound the WORK solver execution time:
   - `subprocess.run(..., timeout=...)` inside `run_work_binary(...)`.
 
-Defaults are chosen for the challenge (short for non-WORK, long for WORK), and are configurable via CLI flags.
+Defaults are chosen for the protocol (short for non-WORK, long for WORK), and are configurable via CLI flags.
 
 ### Message size limits
 **Why**: Avoid memory growth / DoS by sending huge lines.
@@ -319,6 +318,7 @@ Defaults are chosen for the challenge (short for non-WORK, long for WORK), and a
     - missing newline (if the peer never sends \n, you’ll time out)
     - overlong lines
     - unexpected extra tokens for commands that require a fixed arity
+  
 Notes:
 
 If you read “until newline”, a “no newline” input will typically surface as a **timeout** (good), not 
@@ -344,7 +344,7 @@ a “no newline” error. This situation is tested in the pytest suite (src.test
 
 **How** this is done:
 - The client iterates the configured port list and attempts to connect until one succeeds.
-- There is no exponential backoff (kept intentionally simple for the challenge).
+- There is no exponential backoff (kept intentionally simple for the protocol).
 - The client does not “retry” after protocol violations during an established session.
 
 ### Subprocess safety
@@ -352,7 +352,7 @@ The WORK solver is intentionally an external executable.  It is treated like unt
 
 **How** this is done:
 - Never use ```shell=True```.
-- Pass args as a list: ```["/abs/path/work_challenge", token, n_bits]``` (you do this).
+- Pass args as a list: ```["/abs/path/work_challenge", token, n_bits]```.
 - Resolve and vet the binary path:
     - ```Path(...).resolve(strict=True)``` (prevents PATH tricks)
     - refuse symlinks
@@ -400,27 +400,15 @@ or for tighter control.
 
 ## WORK Solver (C++)
 **Goal**: Find a ``suffix`` so that ``SHA256(token + suffix)`` ends with 
-``N`` binary ``0``s (i.e., ``bits = 4*N`` zero bits).
+``N`` binary ``0``s (i.e., ``bits = N`` zero bits).
 
 ### Strategy
 - SHA256 is **initialized** with ```token```, then a copy is **updated** with each new suffix. 
 - **Counter-based suffix** (deterministic, minimal RNG use).
 - **Thread sharding**: each thread walks different counters (``base + tid``, ``step = total_threads``).
 - **Bit test**: Check full zero bytes; then mask remaining bits:
-```cpp
-bool has_leading_zeros(const uint8_t* d, int bits) {
-    int full = bits/8, rem = bits%8;
-    for (int i=0; i<full; ++i) if (d[i] != 0) return false;
-    if (rem) {
-        uint8_t mask = 0xFF << (8 - rem);
-        if ((d[full] & mask) != 0) return false;
-    }
-    return true;
-}
-```
 - **Keyspace size**: 
-  - In binary, each digit represents 1 bit. e.g. for $n_{\text{bits}} = 20$, we need 
-  $20 \text{bits}$.
+  - In binary, each digit represents 1 bit. e.g. for $n_{\text{bits}} = 20$, we have 20 digits.
   - The expected number of trials to find a digest whose binary representation has $n_{\text{bits}}$ trailing 
   zeros is $2^{n_{\text{bits}}}$.  
   For $n_{\text{bits}}=20$, we would have $2^{20} \approx 1 \times 10^6$ expected trials.
@@ -428,7 +416,7 @@ bool has_leading_zeros(const uint8_t* d, int bits) {
   - With a string that is $s$ long and a $c$ large character set (e.g. $c=26$ for 
   the lowercase alphabet), the number of unique strings that can be generated is 
   $k = c^s$.  For $c=64$ and $s=4$, we have $k=64^4 \approx 17 \times 10^6$.
-  - This would be enough string characters for a $16^5 = \approx 1 \times 10^6$ expected trials
+  - This would be enough string characters for a $2^20 \approx 1 \times 10^6$ expected trials
   to find a binary that has 20 trailing zeros. 
   
 ### Build
@@ -461,8 +449,8 @@ shown in the following table.
 | **n_bits**        | **16** | **20** | **24** | **28** | **32** | **36** |
 |-----------------------|-------|-------|-------|-------|-------|-------|
 | **Number of runs**    |   100    |  100     |  100     |  100     |   100    |   100    |
-| **Total run time (s)**    |   1    |  1     |  8     |    260   |   4678    |   24764    |
-| **Average run time (s)**    |   0.01    |  0.01     |  0.08     |   2.60    |   46.78    |   247.64    |
+| **Total run time (s)**    |   1    |  1     |  8     |    260   |   5319    |   24764    |
+| **Average run time (s)**    |   0.01    |  0.01     |  0.08     |   2.60    |   53.19    |   247.64    |
 
 ---
 
