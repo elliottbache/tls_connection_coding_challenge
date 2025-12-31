@@ -6,7 +6,7 @@
 2000-01-01T00:00:00+0100 INFO tlslp.client: Connected to 1234
 2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'HELLO'
 2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: ''
-2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'WORK gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq 7'
+2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'WORK gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq 28'
 2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: ''
 2000-01-01T00:00:00+0100 INFO tlslp.client: Received 'FULL_FULL_NAME LGTk'
 2000-01-01T00:00:00+0100 INFO tlslp.client: Sending to server: 'Elliott Bache\n'

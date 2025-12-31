@@ -191,7 +191,7 @@ class TestTlsConnect:
 
 class TestHasher:
     def test_hasher(self, token, random_string):
-        assert hashlib.sha256(  # noqa: S324
+        assert hashlib.sha256(
             (token + random_string).encode()
         ).hexdigest() == client.hasher(token, random_string)
 
@@ -224,7 +224,7 @@ class TestRunWorkBinary:
         self,
         fake_bin,
         token,
-        difficulty,
+        n_bits,
         suffix,
         work_hash,
         path_to_work_challenge,
@@ -251,7 +251,7 @@ class TestRunWorkBinary:
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
-        result = client.run_work_binary(fake_bin, token, difficulty)
+        result = client.run_work_binary(fake_bin, token, n_bits)
 
         assert isinstance(result, FakeCompleted)
         assert result.returncode == 0
@@ -261,7 +261,7 @@ class TestRunWorkBinary:
         assert calls["args"] == [
             os.fspath(fake_bin),
             token,
-            difficulty,
+            n_bits,
         ]
         assert calls["text"] is True
         assert calls["capture_output"] is True
@@ -271,22 +271,22 @@ class TestRunWorkBinary:
         assert calls["env"] == {"LC_ALL": "C"}
 
     def test_run_work_binary_non_str_token(
-        self, fake_bin, difficulty, path_to_work_challenge, monkeypatch
+        self, fake_bin, n_bits, path_to_work_challenge, monkeypatch
     ):
         wrong_token = 5.3
 
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
         with pytest.raises(TypeError, match=r"Tested variable is not a string."):
-            client.run_work_binary(fake_bin, wrong_token, difficulty)
+            client.run_work_binary(fake_bin, wrong_token, n_bits)
 
-    def test_run_work_binary_invalid_token(self, difficulty, fake_bin, monkeypatch):
-        wrong_token = "poiasfdlkas+/"
+    def test_run_work_binary_invalid_token(self, n_bits, fake_bin, monkeypatch):
+        wrong_token = "poiasfdlkas+/"  # noqa: S105
 
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
         with pytest.raises(
             ValueError, match="String contains disallowed characters or length"
         ):
-            client.run_work_binary(fake_bin, wrong_token, difficulty)
+            client.run_work_binary(fake_bin, wrong_token, n_bits)
 
         wrong_token = (
             "poiasfdlkaspppppppppppppppppppppppppppppppppppppppppppppppp"
@@ -296,25 +296,23 @@ class TestRunWorkBinary:
         with pytest.raises(
             ValueError, match="String contains disallowed characters or length"
         ):
-            client.run_work_binary(fake_bin, wrong_token, difficulty)
+            client.run_work_binary(fake_bin, wrong_token, n_bits)
 
-    def test_run_work_binary_non_int_difficulty(self, token, fake_bin, monkeypatch):
-        wrong_difficulty = "five"
+    def test_run_work_binary_non_int_n_bits(self, token, fake_bin, monkeypatch):
+        wrong_n_bits = "five"
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
-        with pytest.raises(TypeError, match="WORK difficulty is not an integer"):
-            client.run_work_binary(fake_bin, token, wrong_difficulty)
+        with pytest.raises(TypeError, match="WORK n_bits is not an integer"):
+            client.run_work_binary(fake_bin, token, wrong_n_bits)
 
-    def test_run_work_binary_invalid_difficulty(self, token, fake_bin, monkeypatch):
-        wrong_difficulty = 65
+    def test_run_work_binary_invalid_n_bits(self, token, fake_bin, monkeypatch):
+        wrong_n_bits = 65
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
-        with pytest.raises(ValueError, match="WORK difficulty is out of range"):
-            client.run_work_binary(fake_bin, token, wrong_difficulty)
+        with pytest.raises(ValueError, match="WORK n_bits is out of range"):
+            client.run_work_binary(fake_bin, token, wrong_n_bits)
 
-    def test_run_work_binary_error(
-        self, token, difficulty, suffix, fake_bin, monkeypatch
-    ):
+    def test_run_work_binary_error(self, token, n_bits, suffix, fake_bin, monkeypatch):
         def fake_subprocess_run(*a, **k):
             raise subprocess.CalledProcessError(
                 returncode=1,
@@ -326,10 +324,10 @@ class TestRunWorkBinary:
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
         with pytest.raises(subprocess.CalledProcessError):
-            client.run_work_binary(fake_bin, token, difficulty)
+            client.run_work_binary(fake_bin, token, n_bits)
 
     def test_run_work_binary_timeout(
-        self, token, difficulty, suffix, fake_bin, monkeypatch
+        self, token, n_bits, suffix, fake_bin, monkeypatch
     ):
         timeout = 1
 
@@ -345,7 +343,7 @@ class TestRunWorkBinary:
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
         with pytest.raises(subprocess.TimeoutExpired):
-            client.run_work_binary(fake_bin, token, difficulty)
+            client.run_work_binary(fake_bin, token, n_bits)
 
 
 class TestHandleWorkCpp:
@@ -353,7 +351,7 @@ class TestHandleWorkCpp:
         self,
         fake_bin,
         token,
-        difficulty,
+        n_bits,
         timeout,
         suffix,
         work_hash,
@@ -370,12 +368,12 @@ class TestHandleWorkCpp:
         monkeypatch.setattr(client.subprocess, "run", fake_subprocess_run)
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
-        suffix_output = client.handle_work_cpp(token, difficulty, fake_bin)
+        suffix_output = client.handle_work_cpp(token, n_bits, fake_bin)
 
         assert suffix_output == suffix + "\n"
 
     def test_handle_work_cpp_no_result(
-        self, token, difficulty, timeout, fake_bin, monkeypatch
+        self, token, n_bits, timeout, fake_bin, monkeypatch
     ):
 
         def fake_subprocess_run(*a, **k):
@@ -385,7 +383,7 @@ class TestHandleWorkCpp:
         monkeypatch.setattr(client, "DEFAULT_ALLOWED_ROOT", fake_bin.parent)
 
         with pytest.raises(ValueError, match=r"No RESULT found in WORK output."):
-            client.handle_work_cpp(token, difficulty, fake_bin, timeout)
+            client.handle_work_cpp(token, n_bits, fake_bin, timeout)
 
 
 class TestDefineResponse:
@@ -438,7 +436,7 @@ class TestDefineResponse:
             args, token, valid_messages, q, responses, path_to_work_challenge
         )
         out_string = (
-            hashlib.sha256((token + args[1]).encode()).hexdigest()  # noqa: S324
+            hashlib.sha256((token + args[1]).encode()).hexdigest()
             + " "
             + responses[args[0]]
             + "\n"
@@ -448,7 +446,7 @@ class TestDefineResponse:
     def test_define_response_success_work(
         self,
         token,
-        difficulty,
+        n_bits,
         random_string,
         suffix,
         valid_messages,
@@ -457,7 +455,7 @@ class TestDefineResponse:
     ):
         q = queue.Queue()
         responses = {"EEMAIL1": "elliottbache@gmail.com"}
-        args = ["WORK", token, difficulty]
+        args = ["WORK", token, n_bits]
 
         def fake_handle_work_cpp(*args, **kwargs):
             return suffix + "\n"
@@ -482,7 +480,7 @@ class TestDefineResponse:
     def test_define_response_result_no_newline(
         self,
         token,
-        difficulty,
+        n_bits,
         random_string,
         suffix,
         valid_messages,
@@ -491,7 +489,7 @@ class TestDefineResponse:
     ):
         q = queue.Queue()
         responses = {"EEMAIL1": "elliottbache@gmail.com"}
-        args = ["WORK", token, difficulty]
+        args = ["WORK", token, n_bits]
 
         def fake_handle_work_cpp(*args, **kwargs):
             return suffix

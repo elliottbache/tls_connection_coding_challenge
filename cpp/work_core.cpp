@@ -1,4 +1,4 @@
-// pow_core.cpp
+// work_core.cpp
 #include <iostream>
 #include <thread>
 #include <vector>
@@ -7,51 +7,48 @@
 #include <cstring>
 #include <random>
 #include <cmath>
-#include "pow_core.h"
-#include "pow_core_internal.h"
+#include "work_core.h"
+#include "work_core_internal.h"
 #include <cassert>
+#include <bitset>
 
 namespace
 {
 
-    void pow_worker(const char *token, size_t auth_len, uint8_t difficulty,
+    void work_worker(const char *token, size_t token_len, uint8_t n_bits,
                     std::atomic<bool> &found, char *result,
                     int thread_id, int total_threads, uint64_t base_counter, size_t suffix_length)
     {
-        unsigned char digest[SHA_DIGEST_LENGTH]{};
+        unsigned char digest[SHA256_DIGEST_LENGTH]{};
         std::vector<unsigned char> suffix(suffix_length + 1);
-        alignas(64) unsigned char input[pow_internal::MAX_INPUT_SIZE]{};
 
-        const int bits_required = difficulty * 4;
+        const int bits_required = n_bits;
         uint64_t counter = base_counter + thread_id;
 
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-        SHA_CTX sha_context_base;
+        SHA256_CTX sha_context_base;
         SHA256_Init(&sha_context_base);
-        SHA256_Update(&sha_context_base, token, auth_len);
+        SHA256_Update(&sha_context_base, token, token_len);
         #pragma GCC diagnostic pop
 
         while (!found.load(std::memory_order_acquire))
         {
-            pow_internal::generate_counter_string(counter, suffix.data(), suffix_length);
+            work_internal::generate_counter_string(counter, suffix.data(), suffix_length);
             counter += total_threads;
 
-            const size_t input_len = auth_len + suffix_length;
-            if (input_len > pow_internal::MAX_INPUT_SIZE)
-                throw std::runtime_error("Authdata is too long.");
-
-            std::memcpy(input, token, auth_len);
-            std::memcpy(input + auth_len, suffix.data(), suffix_length);
+            const size_t input_len = token_len + suffix_length;
+            if (input_len > work_internal::MAX_INPUT_SIZE)
+                throw std::runtime_error("Token is too long.");
 
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            SHA_CTX sha_context = sha_context_base;
+            SHA256_CTX sha_context = sha_context_base;
             SHA256_Update(&sha_context, suffix.data(), suffix_length);
             SHA256_Final(digest, &sha_context);
             #pragma GCC diagnostic pop
 
-            if (pow_internal::has_leading_zeros(digest, bits_required))
+            if (work_internal::has_trailing_zeros(digest, bits_required))
             {
                 bool expected = false;
                 if (found.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
@@ -66,14 +63,13 @@ namespace
     }
 }
 
-namespace pow_internal
+namespace work_internal
 {
-    // Determine suffix length so that keyspace ≥ 2^(difficulty * 4)
-    size_t determine_suffix_length(uint8_t difficulty)
+    // Determine suffix length so that keyspace ≥ 2^n_bits
+    size_t determine_suffix_length(uint8_t n_bits)
     {
-        double required_bits = difficulty * 4;
-        double bits_per_char = std::log2(pow_internal::charset_size);
-        return static_cast<size_t>(std::ceil(required_bits / bits_per_char));
+        double bits_per_char = std::log2(work_internal::charset_size);
+        return static_cast<size_t>(std::ceil(n_bits / bits_per_char));
     }
 
     void generate_counter_string(uint64_t counter, unsigned char *output, size_t output_length)
@@ -83,30 +79,37 @@ namespace pow_internal
             return;
         for (int i = output_length - 1; i >= 0; --i)
         {
-            output[i] = pow_internal::charset[counter % pow_internal::charset_size];
-            counter /= pow_internal::charset_size;
+            output[i] = work_internal::charset[counter % work_internal::charset_size];
+            counter /= work_internal::charset_size;
         }
     }
 
-    bool has_leading_zeros(const unsigned char *digest, int bits_required)
+    bool has_trailing_zeros(const unsigned char *digest, int bits_required)
     {
         if (bits_required <= 0)
             return true;
         if (digest == nullptr)
             return false;
+
+        constexpr int DIGEST_LEN = SHA256_DIGEST_LENGTH;
+
         int full_bytes = bits_required / 8;
         int remaining_bits = bits_required % 8;
 
+        // Check full zero bytes at the end of the digest
         for (int i = 0; i < full_bytes; ++i)
         {
-            if (digest[i] != 0)
+            if (digest[DIGEST_LEN - 1 - i] != 0)
                 return false;
         }
 
+        // Check remaining bits in the next byte
         if (remaining_bits)
         {
-            const unsigned char mask = static_cast<unsigned char>(0xFF << (8 - remaining_bits));
-            if ((digest[full_bytes] & mask) != 0)
+            const unsigned char mask = static_cast<unsigned char>((1u << remaining_bits) - 1u);
+
+            const int idx = DIGEST_LEN - 1 - full_bytes; // next byte before the zero bytes
+            if ((digest[idx] & mask) != 0)
                 return false;
         }
 
@@ -114,15 +117,15 @@ namespace pow_internal
     }
 }
 
-PowResult run_pow(const char *token, uint8_t difficulty)
+WorkResult run_work(const char *token, uint8_t n_bits)
 {
-    size_t auth_len = std::strlen(token);
+    size_t token_len = std::strlen(token);
 
-    size_t suffix_length = pow_internal::determine_suffix_length(difficulty);
+    size_t suffix_length = work_internal::determine_suffix_length(n_bits);
 
-    if (auth_len + suffix_length > pow_internal::MAX_INPUT_SIZE)
+    if (token_len + suffix_length > work_internal::MAX_INPUT_SIZE)
     {
-        throw std::overflow_error("Authdata length is too long.");
+        throw std::overflow_error("Token length is too long.");
     }
 
     std::random_device rd;
@@ -144,7 +147,7 @@ PowResult run_pow(const char *token, uint8_t difficulty)
 
     for (int i = 0; i < max_threads; ++i)
     {
-        threads.emplace_back(pow_worker, token, auth_len, difficulty,
+        threads.emplace_back(work_worker, token, token_len, n_bits,
                              std::ref(found), result.data(), i, max_threads, base_counter, suffix_length);
     }
 
@@ -163,12 +166,12 @@ PowResult run_pow(const char *token, uint8_t difficulty)
     if (found)
     {
 
-        return PowResult{
+        return WorkResult{
             suffix, elapsed_time, found};
     }
     else
     {
-        return PowResult{
+        return WorkResult{
             "", elapsed_time, found};
     }
 }

@@ -1,24 +1,24 @@
-/** \brief Find the hex string with the indicated difficulty.
+/** \brief Find the hex string with the indicated trailing n_bits zeros.
 
 This file is an entry to the WORK functions.
-Syntax: pow_benchmark <token> <difficulty>
+Syntax: work_challenge <token> <n_bits>
 */
 #include <iostream>
 #include <vector>
-#include "pow_core.h"
+#include "work_core.h"
 
 int main(int argc, char *argv[])
 {
     if (argc < 3)
     {
-        std::cerr << "Usage: " << argv[0] << " <token> <difficulty>\n";
+        std::cerr << "Usage: " << argv[0] << " <token> <n_bits>\n";
         return 1;
     }
 
     const char *token = argv[1];
-    uint8_t difficulty = std::stoi(argv[2]);
+    uint8_t n_bits = std::stoi(argv[2]);
 
-    PowResult outputs = run_pow(token, difficulty);
+    WorkResult outputs = run_work(token, n_bits);
 
     if (outputs.suffix.empty())
     {

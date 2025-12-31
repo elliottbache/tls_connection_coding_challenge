@@ -1,10 +1,10 @@
 #pragma once
-namespace pow_internal
+namespace work_internal
 {
     /** \brief Maximum concatenated input size (token + suffix) fed to SHA-256.
 
         Increase if your token can be longer than this.
-        \see run_pow
+        \see run_work
          */
     constexpr size_t MAX_INPUT_SIZE = 256;
 
@@ -14,10 +14,10 @@ namespace pow_internal
     /** \brief Length of charset */
     const size_t charset_size = sizeof(charset) - 1;
 
-    // Determine suffix length so that keyspace ≥ 2^(difficulty * 4)
-    size_t determine_suffix_length(uint8_t difficulty);
+    // Determine suffix length so that keyspace ≥ 2^n_bits
+    size_t determine_suffix_length(uint8_t n_bits);
 
     void generate_counter_string(uint64_t counter, unsigned char *output, size_t output_length);
 
-    bool has_leading_zeros(const uint8_t *digest, int bits_required);
+    bool has_trailing_zeros(const uint8_t *digest, int bits_required);
 }

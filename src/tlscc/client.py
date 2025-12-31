@@ -323,16 +323,16 @@ def hasher(token: str, input_string: str) -> str:
         input_string (str): ASCII payload provided by the server.
 
     Returns:
-        str: SHA256(token + input_string) as lowercase hex.
+        str: SHA256(token + input_string) as a hex string.
 
     Examples:
         >>> from tlslp.client import hasher
-        >>> auth = "AUTH"
+        >>> token = "AUTH"
         >>> hasher(auth, "LGTk")
         '189af41571a36ba3655451530a84e33f018bdca2'
     """
     to_be_hashed = token + input_string
-    cksum_in_hex = hashlib.sha256(to_be_hashed.encode()).hexdigest()  # noqa: S324
+    cksum_in_hex = hashlib.sha256(to_be_hashed.encode()).hexdigest()
 
     return cksum_in_hex
 
@@ -477,31 +477,31 @@ def _validate_string(s: str) -> None:
         raise ValueError("String too long")
 
 
-def _validate_difficulty(difficulty: str) -> None:
-    """Validate WORK difficulty.
+def _validate_n_bits(n_bits: str) -> None:
+    """Validate WORK n_bits.
 
     Args:
-        difficulty (str): Difficulty string received from the server.
+        n_bits (str): n_bits string received from the server.
 
     Raises:
-        TypeError: If difficulty cannot be converted to an int.
-        ValueError: If difficulty is outside the allowed range.
+        TypeError: If n_bits cannot be converted to an int.
+        ValueError: If n_bits is outside the allowed range.
     """
     try:
-        idifficulty = int(difficulty)
+        i_n_bits = int(n_bits)
     except (ValueError, TypeError) as e:
-        raise TypeError("WORK difficulty is not an integer") from e
+        raise TypeError("WORK n_bits is not an integer") from e
 
-    if idifficulty < 0 or idifficulty > 64:
-        raise ValueError("WORK difficulty is out of range")
+    if i_n_bits < 0 or i_n_bits > 64:
+        raise ValueError("WORK n_bits is out of range")
 
 
-def _check_inputs(token: str, difficulty: str) -> None:
+def _check_inputs(token: str, n_bits: str) -> None:
     """Validate WORK inputs before invoking the external solver.
 
     Args:
         token (str): Authentication data.
-        difficulty (str): WORK difficulty.
+        n_bits (str): WORK n_bits.
 
     Raises:
         TypeError: If types are invalid.
@@ -510,19 +510,19 @@ def _check_inputs(token: str, difficulty: str) -> None:
     # validate token
     _validate_string(token)
 
-    # validate difficulty as an int
-    _validate_difficulty(difficulty)
+    # validate n_bits as an int
+    _validate_n_bits(n_bits)
 
 
 def run_work_binary(
-    bin_path: Path, token: str, difficulty: str, timeout: int = 7200
+    bin_path: Path, token: str, n_bits: str, timeout: int = 7200
 ) -> subprocess.CompletedProcess:
     """Run the WORK challenge C++ binary.
 
     Args:
         bin_path (Path): The path of the C++ binary.
-        token (str): The token to use.
-        difficulty (str): The difficulty to use.
+        token (str): The authentication data to use.
+        n_bits (str): The n_bits to use.
         timeout (int, optional): The timeout to use.
 
     Returns:
@@ -542,9 +542,9 @@ def run_work_binary(
               (cwd=str(cpp_binary_path.parent))
 
     """
-    _check_inputs(token, difficulty)
+    _check_inputs(token, n_bits)
     return subprocess.run(
-        args=[os.fspath(bin_path), token, difficulty],
+        args=[os.fspath(bin_path), token, n_bits],
         text=True,
         capture_output=True,
         check=True,
@@ -556,7 +556,7 @@ def run_work_binary(
 
 def handle_work_cpp(
     token: str,
-    difficulty: str,
+    n_bits: str,
     bin_path: Path = Path(DEFAULT_CPP_BINARY_PATH),
     timeout: int = 7200,
 ) -> str:
@@ -567,7 +567,7 @@ def handle_work_cpp(
 
     Args:
         token (str): Authentication data from the server.
-        difficulty (str): Required number of leading hex zeros.
+        n_bits (str): Required number of trailing zero bits
         bin_path (Path, optional): Path to the WORK solver binary.
         timeout (int, optional): Subprocess timeout in seconds.
 
@@ -589,7 +589,7 @@ def handle_work_cpp(
     """
     # run pre-compiled c++ code for finding suffix
     try:
-        result = run_work_binary(bin_path, token, difficulty, timeout)
+        result = run_work_binary(bin_path, token, n_bits, timeout)
 
         # Extract the single result line
         suffix = None
@@ -650,9 +650,9 @@ def define_response(
     elif args[0] == "FAIL":
         is_err, result = False, "\n"
     elif args[0] == "WORK":
-        difficulty = args[2]
+        n_bits = args[2]
 
-        result = handle_work_cpp(token, difficulty, bin_path)
+        result = handle_work_cpp(token, n_bits, bin_path)
         _validate_string(result.rstrip("\n"))
         is_err = False
 
@@ -938,14 +938,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             logger.debug(f"The time of execution is : {(end - start)!r}s")
 
             if args[0] == "WORK":
-                this_hash = hashlib.sha256(  # noqa: S324
+                this_hash = hashlib.sha256(
                     (args[1] + response.rstrip("\n")).encode()
                 ).hexdigest()
 
                 # only log first part of token
                 half_len_token = math.ceil(len(args[1]) / 2)
                 logger.debug(
-                    f"Authentication data: {args[1][:half_len_token]!r}..., Difficulty: {args[2]!r}"
+                    f"Authentication data: {args[1][:half_len_token]!r}..., n_bits: {args[2]!r}"
                 )
                 logger.debug(f"Valid suffix: {response!r}")
                 logger.debug(f"Hash: {this_hash!r}")

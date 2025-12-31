@@ -27,11 +27,11 @@ sequenceDiagram
   S->>C: HELLO\n
   C->>S: HELLOBACK\n
 
-  S->>C: WORK <token> <difficulty>\n
-  C->>C: find suffix so that SHA256(token+suffix) has N hex zeros
+  S->>C: WORK <token> <n_bits>\n
+  C->>C: find suffix so that SHA256(token+suffix) has N zero trailing bits
   C->>S: <suffix>\n
 
-  S->>C: EEMAIL1 <arg>\n (and other info requests)
+  S->>C: SOCIAL <arg>\n (and other info requests)
   C->>S: <sha256(token+arg)> <response>\n
 
   S->>C: DONE\n
@@ -186,8 +186,8 @@ commands have a timeout of 6 seconds except the WORK challenge, which has a
 
 ### Commands (server → client)
 - `HELLO\n` → client replies `HELLOBACK\n`.
-- `WORK <token> <difficulty>\n` → client replies with a valid `<suffix>\n`.
-  - **Validity**: `SHA256(token + suffix)` starts with `<difficulty>` hex zeros.
+- `WORK <token> <n_bits>\n` → client replies with a valid `<suffix>\n`.
+  - **Validity**: `SHA256(token + suffix)` ends with `<n_bits>` zero bits.
 - Info requests (examples below use `<arg>` as server-provided string):
   - `FULL_FULL_NAME <arg>\n`
   - `EEMAIL1 <arg>\n`
@@ -204,7 +204,7 @@ commands have a timeout of 6 seconds except the WORK challenge, which has a
 Client reply format:
 - `HELLOBACK\n` for `HELLO\n`.
 - `<suffix>\n` for `WORK\n`.
-- `<sha256(token + arg)> <value>\n` for info commands.
+- `<SHA256(token + arg)> <value>\n` for info commands.
 - `OK\n` for `DONE\n`.
 
 ### Error handling
@@ -334,7 +334,7 @@ a “no newline” error. This situation is tested in the pytest suite (src.test
 - Treat protocol violations as `ProtocolError` and network/TLS failures as `TransportError`.
 - Validate sensitive inputs before using them for hashing / subprocess calls:
   - `token` character set / length
-  - `difficulty` is an integer in a reasonable range
+  - `n_bits` is an integer in a reasonable range
 - On server side, validate:
   - WORK suffix correctness
   - checksum correctness for info replies
@@ -352,7 +352,7 @@ The WORK solver is intentionally an external executable.  It is treated like unt
 
 **How** this is done:
 - Never use ```shell=True```.
-- Pass args as a list: ```["/abs/path/work_challenge", token, difficulty]``` (you do this).
+- Pass args as a list: ```["/abs/path/work_challenge", token, n_bits]``` (you do this).
 - Resolve and vet the binary path:
     - ```Path(...).resolve(strict=True)``` (prevents PATH tricks)
     - refuse symlinks
@@ -399,11 +399,10 @@ or for tighter control.
 ---
 
 ## WORK Solver (C++)
-**Goal**: Find a ``suffix`` so that ``SHA256(token + suffix)`` starts with 
-``N`` hex ``0``s (i.e., ``bits = 4*N`` zero bits).
+**Goal**: Find a ``suffix`` so that ``SHA256(token + suffix)`` ends with 
+``N`` binary ``0``s (i.e., ``bits = 4*N`` zero bits).
 
 ### Strategy
-- **SHA256** was imposed as a coding constraint in the challenge.
 - SHA256 is **initialized** with ```token```, then a copy is **updated** with each new suffix. 
 - **Counter-based suffix** (deterministic, minimal RNG use).
 - **Thread sharding**: each thread walks different counters (``base + tid``, ``step = total_threads``).
@@ -420,16 +419,17 @@ bool has_leading_zeros(const uint8_t* d, int bits) {
 }
 ```
 - **Keyspace size**: 
-  - In hex, each digit represents 4 bits. e.g. for difficulty $d = 5$, we need 
-  $5 \times 4 = 20 \text{bits}$.
-  - The expected number of trials to find a hex with $n$ leading zeros is $2^{4d}$.  
-  For $d=5$, we would have $2^{20} \approx 1 \times 10^6$ expected trials.
-  - Therefore, the suffix length is defined so that keyspace $k ≥ 2^{4d}$.
+  - In binary, each digit represents 1 bit. e.g. for $n_{\text{bits}} = 20$, we need 
+  $20 \text{bits}$.
+  - The expected number of trials to find a digest whose binary representation has $n_{\text{bits}}$ trailing 
+  zeros is $2^{n_{\text{bits}}}$.  
+  For $n_{\text{bits}}=20$, we would have $2^{20} \approx 1 \times 10^6$ expected trials.
+  - Therefore, the suffix length is defined so that keyspace $k ≥ 2^{n_{\text{bits}}}$.
   - With a string that is $s$ long and a $c$ large character set (e.g. $c=26$ for 
   the lowercase alphabet), the number of unique strings that can be generated is 
   $k = c^s$.  For $c=64$ and $s=4$, we have $k=64^4 \approx 17 \times 10^6$.
   - This would be enough string characters for a $16^5 = \approx 1 \times 10^6$ expected trials
-  to find a hex that has 5 leading zeros. 
+  to find a binary that has 20 trailing zeros. 
   
 ### Build
 The Python client expects an executable WORK solver. By default, it looks for it at:
@@ -451,18 +451,18 @@ cp ../build/work_challenge ../src/tlslp/_bin/work_challenge
 ### Run:
 From root:
 ```bash
-./src/tlslp/_bin/work_challenge <token> <difficulty>
+./src/tlslp/_bin/work_challenge <token> <n_bits>
 # stdout line: RESULT:<suffix>\n
 ```
 ### Benchmarking 
 Tests were carried out for various difficulties on a standard laptop (Intel i5-1235U, 1300 MHz, 10 cores).
 The tool automatically created 12 threads.  The calculation times for the average of multiple runs are 
 shown in the following table.   
-| **Difficulty**        | **4** | **5** | **6** | **7** | **8** | **9** |
+| **n_bits**        | **16** | **20** | **24** | **28** | **32** | **36** |
 |-----------------------|-------|-------|-------|-------|-------|-------|
 | **Number of runs**    |   100    |  100     |  100     |  100     |   100    |   100    |
-| **Total run time (s)**    |   5    |  9     |  25     |    787   |   4678    |   24764    |
-| **Average run time (s)**    |   0.05    |  0.09     |  0.25     |   7.87    |   46.78    |   247.64    |
+| **Total run time (s)**    |   1    |  1     |  8     |    260   |   4678    |   24764    |
+| **Average run time (s)**    |   0.01    |  0.01     |  0.08     |   2.60    |   46.78    |   247.64    |
 
 ---
 
