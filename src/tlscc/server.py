@@ -6,8 +6,8 @@ command protocol over TLS. The server:
 1) Accepts a TLS connection (optionally requiring a client certificate for mTLS).
 2) Performs a small handshake:
    - Sends ``HELLO`` and expects ``HELLOBACK``.
-   - Sends ``WORK <token> <difficulty>`` and expects a suffix that yields a SHA256
-   hash with the required number of leading zeros.
+   - Sends ``WORK <token> <n_bits>`` and expects a suffix that yields a SHA256
+   hash with the required number of trailing zero bits.
 3) Sends a sequence of body requests (e.g., ``FULL_FULL_NAME``, ``EEMAIL1``, ...). The client
    responds with ``<cksum> <value>`` where ``cksum = SHA256(token + random_string)``.
 4) Finishes with ``DONE`` and expects ``OK``.
@@ -54,9 +54,11 @@ from tlslp.protocol import (
 DEFAULT_PORT = 1234
 DEFAULT_SERVER_CERT = "certificates/server-cert.pem"
 DEFAULT_SERVER_KEY = "certificates/server-key.pem"
-DEFAULT_AUTHDATA = "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq"
+DEFAULT_TOKEN = (
+    "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq"  # noqa: S105
+)
 DEFAULT_RANDOM_STRING = "LGTk"
-DEFAULT_DIFFICULTY = 7
+DEFAULT_N_BITS = 28
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +75,7 @@ class ServerConfig:
     insecure: bool
     token: str
     random_string: str
-    difficulty: int
+    n_bits: int
     log_level: str
     tutorial: bool
 
@@ -147,7 +149,7 @@ def build_server_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--token",
-        default=DEFAULT_AUTHDATA,
+        default=DEFAULT_TOKEN,
         type=str,
         help="authentication data for hashing",
     )
@@ -160,10 +162,10 @@ def build_server_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--difficulty",
-        default=DEFAULT_DIFFICULTY,
+        "--n_bits",
+        default=DEFAULT_N_BITS,
         type=int,
-        help="WORK challenge difficulty",
+        help="WORK challenge n_bits",
     )
 
     parser.add_argument(
@@ -200,30 +202,31 @@ def args_to_server_config(ns: argparse.Namespace) -> ServerConfig:
         insecure=ns.insecure,
         token=ns.token,
         random_string=ns.random_string,
-        difficulty=ns.difficulty,
+        n_bits=ns.n_bits,
         log_level=ns.log_level,
         tutorial=ns.tutorial,
     )
 
 
 def _check_suffix(to_send: str, token: str, received_message: str) -> bool:
-    """Validate a WORK suffix against the requested difficulty.
+    """Validate a WORK suffix against the requested n_bits.
 
     Args:
-        to_send (str): The original WORK command string (``"WORK <token> <difficulty>"``).
+        to_send (str): The original WORK command string (``"WORK <token> <n_bits>"``).
         token (str): Authentication data used as the hash prefix.
         received_message (str): Suffix returned by the client.
 
     Returns:
-        (bool): True if ``SHA256(token + suffix)`` starts with ``difficulty`` leading ``"0"``.
+        (bool): True if ``sha256(token + suffix)`` ends with ``n_bits`` trailing ``"0"`` bits.
     """
     """Check if suffix has enough leading zeros."""
-    difficulty = to_send.split(" ", maxsplit=2)[2]
-    first_zeros = "0" * int(difficulty)
-    this_hash = hashlib.sha256(  # noqa: S324
-        (token + received_message).encode()
-    ).hexdigest()
-    return this_hash.startswith(first_zeros)
+    n_bits = to_send.split(" ", maxsplit=2)[2]
+    last_zeros = "0" * int(n_bits)
+    this_hash = hashlib.sha256((token + received_message).encode()).hexdigest()
+
+    # convert to a 256-bit binary string
+    binary_digest = format(int(this_hash, 16), "256b")
+    return binary_digest.endswith(last_zeros)
 
 
 def _check_cksum(to_send: str, token: str, received_message: str) -> bool:
@@ -243,9 +246,7 @@ def _check_cksum(to_send: str, token: str, received_message: str) -> bool:
 
     cksum = str(received_message).split(" ", maxsplit=1)[0]
     random_string = to_send.split(" ", maxsplit=1)[1]
-    cksum_calc = hashlib.sha256(  # noqa: S324
-        (token + random_string).encode()
-    ).hexdigest()
+    cksum_calc = hashlib.sha256((token + random_string).encode()).hexdigest()
     return cksum == cksum_calc
 
 
@@ -256,7 +257,7 @@ def send_and_receive(
 
     - Sends ``to_send`` using ``tlslp.protocol.send_message``.
     - Receives a single-line reply using ``tlslp.protocol.receive_message``.
-    - For ``WORK`` commands, validates the suffix difficulty requirement.
+    - For ``WORK`` commands, validates the suffix n_bits requirement.
     - For body commands, validates the checksum.
     - For ``FAIL`` commands, no reply is expected (returns ``""``).
 
@@ -311,6 +312,7 @@ def send_and_receive(
     if to_send.startswith("WORK") and not _check_suffix(
         to_send, token, received_message
     ):
+        print(f"\ncheck_suffix: {_check_suffix(to_send, token, received_message)}")
         send_fail("FAIL Invalid suffix returned from client.", secure_sock)
         raise ValueError(r"Invalid suffix returned from client.")
     # check checksum for rest of possible messages
@@ -453,17 +455,17 @@ def handle_one_session(
     # only log first part of token
     half_len_token = math.ceil(len(cfg.token) / 2)
     logger.debug(
-        f"Authentication data: {cfg.token[:half_len_token]!r}..., Difficulty: {cfg.difficulty!r}"
+        f"Authentication data: {cfg.token[:half_len_token]!r}..., n_bits: {cfg.n_bits!r}"
     )
 
     msg = send_and_receive(
         cfg.token,
-        "WORK " + str(cfg.token) + " " + str(cfg.difficulty),
+        "WORK " + str(cfg.token) + " " + str(cfg.n_bits),
         secure_sock,
         cfg.work_timeout,
     )
     logger.debug(f"Valid suffix returned from client: {msg!r}")
-    this_hash = hashlib.sha256((cfg.token + msg).encode()).hexdigest()  # noqa: S324
+    this_hash = hashlib.sha256((cfg.token + msg).encode()).hexdigest()
     logger.debug(f"Hash: {this_hash!r}")
 
     # body

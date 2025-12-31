@@ -28,13 +28,10 @@ This repo implements a small TLS client/server pair that:
 
 - performs a simple line-based handshake (`HELLO` then `WORK`)
 - solves a Proof-of-Work challenge where the client must find a suffix so that `SHA256(token + suffix)` has 
-a required number of **leading hex zeros**
+a required number of **trailing zero bits**
 - answers a sequence of server “info request” commands until `DONE` (or `FAIL`).
 
-The hasher (SHA256) is an explicit constraint from the challenge and **must not be changed** in
-this project.
-
-The WORK difficulty is configurable (see `--difficulty` on the server). The challenge target
+The WORK number of bits is configurable (see `--n_bits` on the server). The challenge target
 may be higher than the defaults used for local demos.
 
 More details on how the project works are in the [Guide](docs/guide.md).
@@ -163,7 +160,7 @@ pip install -e .[dev]
 ```
 
 ### Compile C++ WORK challenge binary
-The C++ code ```work_challenge.cpp``` is used to find a checksum with enough leading zeroes for specified difficulty.  C++
+The C++ code ```work_challenge.cpp``` is used to find a hash with a specified n_bits trailing zero bits.  C++
 is used rather than Python due to its speed.
 #### Build binary
 ```bash
@@ -265,12 +262,12 @@ tlslp-server
 ```
 Various flags are available for running in CLI.  e.g.
 ```bash
-# Run demo server on localhost:1234 with difficulty 6
+# Run demo server on localhost:1234 with 6 n_bits
 tlslp-server --host 127.0.0.1 --port 1234 \
   --ca-cert certificates/ca_cert.pem \
   --server-cert certificates/server-cert.pem \
   --server-key certificates/server-key.pem \
-  --difficulty 6
+  --n_bits 6
 ```
 A typical command for development is:
 ```bash
@@ -279,7 +276,7 @@ tlslp-server --log-level DEBUG
 ```
 For a complete list, run
 ```bash
-# Run demo server on localhost:1234 with difficulty 6
+# Run demo server on localhost:1234 with 6 n_bits
 tlslp-server --help
 ```
 
@@ -422,17 +419,17 @@ make test
 #### C++ code
 To run the C++ tests, you can simply use
 ```bash
-make test-cpp token=<token> difficulty=<difficulty>
+make test-cpp token=<token> n_bits=<n_bits>
 ```
-where token is by default "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq",
-and difficulty is by default 7.  To run the CTest manually, you can build with:
+where ```token``` is by default "gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq",
+and n_bits is by default 7.  To run the CTest manually, you can build with:
 ```bash
 cmake -S . -B build
 cmake --build build --config Release
 ```
 and run with:
 ```bash
-ctest src/tlslp/_bin/work_core_test <token> <difficulty>
+ctest src/tlslp/_bin/work_core_test <token> <n_bits>
 ```
 
 ## Technologies

@@ -18,11 +18,11 @@ from tlslp.server import (
 # helpers
 @pytest.fixture
 def cksum(token, random_string):
-    return hashlib.sha256((token + random_string).encode()).hexdigest()  # noqa: S324
+    return hashlib.sha256((token + random_string).encode()).hexdigest()
 
 
 @pytest.fixture
-def server_config(token, timeout, random_string, difficulty):
+def server_config(token, timeout, random_string, n_bits):
     return ServerConfig(
         server_host=DEFAULT_SERVER_HOST,
         port=DEFAULT_PORT,
@@ -34,7 +34,7 @@ def server_config(token, timeout, random_string, difficulty):
         insecure=False,
         token=token,
         random_string=random_string,
-        difficulty=difficulty,
+        n_bits=n_bits,
         log_level="DEBUG",
         tutorial=False,
     )
@@ -111,14 +111,14 @@ class TestSendAndReceive:
 
         assert "Receive timeout" in str(e.value)
 
-    def test_send_and_receive_helo(self, socket_pair, token):
+    def test_send_and_receive_hello(self, socket_pair, token):
         s1, s2 = socket_pair
 
         _ = s2.sendall(b"HELLOBACK\n")
         msg = server.send_and_receive(token, "HELLO", s1)
         assert msg == "HELLOBACK"
 
-    def test_send_and_receive_end(self, socket_pair, token):
+    def test_send_and_receive_done(self, socket_pair, token):
         s1, s2 = socket_pair
 
         _ = s2.sendall(b"OK\n")
@@ -133,18 +133,16 @@ class TestSendAndReceive:
         assert msg == cksum + " 2"
 
     def test_send_and_receive_work(
-        self, socket_pair, token, suffix, work_hash, difficulty, readout
+        self, socket_pair, token, suffix, work_hash, n_bits, readout
     ):
         s1, s2 = socket_pair
 
         _ = s2.sendall((suffix + "\n").encode("utf-8"))
-        msg = server.send_and_receive(
-            token, "WORK " + token + " " + difficulty, s1
-        )
+        msg = server.send_and_receive(token, "WORK " + token + " " + n_bits, s1)
         assert msg == suffix
 
     def test_send_and_receive_invalid_suffix(
-        self, socket_pair, token, suffix, work_hash, difficulty, readout
+        self, socket_pair, token, suffix, work_hash, n_bits, readout
     ):
         s1, s2 = socket_pair
 
@@ -153,7 +151,7 @@ class TestSendAndReceive:
 
         # server sends WORK command and receives incorrect suffix from client
         with pytest.raises(ValueError, match=r"Invalid suffix returned from client."):
-            server.send_and_receive(token, "WORK " + token + " " + difficulty, s1)
+            server.send_and_receive(token, "WORK " + token + " " + n_bits, s1)
 
         # check second message sent from server declaring an error has occurred in the WORK challenge
         received_message = recv_line(s2).decode("utf-8")
@@ -194,9 +192,7 @@ class TestSendAndReceive:
 
         assert sent and sent[0].startswith("FAIL receiving.")
 
-    def test_send_and_receive_timeout_sends_fail(
-        self, monkeypatch, token, socket_pair
-    ):
+    def test_send_and_receive_timeout_sends_fail(self, monkeypatch, token, socket_pair):
         s1, _ = socket_pair
 
         # TimeoutError in receive_message surfaces as a TranportError
@@ -307,7 +303,7 @@ def test_handle_one_session(
     # HELLO + WORK + 20 body requests + DONE = 23
     assert len(calls) == 23
     assert calls[0][1] == "HELLO"
-    assert calls[1][1] == f"WORK {token} {server.DEFAULT_DIFFICULTY}"
+    assert calls[1][1] == f"WORK {token} {server.DEFAULT_N_BITS}"
     assert calls[-1][1] == "DONE"
     # body messages: "choice <random_string>"
     for _, to_send in calls[2:-1]:
@@ -398,7 +394,7 @@ class TestMain:
         # HELLO + WORK + 8 body requests + DONE = 13
         assert len(calls) == 11
         assert calls[0][1] == "HELLO"
-        assert calls[1][1] == f"WORK {token} {server.DEFAULT_DIFFICULTY}"
+        assert calls[1][1] == f"WORK {token} {server.DEFAULT_N_BITS}"
         assert calls[-1][1] == "DONE"
         # body messages: "choice <random_string>"
         for _, to_send in calls[2:-1]:

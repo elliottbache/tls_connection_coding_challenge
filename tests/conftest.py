@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from tlslp.server import DEFAULT_DIFFICULTY
+from tlslp.server import DEFAULT_N_BITS
 
 
 @pytest.fixture
@@ -41,12 +41,12 @@ def token():
 
 @pytest.fixture
 def suffix():
-    return "bgwrg"
+    return "TlVR_"
 
 
 @pytest.fixture
 def work_hash(token, suffix):
-    return hashlib.sha256((token + suffix).encode()).hexdigest()  # noqa: S324
+    return hashlib.sha256((token + suffix).encode()).hexdigest()
 
 
 @pytest.fixture
@@ -55,18 +55,13 @@ def random_string():
 
 
 @pytest.fixture
-def difficulty():
-    return str(DEFAULT_DIFFICULTY)
+def n_bits():
+    return str(DEFAULT_N_BITS)
 
 
 @pytest.fixture
 def timeout():
-    return 7200
-
-
-@pytest.fixture
-def threads():
-    return "2"
+    return 1800
 
 
 @pytest.fixture(scope="function")

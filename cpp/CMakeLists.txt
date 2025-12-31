@@ -4,7 +4,7 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
-project(pow_challenge LANGUAGES CXX)
+project(work_challenge LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -43,19 +43,19 @@ function(enable_sanitizers target)
   endif()
 endfunction()
 
-add_library(pow_core pow_core.cpp pow_core.h)
-target_include_directories(pow_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(pow_core
+add_library(work_core work_core.cpp work_core.h)
+target_include_directories(work_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(work_core
   PUBLIC Threads::Threads
   PRIVATE OpenSSL::Crypto
 )
-enable_sanitizers(pow_core)
+enable_sanitizers(work_core)
 
-add_executable(pow_challenge pow_challenge.cpp)
-target_link_libraries(pow_challenge
-  PRIVATE pow_core OpenSSL::Crypto OpenSSL::SSL
+add_executable(work_challenge work_challenge.cpp)
+target_link_libraries(work_challenge
+  PRIVATE work_core OpenSSL::Crypto OpenSSL::SSL
 )
-enable_sanitizers(pow_challenge)
+enable_sanitizers(work_challenge)
 
 include(CTest)  # defines BUILD_TESTING option
 
@@ -75,22 +75,22 @@ if(BUILD_TESTING)
 
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(pow_core_test tests/pow_core_test.cpp)
-  target_include_directories(pow_core_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-  target_link_libraries(pow_core_test
+  add_executable(work_core_test tests/work_core_test.cpp)
+  target_include_directories(work_core_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+  target_link_libraries(work_core_test
     PRIVATE
-      pow_core
+      work_core
       GTest::gtest_main
       OpenSSL::SSL
       OpenSSL::Crypto
       Threads::Threads
   )
-  enable_sanitizers(pow_core_test)
+  enable_sanitizers(work_core_test)
 
   include(GoogleTest)
-  gtest_discover_tests(pow_core_test)
+  gtest_discover_tests(work_core_test)
 endif()
 
-install(TARGETS pow_challenge
+install(TARGETS work_challenge
   RUNTIME DESTINATION tlslp/_bin
 )

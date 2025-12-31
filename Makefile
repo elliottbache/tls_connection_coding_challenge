@@ -28,7 +28,7 @@ help:
 	@echo "  make test-cpp        Run CTest"
 	@echo "  make run-server      Run server (local)"
 	@echo "  make run-client      Run client (local)"
-	@echo "  make bench           Quick benchmark for pow (example)"
+	@echo "  make bench           Quick benchmark for WORK (example)"
 
 $(VENVDIR):
 	$(PY) -m venv $(VENVDIR)
@@ -135,7 +135,7 @@ bench: build-cpp
 	import subprocess
 	# Use the Make variable DIFF inside the Python block
 	t0=time.time()
-	[subprocess.run(["build/pow_challenge", "$(token)", "$(diff)"], check=True) for _ in range($(runs))]
+	[subprocess.run(["build/work_challenge", "$(token)", "$(diff)"], check=True) for _ in range($(runs))]
 	print(f"Difficulty: $(diff)")
 	print("Elapsed:", time.time()-t0, "s")
 	PY
