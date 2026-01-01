@@ -527,6 +527,6 @@ these fellows have put into the project's growth and improvement.
 
 ## License
 
-TLS line protocol is distributed under the GPL-3.0 license.  For more info, see [`LICENSE`](LICENSE).
+TLS line protocol is distributed under the GPL-3.0 license.  For more info, see [LICENSE](https://github.com/elliottbache/tls_line_protocol/blob/master/LICENSE).
 
 <!-- docs:end -->
