@@ -1,4 +1,4 @@
-PROJECT_FULL_NAME           = "TLS Coding Challenge"
+PROJECT_FULL_NAME           = "TLS Line Protocol"
 
 # ---- Inputs (headers only) ----
 INPUT                  = cpp

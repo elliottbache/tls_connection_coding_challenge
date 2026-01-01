@@ -60,7 +60,7 @@ Notes:
 add ```--insecure``` on both sides to skip certificate verification.
 
 ## C++ WORK helper
-The client resolves the WORK challenge by calling an external executable that prints a line like:
+The client resolves the PoW challenge by calling an external executable that prints a line like:
 `RESULT:<suffix>`
 
 Defaults:

@@ -93,7 +93,7 @@ def build_server_parser() -> argparse.ArgumentParser:
         1234
     """
     parser = argparse.ArgumentParser(
-        prog="tlslp-server", description="TLS server for the toy protocol demo."
+        prog="tlslp-server", description="TLS server for the line protocol."
     )
 
     parser.add_argument(

@@ -123,7 +123,7 @@ run-client:
 
 # set a default value if the user doesn't provide one
 token ?= gkcjcibIFynKssuJnJpSrgvawiVjLjEbdFuYQzuWROTeTaSmqFCAzuwkwLCRgIIq
-diff ?= 5
+diff ?= 20
 runs ?= 1
 SHELL := /bin/bash
 .ONESHELL:

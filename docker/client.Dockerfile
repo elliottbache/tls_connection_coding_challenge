@@ -33,13 +33,13 @@ COPY src/ ./src/
 
 # put the compiled binary where the code expects it
 RUN mkdir -p /app/src/tlslp/_bin
-COPY --from=builder /app/build/pow_challenge /app/src/tlslp/_bin/pow_challenge
+COPY --from=builder /app/build/work_challenge /app/src/tlslp/_bin/work_challenge
 RUN chmod +x /app/src/tlslp/_bin/pow_challenge
 
 # copy certs the client needs (client cert + key, trusted CA, etc.)
 COPY certificates/ certificates/
 
-# install the project (creates tls-cc-client / tls-cc-server in PATH)
+# install the project (creates tlslp-client / tlslp-server in PATH)
 RUN pip install --no-cache-dir -e .
 
 CMD ["tlslp-client"]
