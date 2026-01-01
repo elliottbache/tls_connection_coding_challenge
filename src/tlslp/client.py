@@ -124,7 +124,7 @@ def build_client_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: Configured parser.
     """
     parser = argparse.ArgumentParser(
-        prog="tlslp-client", description="TLS client for the toy protocol demo."
+        prog="tlslp-client", description="TLS client for the line protocol."
     )
 
     parser.add_argument(

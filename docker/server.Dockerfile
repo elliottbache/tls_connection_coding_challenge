@@ -12,7 +12,7 @@ COPY certificates/ certificates/
 # optional deps
 COPY pyproject.toml README.md ./
 
-# install the project (creates tls-cc-client / tls-cc-server in PATH)
+# install the project (creates tlslp-client / tlslp-server in PATH)
 RUN pip install --no-cache-dir .
 
 # the server listens on this port

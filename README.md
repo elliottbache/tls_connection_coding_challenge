@@ -373,7 +373,7 @@ A list of make commands is made available through ``Makefile``.  The following l
 The ```.cast``` file is available for easy regeneration of the GIF file.  The following commands were used 
 to create the [GIF](#short-demo-server--client-solving-work-and-answering-requests) from a clean folder.
 ```bash
-asciinema rec -i 3 --overwrite -t "TLSCC demo" -c "tmux new-session -A -s tlslp-demo" demo.cast
+asciinema rec -i 3 --overwrite -t "TLSLP demo" -c "tmux new-session -A -s tlslp-demo" demo.cast
 git clone https://github.com/elliottbache/tls_line_protocol.git
 cd tls_line_protocol/
 make setup
