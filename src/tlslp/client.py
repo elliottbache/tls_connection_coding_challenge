@@ -65,9 +65,9 @@ DEFAULT_CPP_BINARY_PATH = str(
 )  # path to C++ executable
 DEFAULT_ALLOWED_ROOT = str(Path(__file__).parent / "_bin")
 DEFAULT_RESPONSES = {
-    "FULL_FULL_NAME": "Elliott Bache",
-    "EEMAIL1": "elliottbache@gmail.com",
-    "EEMAIL2": "elliottbache2@gmail.com",
+    "FULL_NAME": "Elliott Bache",
+    "EMAIL1": "elliottbache@gmail.com",
+    "EMAIL2": "elliottbache2@gmail.com",
     "SOCIAL": "elliottbache@hotmail.com",
     "BIRTHDATE": "99.99.1982",
     "COUNTRY": "USA",
@@ -355,9 +355,9 @@ def decipher_message(message: str, valid_messages: set[str]) -> list[str]:
 
     Examples:
         >>> from tlslp.client import decipher_message
-        >>> vm = {"EEMAIL1", "HELLO", "WORK", "DONE", "FAIL"}
-        >>> decipher_message("EEMAIL1 LGTk\\n", vm)
-        ['EEMAIL1', 'LGTk']
+        >>> vm = {"EMAIL1", "HELLO", "WORK", "DONE", "FAIL"}
+        >>> decipher_message("EMAIL1 LGTk\\n", vm)
+        ['EMAIL1', 'LGTk']
     """
     args = message.split()
 

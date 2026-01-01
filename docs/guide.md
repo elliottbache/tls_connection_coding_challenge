@@ -188,9 +188,9 @@ commands have a timeout of 10 seconds except the WORK challenge, which has a
 - `WORK <token> <n_bits>\n` → client replies with a valid `<suffix>\n`.
   - **Validity**: `SHA256(token + suffix)` ends with `<n_bits>` zero bits.
 - Info requests (examples below use `<arg>` as server-provided string):
-  - `FULL_FULL_NAME <arg>\n`
-  - `EEMAIL1 <arg>\n`
-  - `EEMAIL2 <arg>\n`
+  - `FULL_NAME <arg>\n`
+  - `EMAIL1 <arg>\n`
+  - `EMAIL2 <arg>\n`
   - `SOCIAL <arg>\n`
   - `BIRTHDATE <arg>\n`
   - `COUNTRY <arg>\n`

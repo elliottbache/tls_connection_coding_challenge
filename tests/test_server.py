@@ -129,7 +129,7 @@ class TestSendAndReceive:
         s1, s2 = socket_pair
 
         _ = s2.sendall((cksum + " 2\n").encode("utf-8"))
-        msg = server.send_and_receive(token, "EEMAIL1 " + random_string, s1)
+        msg = server.send_and_receive(token, "EMAIL1 " + random_string, s1)
         assert msg == cksum + " 2"
 
     def test_send_and_receive_work(
@@ -165,9 +165,9 @@ class TestSendAndReceive:
         # client sends wrong suffix
         s2.sendall((cksum[:-1] + "p 2\n").encode("utf-8"))
 
-        # server sends EEMAIL1 command and receives incorrect checksum from client
+        # server sends EMAIL1 command and receives incorrect checksum from client
         with pytest.raises(ValueError, match=r"Invalid checksum received."):
-            server.send_and_receive(token, "EEMAIL1 " + random_string, s1)
+            server.send_and_receive(token, "EMAIL1 " + random_string, s1)
 
         # check second message sent from server declaring an error has occurred in
         # the checksum
@@ -188,7 +188,7 @@ class TestSendAndReceive:
         monkeypatch.setattr(server, "send_fail", lambda msg, sock: sent.append(msg))
 
         with pytest.raises(server.ProtocolError):
-            server.send_and_receive(token, "EEMAIL1 X", s1, timeout=0.01)
+            server.send_and_receive(token, "EMAIL1 X", s1, timeout=0.01)
 
         assert sent and sent[0].startswith("FAIL receiving.")
 
@@ -205,7 +205,7 @@ class TestSendAndReceive:
         monkeypatch.setattr(server, "send_fail", lambda msg, sock: sent.append(msg))
 
         with pytest.raises(protocol.TransportError) as e:
-            server.send_and_receive(token, "EEMAIL1 X", s1, timeout=0.001)
+            server.send_and_receive(token, "EMAIL1 X", s1, timeout=0.001)
 
         assert "ERROR receiving." in str(e.value)
 
@@ -280,7 +280,7 @@ def test_handle_one_session(
     fake_server_sock = FakeWrappedSock()
 
     # avoid FAIL choice
-    monkeypatch.setattr(server.random, "choice", lambda seq: "EEMAIL1")
+    monkeypatch.setattr(server.random, "choice", lambda seq: "EMAIL1")
 
     calls = []
 
@@ -307,7 +307,7 @@ def test_handle_one_session(
     assert calls[-1][1] == "DONE"
     # body messages: "choice <random_string>"
     for _, to_send in calls[2:-1]:
-        assert to_send == f"EEMAIL1 {random_string}"
+        assert to_send == f"EMAIL1 {random_string}"
 
 
 class TestMain:
@@ -335,7 +335,7 @@ class TestMain:
         monkeypatch.setattr(server, "prepare_server_socket", fake_prepare_server_socket)
 
         """# avoid FAIL choice
-        monkeypatch.setattr(server.random, "choice", lambda seq: "EEMAIL1")"""
+        monkeypatch.setattr(server.random, "choice", lambda seq: "EMAIL1")"""
 
         calls = []
 
@@ -345,11 +345,11 @@ class TestMain:
                 return "HELLOBACK"
             elif to_send.startswith("WORK "):
                 return suffix
-            elif to_send.startswith("FULL_FULL_NAME"):
+            elif to_send.startswith("FULL_NAME"):
                 return f"{cksum} Elliott Bache"
-            elif to_send.startswith("EEMAIL1"):
+            elif to_send.startswith("EMAIL1"):
                 return f"{cksum} elliottbache@gmail.com"
-            elif to_send.startswith("EEMAIL2"):
+            elif to_send.startswith("EMAIL2"):
                 return f"{cksum} elliottbache2@gmail.com"
             elif to_send.startswith("SOCIAL"):
                 return f"{cksum} elliottbache@hotmail.com"
