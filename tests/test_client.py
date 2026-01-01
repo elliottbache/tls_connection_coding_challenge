@@ -200,10 +200,10 @@ class TestDecipherMessage:
     @pytest.mark.parametrize(
         "message, is_err, expected, err_type, err_message",
         [
-            ("EEMAIL1 LGTk\n", False, ["EEMAIL1", "LGTk"], None, ""),
+            ("EMAIL1 LGTk\n", False, ["EMAIL1", "LGTk"], None, ""),
             ("", True, [], ValueError, "No args in the response"),
             ("INCORRECT LGTk\n", True, [], ValueError, "This response is not valid:"),
-            ("EEMAIL1\n", False, ["EEMAIL1", ""], None, ""),
+            ("EMAIL1\n", False, ["EMAIL1", ""], None, ""),
         ],
     )
     def test_decipher_message_cases(
@@ -429,8 +429,8 @@ class TestDefineResponse:
         self, token, random_string, valid_messages, path_to_work_challenge
     ):
         q = queue.Queue()
-        responses = {"EEMAIL1": "elliottbache@gmail.com"}
-        args = ["EEMAIL1", random_string]
+        responses = {"EMAIL1": "elliottbache@gmail.com"}
+        args = ["EMAIL1", random_string]
 
         client.define_response(
             args, token, valid_messages, q, responses, path_to_work_challenge
@@ -454,7 +454,7 @@ class TestDefineResponse:
         monkeypatch,
     ):
         q = queue.Queue()
-        responses = {"EEMAIL1": "elliottbache@gmail.com"}
+        responses = {"EMAIL1": "elliottbache@gmail.com"}
         args = ["WORK", token, n_bits]
 
         def fake_handle_work_cpp(*args, **kwargs):
@@ -488,7 +488,7 @@ class TestDefineResponse:
         monkeypatch,
     ):
         q = queue.Queue()
-        responses = {"EEMAIL1": "elliottbache@gmail.com"}
+        responses = {"EMAIL1": "elliottbache@gmail.com"}
         args = ["WORK", token, n_bits]
 
         def fake_handle_work_cpp(*args, **kwargs):
@@ -561,21 +561,21 @@ class TestReceiveAndDecipherMessage:
 
         def fake_receive_message(sock, *args):
             fake_sock.calls["sock"] = sock
-            return "EEMAIL1 LGTk"
+            return "EMAIL1 LGTk"
 
         def fake_decipher_message(message, vm):
             fake_sock.calls["message"] = message
             fake_sock.calls["valid_messages"] = vm
-            return ["EEMAIL1", "LGTk"]
+            return ["EMAIL1", "LGTk"]
 
         monkeypatch.setattr(client, "receive_message", fake_receive_message)
         monkeypatch.setattr(client, "decipher_message", fake_decipher_message)
 
         args = client._receive_and_decipher_message(fake_sock, valid_messages)
 
-        assert args == ["EEMAIL1", "LGTk"]
+        assert args == ["EMAIL1", "LGTk"]
         assert fake_sock.calls["sock"] is fake_sock
-        assert fake_sock.calls["message"] == "EEMAIL1 LGTk"
+        assert fake_sock.calls["message"] == "EMAIL1 LGTk"
         assert fake_sock.calls["valid_messages"] is valid_messages
 
     def test_receive_and_decipher_message_decipher_error(
@@ -677,9 +677,9 @@ class TestProcessMessageWithTimeout:
         monkeypatch.setattr(client.multiprocessing, "Queue", fake_queue_ctor)
         monkeypatch.setattr(client.multiprocessing, "Process", fake_process_ctor)
 
-        with pytest.raises(TimeoutError, match=r"EEMAIL1 function timed out\."):
+        with pytest.raises(TimeoutError, match=r"EMAIL1 function timed out\."):
             client._process_message_with_timeout(
-                args=["EEMAIL1", "LGTk"],
+                args=["EMAIL1", "LGTk"],
                 token=token,
                 valid_messages=valid_messages,
                 responses=client.DEFAULT_RESPONSES,
@@ -705,9 +705,9 @@ class TestProcessMessageWithTimeout:
             ),
         )
 
-        with pytest.raises(Exception, match=r"EEMAIL1 failed: bad"):
+        with pytest.raises(Exception, match=r"EMAIL1 failed: bad"):
             client._process_message_with_timeout(
-                args=["EEMAIL1", "LGTk"],
+                args=["EMAIL1", "LGTk"],
                 token=token,
                 valid_messages=valid_messages,
                 responses=client.DEFAULT_RESPONSES,

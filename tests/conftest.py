@@ -31,7 +31,7 @@ def path_to_work_challenge():
 
 @pytest.fixture
 def valid_messages():
-    return {"EEMAIL1", "HELLO", "WORK", "FAIL"}
+    return {"EMAIL1", "HELLO", "WORK", "FAIL"}
 
 
 @pytest.fixture
