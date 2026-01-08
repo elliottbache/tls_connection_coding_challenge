@@ -4,6 +4,7 @@ This module configures the **root** logger so application code can simply call
 ``logging.getLogger(__name__)`` and emit messages.
 
 Behavior:
+
 - A file handler is attached at the requested level (default: ``INFO``) and
   writes to an OS-appropriate directory (``XDG_STATE_HOME`` on Linux/WSL or
   ``LOCALAPPDATA`` on Windows).
