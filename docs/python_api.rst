@@ -7,3 +7,5 @@ Python API
 
    tlslp.server
    tlslp.client
+   tlslp.protocol
+   tlslp.logging_utils

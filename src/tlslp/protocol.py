@@ -10,7 +10,7 @@ The challenge protocol is **newline-delimited UTF-8**:
 
 This module raises:
 - ``ProtocolError`` when the peer violates message framing/encoding rules
-  (non-bytes from socket, invalid UTF-8, line too long, etc.).
+(non-bytes from socket, invalid UTF-8, line too long, etc.).
 - ``TransportError`` for network/TLS failures (timeouts, disconnects, OS errors).
 """
 
