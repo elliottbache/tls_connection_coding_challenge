@@ -19,28 +19,7 @@ import logging
 import os
 import pathlib
 import sys
-from dataclasses import dataclass
 from logging.handlers import RotatingFileHandler
-
-
-@dataclass(frozen=True)
-class LogRecordPayload:
-    """Structured payload for JSON logs."""
-
-    ts: str
-    level: str
-    logger: str
-    msg: str
-
-    # helpful context:
-    module: str
-    func: str
-    line: int
-    pid: int | None
-
-    # optional extras:
-    exc_type: str | None = None
-    exc: str | None = None
 
 
 def _set_formatter(tutorial: bool, handler: logging.Handler) -> None:
