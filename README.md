@@ -254,14 +254,14 @@ checks are not available in Windows (such as checking that the WORK challenge bi
 subprocess.run is not world writable).  
 
 ### Option A: No Docker
-#### Run demo server (listens on localhost, verifies client by default)
+#### Run server (listens on localhost, verifies client by default)
 From within the Python virtual environment (see [Virtual environment](#create-and-activate-a-venv)):
 ```bash
 tlslp-server
 ```
 Various flags are available for running in CLI.  e.g.
 ```bash
-# Run demo server on localhost:1234 with 6 n_bits
+# Run server on localhost:1234 with 6 n_bits
 tlslp-server --host 127.0.0.1 --port 1234 \
   --ca-cert certificates/ca_cert.pem \
   --server-cert certificates/server-cert.pem \
@@ -270,12 +270,10 @@ tlslp-server --host 127.0.0.1 --port 1234 \
 ```
 A typical command for development is:
 ```bash
-# Run demo server logging all messages
 tlslp-server --log-level DEBUG
 ```
 For a complete list, run
 ```bash
-# Run demo server on localhost:1234 with 6 n_bits
 tlslp-server --help
 ```
 
@@ -292,7 +290,7 @@ tlslp-client --host localhost --ports 1234 \
 ```
 A typical command for development is:
 ```bash
-# Run demo server logging all messages
+# Run client logging all messages
 tlslp-client --log-level DEBUG
 ```
 ### Option B: Docker
